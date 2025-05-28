@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.background
                     ) {
                         Log.d("TavlApp", "MainScreen çağrılıyor...")
-                        // Ana ekran içeriğimizi çağırıyoruz
+                        // Ana ekran içeriğimizi çağırıyoruz.
                         MainScreen()
                     }
                 }
