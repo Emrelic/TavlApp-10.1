@@ -17,28 +17,33 @@
         <activity
             android:name=".MatchDetailActivity"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
 
         <!-- Oyuncu İstatistikleri Aktivitesi -->
         <activity
             android:name=".PlayerStatsActivity"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
 
         <!-- İkili Karşılaşma İstatistikleri Aktivitesi -->
         <activity
             android:name=".PlayerVsPlayerActivity"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
 
         <activity
             android:name=".GameHistoryActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
 
         <!-- Skor Ekranı Aktivitesi -->
         <activity
             android:name=".GameScoreActivity"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.TavlApp" />
 
@@ -46,6 +51,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -57,6 +63,7 @@
         <activity
             android:name=".NewGameActivity"
             android:exported="false"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
     </application>
 
