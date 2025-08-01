@@ -193,14 +193,13 @@ fun GameScreen(
     val screenWidthDp = configuration.screenWidthDp.dp
     val edgeOffset = (screenWidthDp / 2) - 50.dp // Ekran kenarına yakın, biraz iç tarafta
 
-    // Zarın pozisyonuna göre x ve y offset'lerini hesaplama - ekran yönüne göre ayarlandı ve
-    // kontrol pozisyonları için ekran kenarlarına daha yakın yerleşim
+    // Zarın pozisyonuna göre x ve y offset'lerini hesaplama - daha aşağıya ayarlandı
     val (xOffset, yOffset) = when (doublingCubePosition) {
-        DoublingCubePosition.CENTER -> Pair(0.dp, -80.dp) // Küp başlangıç pozisyonu biraz aşağı çekildi
-        DoublingCubePosition.PLAYER1_OFFER -> Pair(-120.dp, -40.dp)
-        DoublingCubePosition.PLAYER1_CONTROL -> if (isLandscape) Pair(-edgeOffset, 30.dp) else Pair(-edgeOffset, 60.dp)
-        DoublingCubePosition.PLAYER2_OFFER -> Pair(120.dp, -40.dp)
-        DoublingCubePosition.PLAYER2_CONTROL -> if (isLandscape) Pair(edgeOffset, 30.dp) else Pair(edgeOffset, 60.dp)
+        DoublingCubePosition.CENTER -> Pair(0.dp, -120.dp) // Küp daha aşağıya taşındı
+        DoublingCubePosition.PLAYER1_OFFER -> Pair(-120.dp, -120.dp)
+        DoublingCubePosition.PLAYER1_CONTROL -> if (isLandscape) Pair(-edgeOffset, -100.dp) else Pair(-edgeOffset, -100.dp)
+        DoublingCubePosition.PLAYER2_OFFER -> Pair(120.dp, -120.dp)
+        DoublingCubePosition.PLAYER2_CONTROL -> if (isLandscape) Pair(edgeOffset, -100.dp) else Pair(edgeOffset, -100.dp)
     }
 
     // Animasyonlu offset değerleri
@@ -573,6 +572,28 @@ fun GameScreen(
                         }
                     }
 
+                    // ✅ YENİ EKLENEN: GERI ALMA BUTONU - Katlama butonlarının hemen altında
+                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { undoLastRound() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)), // Turuncu
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("↶", fontSize = 18.sp, color = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Son Hamleyi Geri Al (${undoStack.size})", fontSize = 14.sp, color = Color.White)
+                            }
+                        }
+                    }
+
                     // Katlama menüsü - Oyuncu 1 için
                     if (showPlayer1DoublingMenu) {
                         if (isLandscape) {
@@ -815,6 +836,28 @@ fun GameScreen(
                         }
                     }
 
+                    // ✅ YENİ EKLENEN: GERI ALMA BUTONU - Oyuncu 2 için katlama butonlarının hemen altında
+                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { undoLastRound() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)), // Turuncu
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("↶", fontSize = 18.sp, color = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Son Hamleyi Geri Al (${undoStack.size})", fontSize = 14.sp, color = Color.White)
+                            }
+                        }
+                    }
+
                     // Katlama menüsü - Oyuncu 2 için
                     if (showPlayer2DoublingMenu) {
                         if (isLandscape) {
@@ -984,23 +1027,22 @@ fun GameScreen(
                 if (isTraditionalGame) {
                     // Geleneksel Tavla için T/M Butonları (Backgammon ve Küp olmadan)
                     if (isLandscape) {
-                        // Yatay mod için özel büyük buton tasarımı - Geleneksel Tavla için
+                        // Yatay mod için 3'er grup halinde tasarım - Geleneksel Tavla için
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(4.dp)
-                                .height(70.dp), // Yükseklik daha basık
+                                .padding(2.dp)
+                                .height(80.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // SOL TARAF (MAVİ BÖLGE) BUTONLARI - Tek bir Row içinde
+                            // SOL TARAF (MAVİ BÖLGE) - Oyuncu 1'in 2 butonu tam genişlik
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(end = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                    .fillMaxHeight(),
+                                horizontalArrangement = Arrangement.spacedBy(1.dp) // Minimal boşluk
                             ) {
-                                // T butonu - ağırlık 1 ile tam alanı kaplasın
+                                // Oyuncu 1 - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1019,28 +1061,27 @@ fun GameScreen(
                                 ) {
                                     Button(
                                         onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(2.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1f) // Eşit genişlik - bölgeyi 3'e böl
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "T",
-                                                fontSize = 24.sp, // Daha büyük font
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 14.sp, // Daha büyük font
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1049,7 +1090,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // M butonu
+                                // Oyuncu 1 - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1068,28 +1109,27 @@ fun GameScreen(
                                 ) {
                                     Button(
                                         onClick = { addRound(player1Id, player1Name, "MARS", 2) },
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(2.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1f) // Eşit genişlik - bölgeyi 3'e böl
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "M",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "2P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1097,17 +1137,30 @@ fun GameScreen(
                                         }
                                     }
                                 }
+
+                                // Boş alan (üçüncü buton yok)
+                                Spacer(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                )
                             }
 
-                            // SAĞ TARAF (KIRMIZI BÖLGE) BUTONLARI
+                            // SAĞ TARAF (KIRMIZI BÖLGE) - Oyuncu 2'nin 2 butonu tam genişlik
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(start = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                    .fillMaxHeight(),
+                                horizontalArrangement = Arrangement.spacedBy(1.dp) // Minimal boşluk
                             ) {
-                                // Oyuncu 2 için T butonu
+                                // Boş alan (üçüncü buton yok)
+                                Spacer(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                )
+
+                                // Oyuncu 2 - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1126,28 +1179,27 @@ fun GameScreen(
                                 ) {
                                     Button(
                                         onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(2.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1f) // Eşit genişlik - bölgeyi 3'e böl
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "T",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1156,7 +1208,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // Oyuncu 2 için M butonu
+                                // Oyuncu 2 - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1175,28 +1227,27 @@ fun GameScreen(
                                 ) {
                                     Button(
                                         onClick = { addRound(player2Id, player2Name, "MARS", 2) },
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(2.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1f) // Eşit genişlik - bölgeyi 3'e böl
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "M",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "2P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1428,27 +1479,52 @@ fun GameScreen(
                                 }
                             }
                         }
+
+                        // ✅ SON HAMLEYİ GERİ AL BUTONU - Geleneksel Tavla için (her zaman görünür)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { undoLastRound() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (undoStack.isNotEmpty()) Color(0xFFFF9800) else Color.Gray
+                            ),
+                            enabled = undoStack.isNotEmpty(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("↶", fontSize = 18.sp, color = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (undoStack.isNotEmpty()) "Son Hamleyi Geri Al (${undoStack.size})" else "Son Hamleyi Geri Al (0)",
+                                    fontSize = 14.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
                 } else {
                     // Modern Tavla için T/M/B Butonları
                     if (isLandscape) {
-                        // Yatay mod için özel büyük buton tasarımı - Modern Tavla
+                        // Yatay mod için bölge bazlı tasarım - Modern Tavla
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(4.dp)
-                                .height(70.dp), // Yükseklik daha basık
+                                .height(80.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // SOL TARAF (MAVİ BÖLGE) BUTONLARI - Tek bir Row içinde
+                            // MAVİ BÖLGE - Oyuncu 1'in T,M,B butonları
                             Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(end = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                    .weight(1f) // Ekranın yarısı
+                                    .fillMaxHeight(),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp) // 2dp boşluk
                             ) {
-                                // T butonu - ağırlık 1 ile tam alanı kaplasın
+                                // Oyuncu 1 - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1472,23 +1548,22 @@ fun GameScreen(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1.8f) // 1.8 kat geniş
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "T",
-                                                fontSize = 24.sp, // Daha büyük font
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 14.sp, // Daha büyük font
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1497,7 +1572,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // M butonu
+                                // Oyuncu 1 - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1521,23 +1596,22 @@ fun GameScreen(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1.8f) // 1.8 kat geniş
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "M",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "2P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1546,7 +1620,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // B butonu
+                                // Oyuncu 1 - B butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1577,23 +1651,22 @@ fun GameScreen(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1.8f) // 1.8 kat geniş
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "B",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "3P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1603,15 +1676,14 @@ fun GameScreen(
                                 }
                             }
 
-                            // SAĞ TARAF (KIRMIZI BÖLGE) BUTONLARI
+                            // KIRMIZI BÖLGE - Oyuncu 2'nin T,M,B butonları
                             Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(start = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                    .weight(1f) // Ekranın yarısı
+                                    .fillMaxHeight(),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp) // 2dp boşluk
                             ) {
-                                // Oyuncu 2 için T butonu
+                                // Oyuncu 2 - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1635,23 +1707,22 @@ fun GameScreen(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1.8f) // 1.8 kat geniş
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "T",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1660,7 +1731,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // Oyuncu 2 için M butonu
+                                // Oyuncu 2 - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1684,23 +1755,22 @@ fun GameScreen(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1.8f) // 1.8 kat geniş
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "M",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "2P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1709,7 +1779,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // Oyuncu 2 için B butonu
+                                // Oyuncu 2 - B butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -1740,23 +1810,22 @@ fun GameScreen(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f)
+                                            .weight(1.8f) // 1.8 kat geniş
                                             .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
                                     ) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             Text(
                                                 text = "B",
-                                                fontSize = 24.sp,
+                                                fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "3P",
-                                                fontSize = 14.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1764,6 +1833,33 @@ fun GameScreen(
                                         }
                                     }
                                 }
+                            }
+                        }
+
+                        // ✅ SON HAMLEYİ GERİ AL BUTONU - Modern Tavla için (her zaman görünür)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { undoLastRound() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (undoStack.isNotEmpty()) Color(0xFFFF9800) else Color.Gray
+                            ),
+                            enabled = undoStack.isNotEmpty(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("↶", fontSize = 18.sp, color = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (undoStack.isNotEmpty()) "Son Hamleyi Geri Al (${undoStack.size})" else "Son Hamleyi Geri Al (0)",
+                                    fontSize = 14.sp,
+                                    color = Color.White
+                                )
                             }
                         }
                     } else {
@@ -2276,26 +2372,6 @@ fun GameScreen(
                 }
             }
 
-            // ✅ YENİ EKLENEN: GERI ALMA BUTONU
-            if (undoStack.isNotEmpty()) {
-                Button(
-                    onClick = { undoLastRound() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)), // Turuncu
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text("↶", fontSize = 20.sp, color = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Son Hamleyi Geri Al (${undoStack.size})", color = Color.White)
-                    }
-                }
-            }
 
             // Maçı sonlandırma butonu
             Button(
