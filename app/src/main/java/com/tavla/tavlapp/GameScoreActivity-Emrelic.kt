@@ -565,38 +565,19 @@ fun GameScreen(
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth(0.9f)
-                                    .height(120.dp)
+                                    .height(35.dp)
                             ) {
                                 Text(
                                     text = "⚡ KATLA",
                                     color = Color.White,
-                                    fontSize = 24.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                         
-                        // Geri alma butonu - Oyuncu 1 için
-                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
-                            Button(
-                                onClick = { undoLastRound() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .height(80.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text("↶", fontSize = 20.sp, color = Color.White)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("GERİ AL", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                        // Eski geri alma butonu kaldırıldı - artık altta tek buton var
                     }
 
                     // Katlama menüsü - Oyuncu 1 için
@@ -618,7 +599,7 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(100.dp) // Kalın görünüm için
+                                        .height(45.dp) // Daha ince cevap butonları
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
@@ -640,7 +621,7 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(100.dp) // Kalın görünüm için
+                                        .height(45.dp) // Daha ince cevap butonları
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
@@ -662,7 +643,7 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(100.dp) // Kalın görünüm için
+                                        .height(45.dp) // Daha ince cevap butonları
                                 ) {
                                     Text(
                                         text = "↩ İptal",
@@ -691,7 +672,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(90.dp) // Kalın görünüm için
+                                        .height(40.dp) // Daha ince dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -713,7 +694,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(90.dp) // Kalın görünüm için
+                                        .height(40.dp) // Daha ince dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -735,7 +716,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(90.dp) // Kalın görünüm için
+                                        .height(40.dp) // Daha ince dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -833,38 +814,19 @@ fun GameScreen(
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth(0.9f)
-                                    .height(120.dp)
+                                    .height(35.dp)
                             ) {
                                 Text(
                                     text = "⚡ KATLA",
                                     color = Color.White,
-                                    fontSize = 24.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                         
-                        // Geri alma butonu - Oyuncu 2 için
-                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
-                            Button(
-                                onClick = { undoLastRound() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .height(80.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text("↶", fontSize = 20.sp, color = Color.White)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("GERİ AL", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                        // Eski geri alma butonu kaldırıldı - artık altta tek buton var
                     }
 
                     // Katlama menüsü - Oyuncu 2 için
@@ -886,7 +848,7 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(100.dp) // Kalın görünüm için
+                                        .height(45.dp) // Daha ince cevap butonları
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
@@ -908,7 +870,7 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(100.dp) // Kalın görünüm için
+                                        .height(45.dp) // Daha ince cevap butonları
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
@@ -930,7 +892,7 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(100.dp) // Kalın görünüm için
+                                        .height(45.dp) // Daha ince cevap butonları
                                 ) {
                                     Text(
                                         text = "↩ İptal",
@@ -959,7 +921,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(90.dp) // Kalın görünüm için
+                                        .height(40.dp) // Daha ince dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -981,7 +943,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(90.dp) // Kalın görünüm için
+                                        .height(40.dp) // Daha ince dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1003,7 +965,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(90.dp) // Kalın görünüm için
+                                        .height(40.dp) // Daha ince dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -2328,37 +2290,45 @@ fun GameScreen(
                 }
             }
 
-            // ✅ YENİ EKLENEN: GERI ALMA BUTONU
-            if (undoStack.isNotEmpty()) {
+            // ✅ Geri alma ve maçı sonlandırma butonları - aynı satırda
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Son hamleyi geri al butonu - Mavi bölge
                 Button(
                     onClick = { undoLastRound() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)), // Turuncu
+                    enabled = undoStack.isNotEmpty(), // Pasif durumda göster
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2196F3), // Mavi
+                        disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
+                    ),
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
                         .height(50.dp)
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text("↶", fontSize = 20.sp, color = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Son Hamleyi Geri Al (${undoStack.size})", color = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Geri Al", color = Color.White, fontSize = 12.sp)
                     }
                 }
-            }
 
-            // Maçı sonlandırma butonu
-            Button(
-                onClick = { showEndMatchConfirmation = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(45.dp)
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Text("Maçı Sonlandır", color = Color.White)
+                // Maçı sonlandırma butonu - Kırmızı bölge
+                Button(
+                    onClick = { showEndMatchConfirmation = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                ) {
+                    Text("Maçı Sonlandır", color = Color.White, fontSize = 12.sp)
+                }
             }
         }
 
@@ -2367,7 +2337,7 @@ fun GameScreen(
             Box(
                 modifier = Modifier
                     .offset(x = animatedXOffset, y = animatedYOffset)
-                    .size(60.dp)
+                    .size(60.dp) // Eski boyutuna döndürüldü
                     .align(Alignment.Center)
                     .background(Color.White, RoundedCornerShape(8.dp))
                     .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
@@ -2383,7 +2353,7 @@ fun GameScreen(
             ) {
                 Text(
                     text = doublingCubeValue.toString(),
-                    fontSize = 24.sp,
+                    fontSize = 24.sp, // Eski yazı boyutuna döndürüldü
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
