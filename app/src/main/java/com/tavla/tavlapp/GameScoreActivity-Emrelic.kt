@@ -544,32 +544,53 @@ fun GameScreen(
                     )
 
                     // Skor ile butonlar arasında ek boşluk
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Katla butonu - Oyuncu 1 için
-                    if (!isTraditionalGame && !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
+                    // Katla butonu - Her zaman görünür - Oyuncu 1 için
+                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                         (doublingCubePosition == DoublingCubePosition.CENTER ||
                                 doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
                         player1CanDouble
                     ) {
-                        Spacer(modifier = Modifier.height(20.dp))
                         Button(
                             onClick = { player1OfferDouble() },
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.3f)
+                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
                             ),
                             modifier = Modifier
-                                .padding(8.dp)
-                                .width(120.dp) // Sabit genişlik - yatay/dikey aynı
-                                .height(48.dp) // Sabit yükseklik - yatay/dikey aynı
+                                .fillMaxWidth(0.7f)
+                                .height(50.dp)
+                                .padding(horizontal = 8.dp)
                         ) {
                             Text(
-                                text = "Katla",
+                                text = "⚡ Katla",
                                 color = Color.White,
-                                fontSize = 16.sp, // Sabit font boyutu
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                    
+                    // Geri alma butonu - Oyuncu 1 için
+                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
+                        Button(
+                            onClick = { undoLastRound() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                            modifier = Modifier
+                                .fillMaxWidth(0.7f)
+                                .height(46.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("↶", fontSize = 16.sp, color = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Geri Al", fontSize = 14.sp, color = Color.White)
+                            }
                         }
                     }
 
@@ -786,32 +807,53 @@ fun GameScreen(
                     )
 
                     // Skor ile butonlar arasında ek boşluk
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Katla butonu - Oyuncu 2 için
-                    if (!isTraditionalGame && !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
+                    // Katla butonu - Her zaman görünür - Oyuncu 2 için
+                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                         (doublingCubePosition == DoublingCubePosition.CENTER ||
                                 doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
                         player2CanDouble
                     ) {
-                        Spacer(modifier = Modifier.height(20.dp))
                         Button(
                             onClick = { player2OfferDouble() },
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.3f)
+                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
                             ),
                             modifier = Modifier
-                                .padding(8.dp)
-                                .width(120.dp) // Sabit genişlik - yatay/dikey aynı
-                                .height(48.dp) // Sabit yükseklik - yatay/dikey aynı
+                                .fillMaxWidth(0.7f)
+                                .height(50.dp)
+                                .padding(horizontal = 8.dp)
                         ) {
                             Text(
-                                text = "Katla",
+                                text = "⚡ Katla",
                                 color = Color.White,
-                                fontSize = 16.sp, // Sabit font boyutu
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                    
+                    // Geri alma butonu - Oyuncu 2 için
+                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
+                        Button(
+                            onClick = { undoLastRound() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                            modifier = Modifier
+                                .fillMaxWidth(0.7f)
+                                .height(46.dp)
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("↶", fontSize = 16.sp, color = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Geri Al", fontSize = 14.sp, color = Color.White)
+                            }
                         }
                     }
 
