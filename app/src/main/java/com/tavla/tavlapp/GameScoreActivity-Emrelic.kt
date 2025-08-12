@@ -559,22 +559,22 @@ fun GameScreen(
                         ) {
                             Button(
                                 onClick = { player1OfferDouble() },
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
                                 ),
                                 modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(42.dp)
+                                    .fillMaxWidth(0.9f)
+                                    .height(120.dp)
                             ) {
                                 Text(
-                                    text = "⚡ Katla",
+                                    text = "⚡ KATLA",
                                     color = Color.White,
-                                    fontSize = 16.sp,
+                                    fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                         
                         // Geri alma butonu - Oyuncu 1 için
@@ -583,19 +583,19 @@ fun GameScreen(
                                 onClick = { undoLastRound() },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
                                 modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(40.dp)
+                                    .fillMaxWidth(0.9f)
+                                    .height(80.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Text("↶", fontSize = 14.sp, color = Color.White)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Geri Al", fontSize = 13.sp, color = Color.White)
+                                    Text("↶", fontSize = 20.sp, color = Color.White)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("GERİ AL", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
 
@@ -618,11 +618,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp) // Compact boyut
+                                        .height(100.dp) // Kalın görünüm için
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
-                                        fontSize = 13.sp, // Compact font
+                                        fontSize = 20.sp, // Büyük font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -640,11 +640,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp) // Compact boyut
+                                        .height(100.dp) // Kalın görünüm için
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
-                                        fontSize = 13.sp, // Compact font
+                                        fontSize = 20.sp, // Büyük font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -662,11 +662,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp) // Compact boyut
+                                        .height(100.dp) // Kalın görünüm için
                                 ) {
                                     Text(
                                         text = "↩ İptal",
-                                        fontSize = 13.sp, // Compact font
+                                        fontSize = 20.sp, // Büyük font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -691,7 +691,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(42.dp) // Compact yükseklik
+                                        .height(90.dp) // Kalın görünüm için
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -713,7 +713,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(42.dp) // Compact yükseklik
+                                        .height(90.dp) // Kalın görünüm için
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -735,7 +735,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(42.dp) // Compact yükseklik
+                                        .height(90.dp) // Kalın görünüm için
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -827,22 +827,22 @@ fun GameScreen(
                         ) {
                             Button(
                                 onClick = { player2OfferDouble() },
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
                                 ),
                                 modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(42.dp)
+                                    .fillMaxWidth(0.9f)
+                                    .height(120.dp)
                             ) {
                                 Text(
-                                    text = "⚡ Katla",
+                                    text = "⚡ KATLA",
                                     color = Color.White,
-                                    fontSize = 16.sp,
+                                    fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                         
                         // Geri alma butonu - Oyuncu 2 için
@@ -851,19 +851,19 @@ fun GameScreen(
                                 onClick = { undoLastRound() },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
                                 modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(40.dp)
+                                    .fillMaxWidth(0.9f)
+                                    .height(80.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Text("↶", fontSize = 14.sp, color = Color.White)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Geri Al", fontSize = 13.sp, color = Color.White)
+                                    Text("↶", fontSize = 20.sp, color = Color.White)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("GERİ AL", fontSize = 18.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
 
@@ -886,11 +886,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp) // Compact boyut
+                                        .height(100.dp) // Kalın görünüm için
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
-                                        fontSize = 13.sp, // Compact font
+                                        fontSize = 20.sp, // Büyük font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -908,11 +908,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp) // Compact boyut
+                                        .height(100.dp) // Kalın görünüm için
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
-                                        fontSize = 13.sp, // Compact font
+                                        fontSize = 20.sp, // Büyük font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -930,11 +930,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(44.dp) // Compact boyut
+                                        .height(100.dp) // Kalın görünüm için
                                 ) {
                                     Text(
                                         text = "↩ İptal",
-                                        fontSize = 13.sp, // Compact font
+                                        fontSize = 20.sp, // Büyük font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -959,7 +959,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(42.dp) // Compact yükseklik
+                                        .height(90.dp) // Kalın görünüm için
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -981,7 +981,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(42.dp) // Compact yükseklik
+                                        .height(90.dp) // Kalın görünüm için
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1003,7 +1003,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(42.dp) // Compact yükseklik
+                                        .height(90.dp) // Kalın görünüm için
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1085,14 +1085,14 @@ fun GameScreen(
                                         ) {
                                             Text(
                                                 text = "T",
-                                                fontSize = 24.sp, // Daha büyük font
+                                                fontSize = 28.sp, // Çok büyük font
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 13.sp, // Compact font
+                                                fontSize = 24.sp, // Çok büyük font
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1533,14 +1533,14 @@ fun GameScreen(
                                         ) {
                                             Text(
                                                 text = "T",
-                                                fontSize = 24.sp, // Daha büyük font
+                                                fontSize = 28.sp, // Çok büyük font
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 13.sp, // Compact font
+                                                fontSize = 24.sp, // Çok büyük font
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
