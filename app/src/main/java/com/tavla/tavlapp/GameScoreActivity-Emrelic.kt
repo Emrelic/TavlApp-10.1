@@ -543,54 +543,59 @@ fun GameScreen(
                         fontSize = 60.sp
                     )
 
-                    // Skor ile butonlar arasında ek boşluk
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Butonlar için yeterli alan - Üst kısımda konumlandır
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Katla butonu - Her zaman görünür - Oyuncu 1 için
-                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
-                        (doublingCubePosition == DoublingCubePosition.CENTER ||
-                                doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
-                        player1CanDouble
+                    // Düğmeler alanı - Compact düzen
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Button(
-                            onClick = { player1OfferDouble() },
-                            shape = RoundedCornerShape(6.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth(0.7f)
-                                .height(50.dp)
-                                .padding(horizontal = 8.dp)
+                        // Katla butonu - Oyuncu 1 için
+                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
+                            (doublingCubePosition == DoublingCubePosition.CENTER ||
+                                    doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
+                            player1CanDouble
                         ) {
-                            Text(
-                                text = "⚡ Katla",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-                    
-                    // Geri alma butonu - Oyuncu 1 için
-                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
-                        Button(
-                            onClick = { undoLastRound() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                            modifier = Modifier
-                                .fillMaxWidth(0.7f)
-                                .height(46.dp)
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                            Button(
+                                onClick = { player1OfferDouble() },
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(42.dp)
                             ) {
-                                Text("↶", fontSize = 16.sp, color = Color.White)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Geri Al", fontSize = 14.sp, color = Color.White)
+                                Text(
+                                    text = "⚡ Katla",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        
+                        // Geri alma butonu - Oyuncu 1 için
+                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
+                            Button(
+                                onClick = { undoLastRound() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(40.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text("↶", fontSize = 14.sp, color = Color.White)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Geri Al", fontSize = 13.sp, color = Color.White)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
 
@@ -613,11 +618,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp) // Daha yüksek buton
+                                        .height(44.dp) // Compact boyut
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
-                                        fontSize = 14.sp, // Daha büyük font
+                                        fontSize = 13.sp, // Compact font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -635,11 +640,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp) // Daha yüksek buton
+                                        .height(44.dp) // Compact boyut
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
-                                        fontSize = 14.sp, // Daha büyük font
+                                        fontSize = 13.sp, // Compact font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -657,11 +662,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp) // Daha yüksek buton
+                                        .height(44.dp) // Compact boyut
                                 ) {
                                     Text(
                                         text = "↩ İptal",
-                                        fontSize = 14.sp, // Daha büyük font
+                                        fontSize = 13.sp, // Compact font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -686,7 +691,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(48.dp) // Sabit yükseklik
+                                        .height(42.dp) // Compact yükseklik
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -708,7 +713,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(48.dp) // Sabit yükseklik
+                                        .height(42.dp) // Compact yükseklik
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -730,7 +735,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(48.dp) // Sabit yükseklik
+                                        .height(42.dp) // Compact yükseklik
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -806,54 +811,59 @@ fun GameScreen(
                         fontSize = 60.sp
                     )
 
-                    // Skor ile butonlar arasında ek boşluk
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Butonlar için yeterli alan - Üst kısımda konumlandır
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Katla butonu - Her zaman görünür - Oyuncu 2 için
-                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
-                        (doublingCubePosition == DoublingCubePosition.CENTER ||
-                                doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
-                        player2CanDouble
+                    // Düğmeler alanı - Compact düzen
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Button(
-                            onClick = { player2OfferDouble() },
-                            shape = RoundedCornerShape(6.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth(0.7f)
-                                .height(50.dp)
-                                .padding(horizontal = 8.dp)
+                        // Katla butonu - Oyuncu 2 için
+                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
+                            (doublingCubePosition == DoublingCubePosition.CENTER ||
+                                    doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
+                            player2CanDouble
                         ) {
-                            Text(
-                                text = "⚡ Katla",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-                    
-                    // Geri alma butonu - Oyuncu 2 için
-                    if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
-                        Button(
-                            onClick = { undoLastRound() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                            modifier = Modifier
-                                .fillMaxWidth(0.7f)
-                                .height(46.dp)
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                            Button(
+                                onClick = { player2OfferDouble() },
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(42.dp)
                             ) {
-                                Text("↶", fontSize = 16.sp, color = Color.White)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Geri Al", fontSize = 14.sp, color = Color.White)
+                                Text(
+                                    text = "⚡ Katla",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        
+                        // Geri alma butonu - Oyuncu 2 için
+                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu && undoStack.isNotEmpty()) {
+                            Button(
+                                onClick = { undoLastRound() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(40.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text("↶", fontSize = 14.sp, color = Color.White)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Geri Al", fontSize = 13.sp, color = Color.White)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
                     }
 
@@ -876,11 +886,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp) // Daha yüksek buton
+                                        .height(44.dp) // Compact boyut
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
-                                        fontSize = 14.sp, // Daha büyük font
+                                        fontSize = 13.sp, // Compact font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -898,11 +908,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp) // Daha yüksek buton
+                                        .height(44.dp) // Compact boyut
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
-                                        fontSize = 14.sp, // Daha büyük font
+                                        fontSize = 13.sp, // Compact font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -920,11 +930,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp) // Daha yüksek buton
+                                        .height(44.dp) // Compact boyut
                                 ) {
                                     Text(
                                         text = "↩ İptal",
-                                        fontSize = 14.sp, // Daha büyük font
+                                        fontSize = 13.sp, // Compact font
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -949,7 +959,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(48.dp) // Sabit yükseklik
+                                        .height(42.dp) // Compact yükseklik
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -971,7 +981,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(48.dp) // Sabit yükseklik
+                                        .height(42.dp) // Compact yükseklik
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -993,7 +1003,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(48.dp) // Sabit yükseklik
+                                        .height(42.dp) // Compact yükseklik
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1082,7 +1092,7 @@ fun GameScreen(
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 14.sp, // Daha büyük font
+                                                fontSize = 13.sp, // Compact font
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
@@ -1530,7 +1540,7 @@ fun GameScreen(
                                             )
                                             Text(
                                                 text = "1P",
-                                                fontSize = 14.sp, // Daha büyük font
+                                                fontSize = 13.sp, // Compact font
                                                 fontWeight = FontWeight.Bold,
                                                 textAlign = TextAlign.Center,
                                                 color = Color.White
