@@ -79,3 +79,106 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 ## Son Güncelleme
 - **Tarih**: 2025-09-22
 - **Durum**: Crawford kuralı eklendi ve test edildi
+
+---
+
+# ÇALIŞMA PROTOKOLLERI
+
+## 📝 NOT DEFTERLERİ PROTOKOLÜ
+- **"ntk" komutu**: Tüm .md uzantılı not defterlerini okur
+- **Dosyalar**: CLAUDE.md + diğer tüm .md dosyaları projeye dahil
+- **"Not defterleri" = .md dosyaları**: Markdown uzantılı tüm dokümanlar
+
+### 📋 YAPILACAKLAR NOT DEFTERİ
+- **"ynd" komutu**: Yeni madde ekle (Yapılacaklar Not Defteri)
+- **Dosya**: YAPILACAKLAR.md
+- **Format**: [Kullanıcı madde] + ynd → otomatik kayıt
+- **Otomatik tarih**: Her maddeye tarih damgası eklenir
+
+### 📝 PROMPT GÜNLÜĞÜ SİSTEMİ
+- **"*p" komutu**: Bu prompt'u günlüğe ekle (PROMPT_GUNLUGU.md'ye kaydet)
+- **Dosya**: PROMPT_GUNLUGU.md
+- **Format**: [Tarih-Saat] Prompt İçeriği
+- **Manuel kontrol**: Kullanıcı "*p" demediği sürece ekleme yok
+
+## 🔄 BERABER ÇALIŞMA PROTOKOLÜ
+1. **🔧 Otomatik Build & Deploy:**
+   - Her yenilik → APK build → telefona yükleme
+   - Kullanıcı sorgulamaz, otomatik yapılır
+
+2. **🔊 SİSTEM BEEP PROTOKOLÜ:**
+   - **Temel kurallar:**
+     - Soru sorulacağı zaman → 3x beep
+     - Onay alınacağı zaman → 3x beep
+     - Sonuç sunulacağı zaman → 3x beep
+     - Etkileşim gerekince → 3x beep
+     - **Görev bitirip sunacağı zaman → 3x beep**
+     - **1,2,3 tuş seçenekleri sunacağı zaman → 3x beep**
+
+   - **Sessizlik yönetimi:**
+     - Çalışma bitip 3 dakika sessizlik → 3x beep
+     - 3 beep çalındı, cevap gelmedi → 3 dakika sonra tekrar 3x beep
+     - Ara dakikalarda → 1x beep (cevap gelene kadar)
+
+   - **Durdurma sistemi:**
+     - "beep çalmayı bırak" VEYA "bçb" → o dönüş için beep durdur
+     - Geçici durdurma: Sadece o andaki dönüş için geçerli
+     - Otomatik yeniden başlatma: Yeni mesaj/görev geldiğinde beep protokolü yeniden aktif
+
+   - **Kullanıcı Feedback Protokolü:**
+     - **"BTŞ"** = Beep Teşekkür (Beep yaptığın için teşekkürler)
+     - **"BTK"** = Beep Tenkid (Beep yapmadığın için tenkid)
+
+## 🔥 YILDIZLI KOMUT SİSTEMİ (*)
+**Her komut * ile başlar - Hızlı erişim için:**
+- **"*p"** = Bu prompt'u günlüğe ekle (PROMPT_GUNLUGU.md'ye kaydet)
+- **"*btk"** = Beep protokolünü uygulamadığın için tenkid
+- **"*btş"** = Beep protokolü uyguladığın için teşekkür
+- **"*tmm"** = Bu özellik tamam, commit + push yap
+- **"*yle"** = Yapılacaklar listesine ekle
+- **"*ncp"** = Not defterlerini doldur, commit + push
+- **"*bty"** = Build et telefona yükle
+- **"*nto"** = Not defterlerini oku (ntk equivalent)
+- **"*mo"** = md uzantılı tüm not defterlerini oku
+- **"*çpe"** = Çalışma protokolüne ekle
+- **"*ege"** = Ekran görüntülerine ekle
+- **"*tsp"** = Sorunun ne olduğunu tespit et (bütün ihtimalleri listele)
+- **"*tdv"** = Tespitleri tedavi et, düzelt
+- **"*kyg"** = Kısayolları kod listesini göster
+- **"*tk"** = Bu kod tekmil ver (emir tekrarı - anlama derecesini açıkla)
+
+3. **💾 Hızlı Commit Protokolü:**
+   - "tmm" diyince → anında commit + push
+   - "[özellik adı] tamam" diyince → commit + push
+   - Yarım kalan iş riski ortadan kalkar
+
+4. **🎨 Görsel Protokol İsteği:**
+   - Kullanıcı mesajları turuncu/farklı renkte görünmeli (sınırlı CLI desteği)
+
+## 🔊 SİSTEM SESİ PROTOKOLÜ
+**ZORUNLU UYGULANACAK KURALLAR:**
+
+### Ne Zaman Sistem Sesi Çalacak:
+1. **TÜM görevler tamamlandıktan sonra yeni talimat beklerken** - İş bitince kullanıcıdan yeni görev beklerken
+2. **Kullanıcıdan onay isterken** - Kullanıcı onayı gerektiren işlemler öncesi
+3. **Kullanıcıya soru sorarken** - Karar vermem gereken durumlar
+4. **Etkileşim gerekince** - Kullanıcı müdahalesi lazım olduğunda
+5. **Adımları listeleyip onay beklerken** - "1. Bu yap, 2. Şunu yap, 3. Bunu test et" gibi adım adım talimatlar verirken
+
+### Ses Çıkarma Formatı:
+**Önce mesajını yaz, EN SON SES ÇAL:**
+```bash
+# 1. Önce mesajını yaz
+# 2. EN SON ses çal
+powershell -c "[Console]::Beep(800,300); [Console]::Beep(800,300); [Console]::Beep(800,300)"
+```
+
+**SES MESAJIN EN SONUNDA ÇALACAK - böylece kullanıcı mesajı okur sonra ses duyar**
+
+### ÇALMAYACAK DURUMLAR:
+❌ Ara görev tamamlandığında
+❌ Build successful olduğunda
+❌ Dosya yazıldığında
+❌ İş devam ederken
+
+**NOT:** Sadece benden etkileşim/onay/talimat isteyeceğin zaman çal!

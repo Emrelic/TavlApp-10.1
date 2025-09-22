@@ -10,7 +10,12 @@
       "Bash(dir \"app\\build\\outputs\\apk\\debug\" /A)",
       "Bash(adb:*)",
       "Bash(mv:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Read(//c/Users/ikizler1/**)",
+      "Bash(powershell:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
