@@ -9,7 +9,8 @@
       "Bash(move:*)",
       "Bash(dir \"app\\build\\outputs\\apk\\debug\" /A)",
       "Bash(adb:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

@@ -61,6 +61,21 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - **Katlama zarı** 60dp boyutunda, merkez konumda
 - **Cevap butonları** hem yatay hem dikey modda görünür boyutlarda
 
+### 5. Crawford Kuralı (2025-09-22)
+- ✅ **Parti hedef puanı**: Varsayılan 11 puan olarak ayarlandı
+- ✅ **Crawford eli kontrolü**: Hedef puanın 1 eksiğine ulaşıldığında devreye girer
+- ✅ **Crawford göstergesi**: Küpün üstünde "CRAWFORD" yazısı görünür
+- ✅ **Küp devre dışı**: Crawford elinde KATLA butonları ve küp tıklama pasif
+- ✅ **Post-Crawford**: Crawford elinden sonra küp tekrar aktif olur
+- ✅ **Reset kontrolü**: Yeni parti başladığında Crawford durumları sıfırlanır
+
+## Crawford Kuralı Mantığı
+- **Crawford eli**: Parti hedef puanın 1 eksiğine ulaşınca (örn: 11'lik partide 10'a gelince)
+- **Küp kullanımı**: Crawford elinde tamamen devre dışı
+- **Crawford sonrası**:
+  - Önde olan kazanırsa → Parti biter
+  - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
+
 ## Son Güncelleme
-- **Tarih**: 2025-08-12
-- **Durum**: Tüm özellikler test edildi ve çalışır durumda
+- **Tarih**: 2025-09-22
+- **Durum**: Crawford kuralı eklendi ve test edildi

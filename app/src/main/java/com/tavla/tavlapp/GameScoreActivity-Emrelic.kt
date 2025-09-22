@@ -160,6 +160,12 @@ fun GameScreen(
     var player1CanDouble by remember { mutableStateOf(true) }
     var player2CanDouble by remember { mutableStateOf(true) }
 
+    // Crawford kuralı için yeni değişkenler
+    var matchTargetScore by remember { mutableIntStateOf(11) } // Parti hedef puanı
+    var isCrawfordGame by remember { mutableStateOf(false) } // Şu an Crawford eli mi?
+    var crawfordGamePlayed by remember { mutableStateOf(false) } // Crawford eli daha önce oynanmış mı?
+    var isPostCrawford by remember { mutableStateOf(false) } // Post-Crawford durumu mu?
+
     var showEndMatchConfirmation by remember { mutableStateOf(false) }
 
     // ✅ RECOMPOSE ETKİSİ - LaunchedEffect ekle
@@ -168,6 +174,29 @@ fun GameScreen(
         // İçeriği boş bırakabilirsin, sadece recompose tetiklemek için
     }
 
+    // Crawford durumunu kontrol eden fonksiyon
+    fun checkCrawfordStatus() {
+        if (!crawfordGamePlayed && !isCrawfordGame) {
+            // Crawford eli henüz oynanmamışsa kontrol et
+            if (player1Score == matchTargetScore - 1 || player2Score == matchTargetScore - 1) {
+                // Birisi hedef puanın 1 eksiğine ulaştı, bir sonraki el Crawford eli
+                isCrawfordGame = true
+            }
+        }
+    }
+
+    // Crawford elinin bitişini kontrol eden fonksiyon
+    fun handleCrawfordGameEnd() {
+        if (isCrawfordGame) {
+            crawfordGamePlayed = true
+            isCrawfordGame = false
+
+            // Crawford elinden sonra eğer parti devam ediyorsa Post-Crawford moduna geç
+            if (player1Score < matchTargetScore && player2Score < matchTargetScore) {
+                isPostCrawford = true
+            }
+        }
+    }
 
     // Maç sona erdiğinde yapılacak işlemler
     fun endMatch() {
@@ -259,8 +288,12 @@ fun GameScreen(
         showPlayer1DoublingMenu = false
         showPlayer2DoublingMenu = false
 
+        // Crawford kontrolü yap
+        handleCrawfordGameEnd()
+        checkCrawfordStatus()
+
         // Hedef puana ulaşıldıysa maçı bitir
-        if (player1Score >= targetRounds || player2Score >= targetRounds) {
+        if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
             endMatch()
         }
     }
@@ -555,7 +588,8 @@ fun GameScreen(
                         if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
-                            player1CanDouble
+                            player1CanDouble &&
+                            !isCrawfordGame // Crawford elinde küp kullanımı devre dışı
                         ) {
                             Button(
                                 onClick = { player1OfferDouble() },
@@ -804,7 +838,8 @@ fun GameScreen(
                         if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
-                            player2CanDouble
+                            player2CanDouble &&
+                            !isCrawfordGame // Crawford elinde küp kullanımı devre dışı
                         ) {
                             Button(
                                 onClick = { player2OfferDouble() },
@@ -2188,6 +2223,10 @@ fun GameScreen(
                             // Skorları sıfırla
                             player1Score = 0
                             player2Score = 0
+                            // Crawford değişkenlerini sıfırla
+                            isCrawfordGame = false
+                            crawfordGamePlayed = false
+                            isPostCrawford = false
                         },
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = purpleColor),
@@ -2281,6 +2320,8 @@ fun GameScreen(
                         // Skorları sıfırla
                         player1Score = 0
                         player2Score = 0
+                        // Crawford değişkenlerini sıfırla (el kaydedildikten sonra)
+                        // Not: Bu durumda zaten addRound fonksiyonu çağrılacak
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2341,22 +2382,45 @@ fun GameScreen(
                     .align(Alignment.Center)
                     .background(Color.White, RoundedCornerShape(8.dp))
                     .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
-                    .clickable {
-                        // Zarın pozisyonuna göre tıklama işlevi
-                        when (doublingCubePosition) {
-                            DoublingCubePosition.PLAYER1_CONTROL -> if (player1CanDouble) player1OfferDouble()
-                            DoublingCubePosition.PLAYER2_CONTROL -> if (player2CanDouble) player2OfferDouble()
-                            else -> {} // Diğer pozisyonlarda tıklama işlevi yok
+                    .clickable(enabled = !isCrawfordGame) {
+                        // Crawford elinde küp tıklama devre dışı
+                        if (!isCrawfordGame) {
+                            // Zarın pozisyonuna göre tıklama işlevi
+                            when (doublingCubePosition) {
+                                DoublingCubePosition.PLAYER1_CONTROL -> if (player1CanDouble) player1OfferDouble()
+                                DoublingCubePosition.PLAYER2_CONTROL -> if (player2CanDouble) player2OfferDouble()
+                                else -> {} // Diğer pozisyonlarda tıklama işlevi yok
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = doublingCubeValue.toString(),
-                    fontSize = 24.sp, // Eski yazı boyutuna döndürüldü
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
+                // Crawford göstergesi ekle
+                if (isCrawfordGame) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "CRAWFORD",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                        Text(
+                            text = doublingCubeValue.toString(),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray // Crawford'da gri renk
+                        )
+                    }
+                } else {
+                    Text(
+                        text = doublingCubeValue.toString(),
+                        fontSize = 24.sp, // Eski yazı boyutuna döndürüldü
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
             }
         }
     }
