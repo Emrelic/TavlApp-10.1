@@ -106,6 +106,10 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
     // Skor giriş modu için durum (Otomatik=true, Manuel=false)
     var isScoreAutomatic by remember { mutableStateOf(true) }
 
+    // Zar atıcı ve süre tutucu ayarları
+    var useDiceRoller by remember { mutableStateOf(false) }
+    var useTimer by remember { mutableStateOf(false) }
+
     // El sayısı seçenekleri
     val roundsOptions = listOf("3", "5", "7", "9","11", "15", "17", "21")
 
@@ -445,9 +449,6 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    
-                    var useDiceRoller by remember { mutableStateOf(false) }
-                    
                     Switch(
                         checked = useDiceRoller,
                         onCheckedChange = { useDiceRoller = it }
@@ -482,9 +483,6 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    
-                    var useTimer by remember { mutableStateOf(false) }
-                    
                     Switch(
                         checked = useTimer,
                         onCheckedChange = { useTimer = it }
@@ -541,6 +539,8 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         putExtra("player1_id", player1Id)
                         putExtra("player2_id", player2Id)
                         putExtra("is_score_automatic", isScoreAutomatic)
+                        putExtra("use_dice_roller", useDiceRoller)
+                        putExtra("use_timer", useTimer)
                     }
                     context.startActivity(intent)
                 },

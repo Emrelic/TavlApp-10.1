@@ -78,21 +78,29 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 
 ## Son Güncelleme
 - **Tarih**: 2025-09-23
-- **Durum**: Zar sistemi implementasyonu başarısız - Eski stabil versiyona geri dönüldü
+- **Durum**: TAM SAYFA ZAR ATMA EKRANİ TAMAMLANDI ✅
 
-### 6. Zar Atma Sistemi Denemesi (2025-09-23) - BAŞARISIZ
-- ❌ **Zar atma sistemi implementasyonu**: Çok karmaşık ve problemli
+### 6. Zar Atma Sistemi Denemesi (2025-09-23) - İLK DENEME BAŞARISIZ
+- ❌ **İlk implementasyon**: AlertDialog tabanlı, karmaşık ve problemli
 - ❌ **ANR sorunları**: Uygulama donması ve çökmeler
 - ❌ **Sonsuz döngü**: startInitialRoll() fonksiyonunda
 - ✅ **Kurtarma işlemi**: Git'ten çalışan versiyon geri yüklendi (a163498)
-- 🔮 **Sonuç**: Temel oyun stabil, zar sistemi gelecekte daha basit eklenecek
+
+### 7. Tam Sayfa Zar Sistemi (2025-09-23) - BAŞARILI ✅
+- ✅ **DiceActivity**: Yeni tam sayfa Activity oluşturuldu
+- ✅ **İki taraflı tasarım**: Sol taraf 180° döndürülmüş, sağ normal
+- ✅ **Full screen**: Immersive mode, status bar gizli
+- ✅ **Süre tutma**: İkili sayaç sistemi (5:00 format)
+- ✅ **İstatistik**: Zar kombinasyonları ve checkbox sistemi
+- ✅ **Animasyon**: Döner zar efekti ve visual feedback
+- ✅ **Intent tabanlı**: Skorboard'dan DiceActivity'ye geçiş
 
 ## Mevcut Özellikler (Stabil Versiyon)
 - ✅ **Crawford kuralı**: Tam implementasyon
 - ✅ **Katlama sistemi**: Modern tavla için aktif
 - ✅ **Geri al/Maçı sonlandır**: Mavi/kırmızı butonlar
 - ✅ **Puan sistemi**: Otomatik hesaplama
-- ❌ **Zar sistemi**: Henüz yok (gelecek versiyon)
+- ✅ **TAM SAYFA ZAR SİSTEMİ**: Profesyonel tasarım ile tamamlandı
 
 ---
 
@@ -119,6 +127,13 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 1. **🔧 Otomatik Build & Deploy:**
    - Her yenilik → APK build → telefona yükleme
    - Kullanıcı sorgulamaz, otomatik yapılır
+
+0. **🪟 Terminal Başlık Protokolü:**
+   - Claude Code terminalinde başlık değişikliği sınırlı
+   - Standart terminal: `cmd /c "title TavlApp"`
+   - PowerShell: `$host.ui.RawUI.WindowTitle = 'TavlApp'`
+   - NOT: Claude Code'da bu özellik çalışmayabilir
+   - *tpb komutu başlık değiştirme denemesi yapar
 
 2. **🔊 SİSTEM BEEP PROTOKOLÜ:**
    - **Temel kurallar:**
@@ -155,7 +170,8 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - **"*ty"** = Telefona yükle (build et + yükle)
 - **"*nto"** = Not defterlerini oku (ntk equivalent)
 - **"*mo"** = md uzantılı tüm not defterlerini oku
-- **"*çpe"** = Çalışma protokolüne ekle
+- **"*çpe"** = Çalışma protokolüne ekle (ve terminal başlığını TavlApp yap)
+- **"*tpb"** = Terminal pencere başlığını TavlApp olarak ayarla
 - **"*ege"** = Ekran görüntülerine ekle
 - **"*tsp"** = Sorunun ne olduğunu tespit et (bütün ihtimalleri listele)
 - **"*tdv"** = Tespitleri tedavi et, düzelt

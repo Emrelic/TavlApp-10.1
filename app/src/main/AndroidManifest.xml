@@ -65,6 +65,14 @@
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
+
+        <!-- Zar Atma Aktivitesi -->
+        <activity
+            android:name=".DiceActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:theme="@style/Theme.TavlApp" />
     </application>
 
 </manifest>

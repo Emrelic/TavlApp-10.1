@@ -83,3 +83,84 @@
 - ✅ **Eski stabil versiyon geri yüklendi** - Crawford kuralı var
 - ✅ **Oyun çalışıyor** - Temel fonksiyonlar sağlam
 - 🔮 **Gelecek plan**: Zar sistemi daha basit şekilde tekrar eklenecek
+
+---
+
+## [2025-09-23] TAM SAYFA ZAR ATMA EKRANİ - DETAYLI TASARIM
+
+### 🎯 Kullanıcı Talebi:
+AlertDialog yerine **tam sayfa yatay zar atma ekranı** implementasyonu isteniyor.
+
+### 📱 Ekran Tasarımı:
+1. **Yatay mod**: Skorboard gibi landscape orientation
+2. **Tam sayfa**: AlertDialog değil, full screen Activity/Composable
+3. **İkiye bölünmüş layout**: Yatay çizgi ile üst/alt bölgeler
+4. **İki taraflı kullanım**: Oyuncular telefonun iki ucunda oturacak
+5. **Ters yazılar**: Bir taraf 180° döndürülmüş (upside down)
+
+### 🎲 Zar Atma Sistemi:
+#### Random Algoritma:
+- 6 elemanlı dizi: [1,2,3,4,5,6]
+- Sırayla random eleman çıkarma
+- Her çıkarılan sayı zartta gösterilir
+- Son kalan sayı = final sonuç
+- **Örnek**: 3→5→6→1→4→**2** (2 kalır, sonuç=2)
+
+#### Animasyon:
+- Hızlı zar değişimi efekti
+- Her iki zar bağımsız çalışır
+- Gerçek zar desenlerinin gösterimi
+
+### ⏰ Süre Tutma Sistemi:
+- **Üst kısımda**: Dakika:Saniye sayacı
+- **Sıralı çalışma**: Hangi oyuncunun sırası varsa onun sayacı çalışır
+- **Geri sayım**: Belirlenen süre bitene kadar
+
+### 📊 İstatistik Sistemi:
+#### Zar İstatistikleri:
+- **Atılan zar çeşitleri**: 1-1, 2-3, 4-4 vb.
+- **Toplam sayı**: Çift atılırsa 4x sayı (4-4 = 16 sayı)
+- **Çift zarlar**: Ayrı kategori
+- **Oynanan/Gele**: Checkbox sistemi
+
+#### Checkbox Durumları:
+- **■ (Kare)**: Zar tamamen oynandı
+- **✓ (Tik)**: Zar gele (oynanamadı)
+- **☐ (Boş)**: Oyun sonu boşa giden
+
+### 🔧 Ayar Kombinasyonları:
+1. **Sadece zar atma**: Tek/çift zar seçimi
+2. **Sadece süre tutma**: Sayaç aktif
+3. **Zar + süre**: İkisi birlikte
+4. **Zar + istatistik**: Zar tracking
+5. **Tam kombinasyon**: Zar + süre + istatistik + değerlendirme
+
+### 🎮 Oyun Akışı:
+#### Geleneksel Tavla:
+- İlk atış: 6 atarsa başlar, 1 atarsa karşı başlar
+- Sonraki oyunlar: Kazanan başlar
+- Büyük atan iki zarı alır
+
+#### Modern Tavla:
+- Her oyun: İki taraf birer zar atar
+- Büyük atan kombinasyonu kullanır (5-2 gibi)
+- Berabere: Yeniden atış
+
+### 📱 UI Düzeni:
+```
+|[SAYAÇ]     ZAR AT     [SAYAÇ]|
+|     ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯    |
+| [🎲] [🎲]  |  [🎲] [🎲]     |
+|                              |
+| [İSTATİSTİK PANEL]           |
+| [CHECKBOX'LAR]               |
+| [KAYDET] [TÜMÜ GELE] vb.     |
+```
+
+### 🔄 Sıra Sistemi:
+1. Zar at → Random animasyon → Sonuç
+2. İstatistik kaydet → Checkbox işaretle
+3. Süre geçir → Karşı tarafa sıra
+4. Döngü devam eder
+
+Bu detaylı tasarım dokümanı implementasyon için hazır!

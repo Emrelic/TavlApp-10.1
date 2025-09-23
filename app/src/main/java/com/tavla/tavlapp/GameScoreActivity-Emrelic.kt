@@ -1,6 +1,10 @@
 package com.tavla.tavlapp
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -68,6 +72,17 @@ class GameScoreActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Full screen - Status bar ve Navigation bar gizle
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        )
+
         dbHelper = DatabaseHelper(this)
 
         // Intent'ten oyuncu bilgilerini ve oyun bilgilerini alıyoruz
@@ -78,6 +93,8 @@ class GameScoreActivity : ComponentActivity() {
         val gameType = intent.getStringExtra("game_type") ?: "Modern"
         val targetRounds = intent.getIntExtra("rounds", 11)
         val isScoreAutomatic = intent.getBooleanExtra("is_score_automatic", true)
+        val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
+        val useTimer = intent.getBooleanExtra("use_timer", false)
 
         // Yeni maç başlat ve ID'sini al
         matchId = dbHelper.startNewMatch(player1Id, player2Id, gameType, targetRounds)
@@ -96,6 +113,8 @@ class GameScoreActivity : ComponentActivity() {
                         gameType = gameType,
                         targetRounds = targetRounds,
                         isScoreAutomatic = isScoreAutomatic,
+                        useDiceRoller = useDiceRoller,
+                        useTimer = useTimer,
                         matchId = matchId,
                         dbHelper = dbHelper,
                         onFinish = { this.finish() }
@@ -116,6 +135,8 @@ fun GameScreen(
     gameType: String,
     targetRounds: Int,
     isScoreAutomatic: Boolean,
+    useDiceRoller: Boolean,
+    useTimer: Boolean,
     matchId: Long,
     dbHelper: DatabaseHelper,
     onFinish: () -> Unit
@@ -167,6 +188,16 @@ fun GameScreen(
     var isPostCrawford by remember { mutableStateOf(false) } // Post-Crawford durumu mu?
 
     var showEndMatchConfirmation by remember { mutableStateOf(false) }
+
+    // Zar atma ekranı state'i
+    var showDiceScreen by remember { mutableStateOf(false) }
+
+    // Otomatik zar ekranı açma
+    LaunchedEffect(useDiceRoller, useTimer) {
+        if (useDiceRoller || useTimer) {
+            showDiceScreen = true
+        }
+    }
 
     // ✅ RECOMPOSE ETKİSİ - LaunchedEffect ekle
     LaunchedEffect(recomposeKey) {
@@ -766,14 +797,39 @@ fun GameScreen(
                     }
                 }
 
-                // ORTA KISIM - Hedef el sayısı (iki oyuncu arasında)
-                Box(
-                    modifier = Modifier
-                        .width(100.dp)
-                        .height(100.dp)
-                        .offset(y = (-90).dp), // Y offset'i koruyoruz
-                    contentAlignment = Alignment.Center // Box scope'unda doğru kullanım
+                // ORTA KISIM - Zar atma butonu ve hedef puan kutusu
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.offset(y = (-50).dp)
                 ) {
+                    // ZAR AT butonu
+                    Button(
+                        onClick = { showDiceScreen = true },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF9C27B0).copy(alpha = 0.9f)
+                        ),
+                        modifier = Modifier
+                            .width(100.dp)
+                            .height(30.dp)
+                    ) {
+                        Text(
+                            text = "🎲 ZAR AT",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Hedef puan kutusu
+                    Box(
+                        modifier = Modifier
+                            .width(100.dp)
+                            .height(100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                     // Arka plan bölgeleri
                     Row(modifier = Modifier.fillMaxSize()) {
                         // Sol mavi yarım
@@ -800,6 +856,7 @@ fun GameScreen(
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    }
                 }
 
                 // Oyuncu 2 bilgileri
@@ -2422,6 +2479,21 @@ fun GameScreen(
                     )
                 }
             }
+        }
+    }
+
+    // Zar atma ekranı - Yeni tam sayfa Activity'ye yönlendirme
+    if (showDiceScreen) {
+        LaunchedEffect(showDiceScreen) {
+            val intent = Intent(context, DiceActivity::class.java).apply {
+                putExtra("game_type", gameType)
+                putExtra("use_dice_roller", useDiceRoller)
+                putExtra("use_timer", useTimer)
+                putExtra("player1_name", player1Name)
+                putExtra("player2_name", player2Name)
+            }
+            context.startActivity(intent)
+            showDiceScreen = false
         }
     }
 
