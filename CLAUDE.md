@@ -102,6 +102,13 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - ✅ **Puan sistemi**: Otomatik hesaplama
 - ✅ **TAM SAYFA ZAR SİSTEMİ**: Profesyonel tasarım ile tamamlandı
 
+## Google API Bilgileri (2025-09-23)
+- **Paket Adı**: `com.tavla.tavlapp`
+- **SHA-1 Parmak İzi**: `9C:F2:DB:04:34:4B:D9:D3:F1:A9:34:2C:3F:48:4A:DA:19:00:54:2D`
+- **İstemci Kimliği**: `101677756808-9hpl2apr220rae0jcrrqja3cah81u63m.apps.googleusercontent.com`
+- **MD5**: `63:4F:A5:D7:4D:67:81:CE:48:45:F0:B7:66:BB:F7:C3`
+- **SHA-256**: `A3:59:31:9B:1A:D7:12:65:5A:63:88:F8:72:44:F0:5E:F3:60:43:C7:DE:F1:EB:FF:17:0F:34:10:05:4C:6C:B8`
+
 ---
 
 # ÇALIŞMA PROTOKOLLERI

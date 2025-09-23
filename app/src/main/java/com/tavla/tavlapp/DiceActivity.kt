@@ -1,33 +1,46 @@
 package com.tavla.tavlapp
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import kotlin.random.Random
 
-class DiceActivity : ComponentActivity() {
+class DiceActivity : AppCompatActivity() {
+    
+    // UI Elements
+    private lateinit var player1Timer: TextView
+    private lateinit var player2Timer: TextView
+    private lateinit var player1Name: TextView
+    private lateinit var player2Name: TextView
+    private lateinit var dice1Left: ImageView
+    private lateinit var dice2Left: ImageView
+    private lateinit var dice1Right: ImageView
+    private lateinit var dice2Right: ImageView
+    private lateinit var statsText: TextView
+    private lateinit var checkAllPlayed: CheckBox
+    private lateinit var checkAllMissed: CheckBox
+    private lateinit var diceCountNumber: TextView
+    
+    // Game State
+    private var player1Time = 300 // 5 dakika
+    private var player2Time = 300
+    private var currentPlayer = 1
+    private var timerRunning = false
+    private val diceStats = mutableMapOf<String, Int>()
+    private var diceCount = 0
+    
+    // Timer
+    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var timerRunnable: Runnable
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Full screen - Status bar ve Navigation bar gizle
+        setContentView(R.layout.activity_dice)
+        
+        // Full screen
         window.decorView.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
@@ -36,526 +49,161 @@ class DiceActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         )
-
-        // Intent'ten parametreleri al
+        
+        // Intent parametreleri
         val gameType = intent.getStringExtra("game_type") ?: "Modern"
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
-        val player1Name = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
-        val player2Name = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
-
-        setContent {
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color.Black
-                ) {
-                    DiceScreen(
-                        gameType = gameType,
-                        useDiceRoller = useDiceRoller,
-                        useTimer = useTimer,
-                        player1Name = player1Name,
-                        player2Name = player2Name,
-                        onBack = { finish() }
-                    )
-                }
-            }
+        val player1NameText = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
+        val player2NameText = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
+        
+        initViews()
+        setupUI(player1NameText, player2NameText, useTimer)
+        setupClickListeners()
+        
+        if (useTimer) {
+            startTimer()
         }
     }
-}
-
-@Composable
-fun DiceScreen(
-    gameType: String,
-    useDiceRoller: Boolean,
-    useTimer: Boolean,
-    player1Name: String,
-    player2Name: String,
-    onBack: () -> Unit
-) {
-    // Zar state'leri
-    var dice1Value by remember { mutableIntStateOf(1) }
-    var dice2Value by remember { mutableIntStateOf(1) }
-    var isRolling by remember { mutableStateOf(false) }
-
-    // Süre state'leri
-    var player1Time by remember { mutableIntStateOf(300) } // 5 dakika = 300 saniye
-    var player2Time by remember { mutableIntStateOf(300) }
-    var currentPlayer by remember { mutableIntStateOf(1) } // 1 veya 2
-    var timerRunning by remember { mutableStateOf(false) }
-
-    // İstatistik state'leri
-    var diceStats by remember { mutableStateOf(mutableMapOf<String, Int>()) }
-    var dice1Played by remember { mutableStateOf(false) }
-    var dice2Played by remember { mutableStateOf(false) }
-
-
-    // Süre sayacı
-    LaunchedEffect(timerRunning, currentPlayer) {
-        if (timerRunning && useTimer) {
-            while (timerRunning) {
-                delay(1000)
-                if (currentPlayer == 1 && player1Time > 0) {
-                    player1Time--
-                } else if (currentPlayer == 2 && player2Time > 0) {
-                    player2Time--
-                }
-
-                if (player1Time <= 0 || player2Time <= 0) {
-                    timerRunning = false
-                }
-            }
+    
+    private fun initViews() {
+        player1Timer = findViewById(R.id.player1Timer)
+        player2Timer = findViewById(R.id.player2Timer)
+        player1Name = findViewById(R.id.player1Name)
+        player2Name = findViewById(R.id.player2Name)
+        dice1Left = findViewById(R.id.dice1Left)
+        dice2Left = findViewById(R.id.dice2Left)
+        dice1Right = findViewById(R.id.dice1Right)
+        dice2Right = findViewById(R.id.dice2Right)
+        statsText = findViewById(R.id.statsText)
+        checkAllPlayed = findViewById(R.id.checkAllPlayed)
+        checkAllMissed = findViewById(R.id.checkAllMissed)
+        diceCountNumber = findViewById(R.id.diceCountNumber)
+    }
+    
+    private fun setupUI(player1NameText: String, player2NameText: String, useTimer: Boolean) {
+        player1Name.text = player1NameText
+        player2Name.text = player2NameText
+        
+        if (!useTimer) {
+            player1Timer.visibility = View.GONE
+            player2Timer.visibility = View.GONE
+        }
+        
+        updateTimerDisplay()
+        updateStatsDisplay()
+        diceCountNumber.text = diceCount.toString()
+    }
+    
+    private fun setupClickListeners() {
+        // Sol zarlar (Player 1)
+        dice1Left.setOnClickListener { rollDice() }
+        dice2Left.setOnClickListener { rollDice() }
+        
+        // Sağ zarlar (Player 2)
+        dice1Right.setOnClickListener { rollDice() }
+        dice2Right.setOnClickListener { rollDice() }
+        
+        // Checkboxlar
+        checkAllPlayed.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) checkAllMissed.isChecked = false
+        }
+        
+        checkAllMissed.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) checkAllPlayed.isChecked = false
         }
     }
-
-    // Ana layout - Yatay düzen
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Sol taraf - Player 1 (180° döndürülmüş)
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .rotate(180f)
-                .background(Color(0xFF1976D2))
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            PlayerSide(
-                playerName = player1Name,
-                time = if (useTimer) player1Time else null,
-                isActive = currentPlayer == 1,
-                onDiceRoll = {
-                    if (!isRolling) {
-                        isRolling = true
-                        // Random değerler oluştur
-                        val newDice1 = (1..6).random()
-                        val newDice2 = (1..6).random()
-                        dice1Value = newDice1
-                        dice2Value = newDice2
-                        // İstatistik güncelle
-                        val diceKey = if (newDice1 <= newDice2) "${newDice1}-${newDice2}" else "${newDice2}-${newDice1}"
-                        diceStats = diceStats.toMutableMap().apply {
-                            this[diceKey] = (this[diceKey] ?: 0) + 1
-                        }
-                        isRolling = false
+    
+    private fun rollDice() {
+        val dice1Value = Random.nextInt(1, 7)
+        val dice2Value = Random.nextInt(1, 7)
+        
+        // Zar görsellerini güncelle
+        updateDiceImages(dice1Value, dice2Value)
+        
+        // İstatistik güncelle
+        val diceKey = if (dice1Value <= dice2Value) "${dice1Value}-${dice2Value}" else "${dice2Value}-${dice1Value}"
+        diceStats[diceKey] = (diceStats[diceKey] ?: 0) + 1
+        diceCount++
+        
+        updateStatsDisplay()
+        diceCountNumber.text = diceCount.toString()
+        
+        // Sırayı değiştir
+        currentPlayer = if (currentPlayer == 1) 2 else 1
+        updateTimerDisplay()
+    }
+    
+    private fun updateDiceImages(dice1: Int, dice2: Int) {
+        val dice1Resource = getDiceResource(dice1)
+        val dice2Resource = getDiceResource(dice2)
+        
+        // Tüm zarlara aynı değerleri ata (senin tasarımında tüm zarlar aynı)
+        dice1Left.setImageResource(dice1Resource)
+        dice2Left.setImageResource(dice2Resource)
+        dice1Right.setImageResource(dice1Resource)
+        dice2Right.setImageResource(dice2Resource)
+    }
+    
+    private fun getDiceResource(value: Int): Int {
+        return when (value) {
+            1 -> R.drawable.dice_1
+            2 -> R.drawable.dice_2
+            3 -> R.drawable.dice_3
+            4 -> R.drawable.dice_4
+            5 -> R.drawable.dice_5
+            6 -> R.drawable.dice_6
+            else -> R.drawable.dice_1
+        }
+    }
+    
+    private fun updateStatsDisplay() {
+        val statsBuilder = StringBuilder()
+        diceStats.forEach { (dice, count) ->
+            statsBuilder.append("$dice: $count\n")
+        }
+        statsText.text = if (statsBuilder.isNotEmpty()) statsBuilder.toString().trim() else "Henüz zar atılmadı"
+    }
+    
+    private fun startTimer() {
+        timerRunning = true
+        timerRunnable = object : Runnable {
+            override fun run() {
+                if (timerRunning) {
+                    if (currentPlayer == 1 && player1Time > 0) {
+                        player1Time--
+                    } else if (currentPlayer == 2 && player2Time > 0) {
+                        player2Time--
                     }
-                },
-                dice1Value = dice1Value,
-                dice2Value = dice2Value,
-                isRolling = isRolling
-            )
-        }
-
-        // Orta çizgi
-        Box(
-            modifier = Modifier
-                .width(2.dp)
-                .fillMaxHeight()
-                .background(Color.White)
-        )
-
-        // Sağ taraf - Player 2 (normal)
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(Color(0xFFD32F2F))
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            PlayerSide(
-                playerName = player2Name,
-                time = if (useTimer) player2Time else null,
-                isActive = currentPlayer == 2,
-                onDiceRoll = {
-                    if (!isRolling) {
-                        isRolling = true
-                        // Random değerler oluştur
-                        val newDice1 = (1..6).random()
-                        val newDice2 = (1..6).random()
-                        dice1Value = newDice1
-                        dice2Value = newDice2
-                        // İstatistik güncelle
-                        val diceKey = if (newDice1 <= newDice2) "${newDice1}-${newDice2}" else "${newDice2}-${newDice1}"
-                        diceStats = diceStats.toMutableMap().apply {
-                            this[diceKey] = (this[diceKey] ?: 0) + 1
-                        }
-                        isRolling = false
+                    
+                    updateTimerDisplay()
+                    
+                    if (player1Time > 0 && player2Time > 0) {
+                        handler.postDelayed(this, 1000)
+                    } else {
+                        timerRunning = false
                     }
-                },
-                dice1Value = dice1Value,
-                dice2Value = dice2Value,
-                isRolling = isRolling
-            )
-        }
-    }
-
-    // İstatistik paneli (altta overlay)
-    if (diceStats.isNotEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            StatisticsPanel(
-                diceStats = diceStats,
-                dice1Played = dice1Played,
-                dice2Played = dice2Played,
-                onDice1PlayedChange = { dice1Played = it },
-                onDice2PlayedChange = { dice2Played = it }
-            )
-        }
-    }
-
-}
-
-@Composable
-fun PlayerSide(
-    playerName: String,
-    time: Int?,
-    isActive: Boolean,
-    onDiceRoll: () -> Unit,
-    dice1Value: Int,
-    dice2Value: Int,
-    isRolling: Boolean
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Oyuncu adı
-        Text(
-            text = playerName,
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        // Süre (varsa)
-        if (time != null) {
-            Text(
-                text = "${time / 60}:${String.format("%02d", time % 60)}",
-                color = if (isActive) Color.Yellow else Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        // ZAR AT butonu
-        Button(
-            onClick = onDiceRoll,
-            enabled = !isRolling,
-            modifier = Modifier
-                .size(120.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isActive) Color.Green else Color.Gray
-            )
-        ) {
-            Text(
-                text = if (isRolling) "ATIYOR..." else "ZAR AT",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        // Zarlar
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            DiceComponent(dice1Value, 80.dp, isRolling)
-            DiceComponent(dice2Value, 80.dp, isRolling)
-        }
-    }
-}
-
-@Composable
-fun DiceComponent(value: Int, size: androidx.compose.ui.unit.Dp, isAnimating: Boolean) {
-    val animatedRotation by animateFloatAsState(
-        targetValue = if (isAnimating) 360f else 0f,
-        animationSpec = if (isAnimating) {
-            infiniteRepeatable(
-                animation = tween(200, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            )
-        } else {
-            tween(0)
-        }
-    )
-
-    Box(
-        modifier = Modifier
-            .size(size)
-            .rotate(animatedRotation)
-            .background(Color.White, RoundedCornerShape(12.dp))
-            .border(3.dp, Color.Black, RoundedCornerShape(12.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        when (value) {
-            1 -> DicePattern1()
-            2 -> DicePattern2()
-            3 -> DicePattern3()
-            4 -> DicePattern4()
-            5 -> DicePattern5()
-            6 -> DicePattern6()
-        }
-    }
-}
-
-@Composable
-fun StatisticsPanel(
-    diceStats: Map<String, Int>,
-    dice1Played: Boolean,
-    dice2Played: Boolean,
-    onDice1PlayedChange: (Boolean) -> Unit,
-    onDice2PlayedChange: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp)
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // İstatistikler
-            Column {
-                Text("Zar İstatistikleri", fontWeight = FontWeight.Bold)
-                diceStats.forEach { (dice, count) ->
-                    Text("$dice: $count", fontSize = 12.sp)
-                }
-            }
-
-            // Checkbox'lar
-            Column {
-                Text("Oynanan Zarlar", fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = dice1Played,
-                        onCheckedChange = onDice1PlayedChange
-                    )
-                    Text("Zar 1")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = dice2Played,
-                        onCheckedChange = onDice2PlayedChange
-                    )
-                    Text("Zar 2")
-                }
-            }
-
-            // Butonlar
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = {
-                        onDice1PlayedChange(true)
-                        onDice2PlayedChange(true)
-                    }
-                ) {
-                    Text("Tümü Oynandı")
-                }
-                Button(
-                    onClick = {
-                        onDice1PlayedChange(false)
-                        onDice2PlayedChange(false)
-                    }
-                ) {
-                    Text("Tümü Gele")
                 }
             }
         }
+        handler.post(timerRunnable)
     }
-}
-
-// Zar desenleri
-@Composable
-fun DicePattern1() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-        )
+    
+    private fun updateTimerDisplay() {
+        val player1TimeText = "${player1Time / 60}:${String.format("%02d", player1Time % 60)}"
+        val player2TimeText = "${player2Time / 60}:${String.format("%02d", player2Time % 60)}"
+        
+        player1Timer.text = player1TimeText
+        player2Timer.text = player2TimeText
+        
+        // Aktif oyuncuyu sarı renkle göster
+        player1Timer.setTextColor(if (currentPlayer == 1) 0xFFFFFF00.toInt() else 0xFFFFFFFF.toInt())
+        player2Timer.setTextColor(if (currentPlayer == 2) 0xFFFFFF00.toInt() else 0xFFFFFFFF.toInt())
     }
-}
-
-@Composable
-fun DicePattern2() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopStart)
-                .offset(x = 8.dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomEnd)
-                .offset(x = (-8).dp, y = (-8).dp)
-        )
-    }
-}
-
-@Composable
-fun DicePattern3() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopStart)
-                .offset(x = 8.dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.Center)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomEnd)
-                .offset(x = (-8).dp, y = (-8).dp)
-        )
-    }
-}
-
-@Composable
-fun DicePattern4() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopStart)
-                .offset(x = 8.dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopEnd)
-                .offset(x = (-8).dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomStart)
-                .offset(x = 8.dp, y = (-8).dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomEnd)
-                .offset(x = (-8).dp, y = (-8).dp)
-        )
-    }
-}
-
-@Composable
-fun DicePattern5() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopStart)
-                .offset(x = 8.dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopEnd)
-                .offset(x = (-8).dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.Center)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomStart)
-                .offset(x = 8.dp, y = (-8).dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomEnd)
-                .offset(x = (-8).dp, y = (-8).dp)
-        )
-    }
-}
-
-@Composable
-fun DicePattern6() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopStart)
-                .offset(x = 8.dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.TopEnd)
-                .offset(x = (-8).dp, y = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.CenterStart)
-                .offset(x = 8.dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.CenterEnd)
-                .offset(x = (-8).dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomStart)
-                .offset(x = 8.dp, y = (-8).dp)
-        )
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(Color.Black, CircleShape)
-                .align(Alignment.BottomEnd)
-                .offset(x = (-8).dp, y = (-8).dp)
-        )
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        timerRunning = false
+        handler.removeCallbacks(timerRunnable)
     }
 }

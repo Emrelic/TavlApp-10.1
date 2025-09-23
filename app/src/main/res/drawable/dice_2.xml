@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Zar arka planı -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <stroke android:width="3dp" android:color="#000000" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Sol üst nokta -->
+    <item android:gravity="top|left" android:top="8dp" android:left="8dp">
+        <shape android:shape="oval">
+            <solid android:color="#000000" />
+            <size android:width="12dp" android:height="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Sağ alt nokta -->
+    <item android:gravity="bottom|right" android:bottom="8dp" android:right="8dp">
+        <shape android:shape="oval">
+            <solid android:color="#000000" />
+            <size android:width="12dp" android:height="12dp" />
+        </shape>
+    </item>
+</layer-list>
