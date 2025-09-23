@@ -15,7 +15,8 @@
       "Bash(findstr:*)",
       "Read(//c/Users/ikizler1/**)",
       "Bash(powershell:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

@@ -77,8 +77,22 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
 
 ## Son Güncelleme
-- **Tarih**: 2025-09-22
-- **Durum**: Crawford kuralı eklendi ve test edildi
+- **Tarih**: 2025-09-23
+- **Durum**: Zar sistemi implementasyonu başarısız - Eski stabil versiyona geri dönüldü
+
+### 6. Zar Atma Sistemi Denemesi (2025-09-23) - BAŞARISIZ
+- ❌ **Zar atma sistemi implementasyonu**: Çok karmaşık ve problemli
+- ❌ **ANR sorunları**: Uygulama donması ve çökmeler
+- ❌ **Sonsuz döngü**: startInitialRoll() fonksiyonunda
+- ✅ **Kurtarma işlemi**: Git'ten çalışan versiyon geri yüklendi (a163498)
+- 🔮 **Sonuç**: Temel oyun stabil, zar sistemi gelecekte daha basit eklenecek
+
+## Mevcut Özellikler (Stabil Versiyon)
+- ✅ **Crawford kuralı**: Tam implementasyon
+- ✅ **Katlama sistemi**: Modern tavla için aktif
+- ✅ **Geri al/Maçı sonlandır**: Mavi/kırmızı butonlar
+- ✅ **Puan sistemi**: Otomatik hesaplama
+- ❌ **Zar sistemi**: Henüz yok (gelecek versiyon)
 
 ---
 
@@ -138,6 +152,7 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - **"*yle"** = Yapılacaklar listesine ekle
 - **"*ncp"** = Not defterlerini doldur, commit + push
 - **"*bty"** = Build et telefona yükle
+- **"*ty"** = Telefona yükle (build et + yükle)
 - **"*nto"** = Not defterlerini oku (ntk equivalent)
 - **"*mo"** = md uzantılı tüm not defterlerini oku
 - **"*çpe"** = Çalışma protokolüne ekle
