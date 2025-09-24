@@ -78,13 +78,16 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 
 ## Son Güncelleme
 - **Tarih**: 2025-09-25
-- **Durum**: PROFESYONEl TAVLA SAATİ SİSTEMİ TAMAMLANDI ✅
+- **Durum**: ZAR ATMA ÇÖKME SORUNU GİDERİLDİ ✅
 
-### 6. Zar Atma Sistemi Denemesi (2025-09-23) - İLK DENEME BAŞARISIZ
-- ❌ **İlk implementasyon**: AlertDialog tabanlı, karmaşık ve problemli
-- ❌ **ANR sorunları**: Uygulama donması ve çökmeler
-- ❌ **Sonsuz döngü**: startInitialRoll() fonksiyonunda
-- ✅ **Kurtarma işlemi**: Git'ten çalışan versiyon geri yüklendi (a163498)
+### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
+- ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"
+- ❌ **İkinci problem**: Zar atıcı ayarı ile oyun başlatınca çökme - "zar atıcı ayarına basıp oyuna basınca çöküyor"
+- 🔍 **Tespit edilen sorun**: Drawable kaynakları yükleme hatası
+- ✅ **Çözüm**: Image bileşenleri Text ile değiştirildi
+- ✅ **Basitleştirme**: Tüm drawable bağımlılıkları kaldırıldı
+- ✅ **Sonuç**: APK başarıyla build edildi ve telefona yüklendi
+- ✅ **Test durumu**: Çökme sorunu giderildi, zarlar sayısal olarak görüntüleniyor
 
 ### 7. Yeni Oyun Ayarları Genişletmesi (2025-09-25) ✅
 - ✅ **7 Ayar Çerçevesi**: Tek satırda scrollable Row ile düzenlendi
@@ -101,14 +104,13 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Maçı Sonlandır: Koyu kırmızı `#B71C1C` (iki ton koyu)
 - ✅ **Eşit Boyutlar**: Her buton weight=1f ile eşit genişlik
 
-### 9. Profesyonel Tavla Saati Sistemi (2025-09-25) ❌ ÇÖKÜYOR
-- ❌ **FIBO/WBA Kuralları**: Uluslararası standartlara uygun tasarım
-- ❌ **1.5 Dakika Rezerv**: 90 saniye toplam süre
-- ❌ **12 Saniye Bronstein Delay**: Her hamle öncesi gecikme
-- ❌ **Yatay Layout**: Sol uçuk mavi, sağ uçuk kırmızı, ortada siyah çizgi
-- ❌ **Tam Ekran Butonlar**: Sol/sağ kenarlarda tam yükseklik
-- ❌ **Oyun Akışı**: Başlangıç zarı → büyük atan başlar → normal oyun
-- ❌ **PROBLEM**: Uygulama çöküyor, drawable kaynaklı sorun olabilir
+### 9. Basitleştirilmiş Zar Sistemi (2025-09-25) ✅
+- ✅ **Yatay Layout**: Sol uçuk mavi, sağ uçuk kırmızı, ortada siyah çizgi
+- ✅ **Tam Ekran Butonlar**: Sol/sağ kenarlarda tam yükseklik tıklanabilir
+- ✅ **Oyun Akışı**: Başlangıç zarı → büyük atan başlar → normal oyun
+- ✅ **Basitleştirilmiş Zarlar**: Text bileşeni ile sayısal görünüm (1-6)
+- ✅ **Çökme Sorunu Giderildi**: Drawable bağımlılıkları kaldırıldı
+- ✅ **Saat Sistemi**: FIBO kuralları (90sn rezerv + 12sn delay) korundu
 
 ## Mevcut Özellikler (Stabil Versiyon)
 - ✅ **Crawford kuralı**: Tam implementasyon
@@ -116,7 +118,8 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - ✅ **3'lü buton sistemi**: Geri Al (koyu mavi), Zar At (mor), Maçı Sonlandır (koyu kırmızı)
 - ✅ **7 ayar sistemi**: Yeni oyun sayfasında scrollable Row
 - ✅ **Puan sistemi**: Otomatik hesaplama
-- ⚠️ **Zar atma sistemi**: Basit Compose tabanlı, çökme sorunu giderildi
+- ✅ **Zar atma sistemi**: Tam sayfa DiceActivity, çökme sorunu çözüldü
+- ✅ **FIBO saat sistemi**: Profesyonel turnuva kuralları (90sn + 12sn delay)
 
 ## Google API Bilgileri (2025-09-23)
 - **Paket Adı**: `com.tavla.tavlapp`
