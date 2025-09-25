@@ -18,9 +18,13 @@
       "Bash(git push:*)",
       "Bash(git checkout:*)",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       "Bash(title TavlApp)",
       "Bash(cmd /c:*)",
       "Bash(echo $'\\033]0;TavlApp\\007')"
+=======
+      "Bash(git commit:*)"
+>>>>>>> Stashed changes
 =======
       "Bash(git commit:*)"
 >>>>>>> Stashed changes
