@@ -2388,19 +2388,19 @@ fun GameScreen(
                 }
             }
 
-            // ✅ Geri alma ve maçı sonlandırma butonları - aynı satırda
+            // ✅ Geri alma, zar atma ve maçı sonlandırma butonları - aynı satırda
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Son hamleyi geri al butonu - Mavi bölge
+                // Son hamleyi geri al butonu - Koyu mavi
                 Button(
                     onClick = { undoLastRound() },
                     enabled = undoStack.isNotEmpty(), // Pasif durumda göster
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2196F3), // Mavi
+                        containerColor = Color(0xFF0D47A1), // Koyu mavi (iki ton koyu)
                         disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
                     ),
                     modifier = Modifier
@@ -2417,10 +2417,32 @@ fun GameScreen(
                     }
                 }
 
-                // Maçı sonlandırma butonu - Kırmızı bölge
+                // Zar at butonu - Ortada mor renk
+                Button(
+                    onClick = { showDiceScreen = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF9C27B0) // Mor renk
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("🎲", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Zar At", color = Color.White, fontSize = 12.sp)
+                    }
+                }
+
+                // Maçı sonlandırma butonu - Koyu kırmızı
                 Button(
                     onClick = { showEndMatchConfirmation = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFB71C1C) // Koyu kırmızı (iki ton koyu)
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp)

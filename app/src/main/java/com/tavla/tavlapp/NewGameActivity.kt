@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
@@ -109,6 +110,10 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
     // Zar atıcı ve süre tutucu ayarları
     var useDiceRoller by remember { mutableStateOf(false) }
     var useTimer by remember { mutableStateOf(false) }
+
+    // Yeni ayarlar
+    var keepStatistics by remember { mutableStateOf(false) }
+    var markDiceEvaluation by remember { mutableStateOf(false) }
 
     // El sayısı seçenekleri
     val roundsOptions = listOf("3", "5", "7", "9","11", "15", "17", "21")
@@ -230,10 +235,10 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             }
         }
 
-        // Tüm Oyun Ayarları - Tek satırda 5 çerçeve
+        // Tüm Oyun Ayarları - 7 çerçeve tek satırda
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.Top
         ) {
             // Tavla Türü Çerçevesi
@@ -245,7 +250,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
+                        .padding(4.dp)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -253,7 +258,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     Text(
                         text = "Tavla Türü",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                     
                     // İçerik alanı - ortalanmış
@@ -327,7 +332,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
+                        .padding(4.dp)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -335,7 +340,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     Text(
                         text = "El Sayısı",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                     
                     // İçerik alanı - ortalanmış
@@ -390,7 +395,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
+                        .padding(4.dp)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -398,7 +403,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     Text(
                         text = "Skor Modu",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                     
                     // İçerik alanı - ortalanmış
@@ -432,7 +437,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
+                        .padding(4.dp)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -440,7 +445,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     Text(
                         text = "Zar Atıcı Kullanımı",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                     
                     // İçerik alanı - ortalanmış
@@ -466,7 +471,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
+                        .padding(4.dp)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -474,7 +479,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     Text(
                         text = "Süre Tutucu Kullanımı",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                     
                     // İçerik alanı - ortalanmış
@@ -487,6 +492,74 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         checked = useTimer,
                         onCheckedChange = { useTimer = it }
                     )
+                    }
+                }
+            }
+
+            // İstatistikler Tutulsun Çerçevesi
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(120.dp),
+                border = BorderStroke(1.dp, Color.Gray)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Başlık - Sabit pozisyon
+                    Text(
+                        text = "İstatistikler Tutulsun",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+
+                    // İçerik alanı - ortalanmış
+                    Column(
+                        modifier = Modifier.fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Switch(
+                            checked = keepStatistics,
+                            onCheckedChange = { keepStatistics = it }
+                        )
+                    }
+                }
+            }
+
+            // Zar Değerlendirmesi İşaretlensin Çerçevesi
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(120.dp),
+                border = BorderStroke(1.dp, Color.Gray)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Başlık - Sabit pozisyon
+                    Text(
+                        text = "Zar Değerlendirmesi İşaretlensin",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+
+                    // İçerik alanı - ortalanmış
+                    Column(
+                        modifier = Modifier.fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Switch(
+                            checked = markDiceEvaluation,
+                            onCheckedChange = { markDiceEvaluation = it }
+                        )
                     }
                 }
             }
@@ -541,6 +614,8 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         putExtra("is_score_automatic", isScoreAutomatic)
                         putExtra("use_dice_roller", useDiceRoller)
                         putExtra("use_timer", useTimer)
+                        putExtra("keep_statistics", keepStatistics)
+                        putExtra("mark_dice_evaluation", markDiceEvaluation)
                     }
                     context.startActivity(intent)
                 },

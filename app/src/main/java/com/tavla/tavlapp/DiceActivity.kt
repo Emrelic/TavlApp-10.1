@@ -1,45 +1,44 @@
 package com.tavla.tavlapp
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
-import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-class DiceActivity : AppCompatActivity() {
-    
-    // UI Elements
-    private lateinit var player1Timer: TextView
-    private lateinit var player2Timer: TextView
-    private lateinit var player1Name: TextView
-    private lateinit var player2Name: TextView
-    private lateinit var dice1Left: ImageView
-    private lateinit var dice2Left: ImageView
-    private lateinit var dice1Right: ImageView
-    private lateinit var dice2Right: ImageView
-    private lateinit var statsText: TextView
-    private lateinit var checkAllPlayed: CheckBox
-    private lateinit var checkAllMissed: CheckBox
-    private lateinit var diceCountNumber: TextView
-    
-    // Game State
-    private var player1Time = 300 // 5 dakika
-    private var player2Time = 300
-    private var currentPlayer = 1
-    private var timerRunning = false
-    private val diceStats = mutableMapOf<String, Int>()
-    private var diceCount = 0
-    
-    // Timer
-    private val handler = Handler(Looper.getMainLooper())
-    private lateinit var timerRunnable: Runnable
-    
+data class GameClock(
+    var reserveTimeSeconds: Int,  // Toplam rezerv süre (saniye)
+    var delaySeconds: Int = 12,   // Bronstein delay (saniye)
+    var isActive: Boolean = false,
+    var currentDelayRemaining: Int = 12
+)
+
+enum class GameState {
+    INITIAL_ROLL,    // Oyun başlangıcı - kim başlayacak
+    PLAYING,         // Normal oyun
+    PAUSED
+}
+
+class DiceActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_dice)
-        
+
         // Full screen
         window.decorView.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
@@ -49,161 +48,392 @@ class DiceActivity : AppCompatActivity() {
             View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         )
-        
+
         // Intent parametreleri
         val gameType = intent.getStringExtra("game_type") ?: "Modern"
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
         val player1NameText = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
         val player2NameText = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
-        
-        initViews()
-        setupUI(player1NameText, player2NameText, useTimer)
-        setupClickListeners()
-        
-        if (useTimer) {
-            startTimer()
+
+        setContent {
+            TavlaAppTheme {
+                BackgammonClockScreen(
+                    gameType = gameType,
+                    useTimer = useTimer,
+                    player1Name = player1NameText,
+                    player2Name = player2NameText,
+                    onExit = { finish() }
+                )
+            }
         }
     }
-    
-    private fun initViews() {
-        player1Timer = findViewById(R.id.player1Timer)
-        player2Timer = findViewById(R.id.player2Timer)
-        player1Name = findViewById(R.id.player1Name)
-        player2Name = findViewById(R.id.player2Name)
-        dice1Left = findViewById(R.id.dice1Left)
-        dice2Left = findViewById(R.id.dice2Left)
-        dice1Right = findViewById(R.id.dice1Right)
-        dice2Right = findViewById(R.id.dice2Right)
-        statsText = findViewById(R.id.statsText)
-        checkAllPlayed = findViewById(R.id.checkAllPlayed)
-        checkAllMissed = findViewById(R.id.checkAllMissed)
-        diceCountNumber = findViewById(R.id.diceCountNumber)
-    }
-    
-    private fun setupUI(player1NameText: String, player2NameText: String, useTimer: Boolean) {
-        player1Name.text = player1NameText
-        player2Name.text = player2NameText
-        
-        if (!useTimer) {
-            player1Timer.visibility = View.GONE
-            player2Timer.visibility = View.GONE
-        }
-        
-        updateTimerDisplay()
-        updateStatsDisplay()
-        diceCountNumber.text = diceCount.toString()
-    }
-    
-    private fun setupClickListeners() {
-        // Sol zarlar (Player 1)
-        dice1Left.setOnClickListener { rollDice() }
-        dice2Left.setOnClickListener { rollDice() }
-        
-        // Sağ zarlar (Player 2)
-        dice1Right.setOnClickListener { rollDice() }
-        dice2Right.setOnClickListener { rollDice() }
-        
-        // Checkboxlar
-        checkAllPlayed.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) checkAllMissed.isChecked = false
-        }
-        
-        checkAllMissed.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) checkAllPlayed.isChecked = false
-        }
-    }
-    
-    private fun rollDice() {
-        val dice1Value = Random.nextInt(1, 7)
-        val dice2Value = Random.nextInt(1, 7)
-        
-        // Zar görsellerini güncelle
-        updateDiceImages(dice1Value, dice2Value)
-        
-        // İstatistik güncelle
-        val diceKey = if (dice1Value <= dice2Value) "${dice1Value}-${dice2Value}" else "${dice2Value}-${dice1Value}"
-        diceStats[diceKey] = (diceStats[diceKey] ?: 0) + 1
-        diceCount++
-        
-        updateStatsDisplay()
-        diceCountNumber.text = diceCount.toString()
-        
-        // Sırayı değiştir
-        currentPlayer = if (currentPlayer == 1) 2 else 1
-        updateTimerDisplay()
-    }
-    
-    private fun updateDiceImages(dice1: Int, dice2: Int) {
-        val dice1Resource = getDiceResource(dice1)
-        val dice2Resource = getDiceResource(dice2)
-        
-        // Tüm zarlara aynı değerleri ata (senin tasarımında tüm zarlar aynı)
-        dice1Left.setImageResource(dice1Resource)
-        dice2Left.setImageResource(dice2Resource)
-        dice1Right.setImageResource(dice1Resource)
-        dice2Right.setImageResource(dice2Resource)
-    }
-    
-    private fun getDiceResource(value: Int): Int {
-        return when (value) {
-            1 -> R.drawable.dice_1
-            2 -> R.drawable.dice_2
-            3 -> R.drawable.dice_3
-            4 -> R.drawable.dice_4
-            5 -> R.drawable.dice_5
-            6 -> R.drawable.dice_6
-            else -> R.drawable.dice_1
-        }
-    }
-    
-    private fun updateStatsDisplay() {
-        val statsBuilder = StringBuilder()
-        diceStats.forEach { (dice, count) ->
-            statsBuilder.append("$dice: $count\n")
-        }
-        statsText.text = if (statsBuilder.isNotEmpty()) statsBuilder.toString().trim() else "Henüz zar atılmadı"
-    }
-    
-    private fun startTimer() {
-        timerRunning = true
-        timerRunnable = object : Runnable {
-            override fun run() {
-                if (timerRunning) {
-                    if (currentPlayer == 1 && player1Time > 0) {
-                        player1Time--
-                    } else if (currentPlayer == 2 && player2Time > 0) {
-                        player2Time--
-                    }
-                    
-                    updateTimerDisplay()
-                    
-                    if (player1Time > 0 && player2Time > 0) {
-                        handler.postDelayed(this, 1000)
+}
+
+@Composable
+fun BackgammonClockScreen(
+    gameType: String,
+    useTimer: Boolean,
+    player1Name: String,
+    player2Name: String,
+    onExit: () -> Unit
+) {
+    // Oyun durumu
+    var gameState by remember { mutableStateOf(GameState.INITIAL_ROLL) }
+    var currentPlayer by remember { mutableIntStateOf(1) }
+
+    // Zarlar
+    var player1Dice by remember { mutableIntStateOf(1) }
+    var player2Dice by remember { mutableIntStateOf(1) }
+    var leftDice1 by remember { mutableIntStateOf(1) }
+    var leftDice2 by remember { mutableIntStateOf(1) }
+    var rightDice1 by remember { mutableIntStateOf(1) }
+    var rightDice2 by remember { mutableIntStateOf(1) }
+
+    // Saat sistemi (FIBO kuralları: 1.5 dakika rezerv + 12sn Bronstein delay)
+    var player1Clock by remember { mutableStateOf(GameClock(reserveTimeSeconds = 90)) }
+    var player2Clock by remember { mutableStateOf(GameClock(reserveTimeSeconds = 90)) }
+
+    // Timer effect
+    LaunchedEffect(gameState, currentPlayer) {
+        if (gameState == GameState.PLAYING && useTimer) {
+            while (true) {
+                delay(1000L)
+
+                if (currentPlayer == 1 && player1Clock.isActive) {
+                    if (player1Clock.currentDelayRemaining > 0) {
+                        player1Clock = player1Clock.copy(currentDelayRemaining = player1Clock.currentDelayRemaining - 1)
                     } else {
-                        timerRunning = false
+                        if (player1Clock.reserveTimeSeconds > 0) {
+                            player1Clock = player1Clock.copy(reserveTimeSeconds = player1Clock.reserveTimeSeconds - 1)
+                        }
+                    }
+                } else if (currentPlayer == 2 && player2Clock.isActive) {
+                    if (player2Clock.currentDelayRemaining > 0) {
+                        player2Clock = player2Clock.copy(currentDelayRemaining = player2Clock.currentDelayRemaining - 1)
+                    } else {
+                        if (player2Clock.reserveTimeSeconds > 0) {
+                            player2Clock = player2Clock.copy(reserveTimeSeconds = player2Clock.reserveTimeSeconds - 1)
+                        }
                     }
                 }
             }
         }
-        handler.post(timerRunnable)
     }
-    
-    private fun updateTimerDisplay() {
-        val player1TimeText = "${player1Time / 60}:${String.format("%02d", player1Time % 60)}"
-        val player2TimeText = "${player2Time / 60}:${String.format("%02d", player2Time % 60)}"
-        
-        player1Timer.text = player1TimeText
-        player2Timer.text = player2TimeText
-        
-        // Aktif oyuncuyu sarı renkle göster
-        player1Timer.setTextColor(if (currentPlayer == 1) 0xFFFFFF00.toInt() else 0xFFFFFFFF.toInt())
-        player2Timer.setTextColor(if (currentPlayer == 2) 0xFFFFFF00.toInt() else 0xFFFFFFFF.toInt())
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        timerRunning = false
-        handler.removeCallbacks(timerRunnable)
+
+    // Ana ekran - yatay layout
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        // Sol taraf - Player 1 (Uçuk mavi)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color(0xFFE3F2FD)) // Uçuk mavi
+                .clickable {
+                    handlePlayerButtonPress(
+                        playerNumber = 1,
+                        gameState = gameState,
+                        currentPlayer = currentPlayer,
+                        onDiceRoll = { dice ->
+                            when (gameState) {
+                                GameState.INITIAL_ROLL -> {
+                                    player1Dice = dice
+                                    if (player2Dice != 1) {
+                                        // Her iki oyuncu da attı, karşılaştır
+                                        if (player1Dice > player2Dice) {
+                                            currentPlayer = 1
+                                            gameState = GameState.PLAYING
+                                            leftDice1 = player1Dice
+                                            leftDice2 = player2Dice
+                                            player1Clock = player1Clock.copy(isActive = true, currentDelayRemaining = 12)
+                                        } else if (player2Dice > player1Dice) {
+                                            currentPlayer = 2
+                                            gameState = GameState.PLAYING
+                                            rightDice1 = player1Dice
+                                            rightDice2 = player2Dice
+                                            player2Clock = player2Clock.copy(isActive = true, currentDelayRemaining = 12)
+                                        } else {
+                                            // Berabere, tekrar at
+                                            player1Dice = 1
+                                            player2Dice = 1
+                                        }
+                                    }
+                                }
+                                GameState.PLAYING -> {
+                                    // Normal zar atma
+                                    leftDice1 = Random.nextInt(1, 7)
+                                    leftDice2 = Random.nextInt(1, 7)
+                                    // Saati durdur ve karşı tarafa geçir
+                                    player1Clock = player1Clock.copy(isActive = false)
+                                    player2Clock = player2Clock.copy(isActive = true, currentDelayRemaining = 12)
+                                    currentPlayer = 2
+                                }
+                                else -> {}
+                            }
+                        }
+                    )
+                }
+        ) {
+            // Sol taraf içeriği
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Oyuncu adı
+                Text(
+                    text = player1Name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                // Süre bilgisi
+                if (useTimer) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = formatTime(player1Clock.reserveTimeSeconds),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (player1Clock.isActive) Color.Red else Color.Black
+                        )
+                        Text(
+                            text = "Delay: ${player1Clock.currentDelayRemaining}s",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+
+                // Zarlar
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Sol zar 1
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${if (gameState == GameState.INITIAL_ROLL) player1Dice else leftDice1}",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                    }
+
+                    // Sol zar 2
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${if (gameState == GameState.INITIAL_ROLL) 1 else leftDice2}",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                    }
+                }
+
+                // Buton metni
+                Text(
+                    text = when (gameState) {
+                        GameState.INITIAL_ROLL -> "ZAR AT\n(Kim Başlar)"
+                        GameState.PLAYING -> if (currentPlayer == 1) "ZAR AT\n(Sıran)" else "BEKLE"
+                        else -> "DURAKLAT"
+                    },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = if (currentPlayer == 1 || gameState == GameState.INITIAL_ROLL) Color.Black else Color.Gray
+                )
+            }
+        }
+
+        // Orta çizgi
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .fillMaxHeight()
+                .background(Color.Black)
+        )
+
+        // Sağ taraf - Player 2 (Uçuk kırmızı)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color(0xFFFFEBEE)) // Uçuk kırmızı
+                .clickable {
+                    handlePlayerButtonPress(
+                        playerNumber = 2,
+                        gameState = gameState,
+                        currentPlayer = currentPlayer,
+                        onDiceRoll = { dice ->
+                            when (gameState) {
+                                GameState.INITIAL_ROLL -> {
+                                    player2Dice = dice
+                                    if (player1Dice != 1) {
+                                        // Her iki oyuncu da attı, karşılaştır
+                                        if (player2Dice > player1Dice) {
+                                            currentPlayer = 2
+                                            gameState = GameState.PLAYING
+                                            rightDice1 = player1Dice
+                                            rightDice2 = player2Dice
+                                            player2Clock = player2Clock.copy(isActive = true, currentDelayRemaining = 12)
+                                        } else if (player1Dice > player2Dice) {
+                                            currentPlayer = 1
+                                            gameState = GameState.PLAYING
+                                            leftDice1 = player1Dice
+                                            leftDice2 = player2Dice
+                                            player1Clock = player1Clock.copy(isActive = true, currentDelayRemaining = 12)
+                                        } else {
+                                            // Berabere, tekrar at
+                                            player1Dice = 1
+                                            player2Dice = 1
+                                        }
+                                    }
+                                }
+                                GameState.PLAYING -> {
+                                    // Normal zar atma
+                                    rightDice1 = Random.nextInt(1, 7)
+                                    rightDice2 = Random.nextInt(1, 7)
+                                    // Saati durdur ve karşı tarafa geçir
+                                    player2Clock = player2Clock.copy(isActive = false)
+                                    player1Clock = player1Clock.copy(isActive = true, currentDelayRemaining = 12)
+                                    currentPlayer = 1
+                                }
+                                else -> {}
+                            }
+                        }
+                    )
+                }
+        ) {
+            // Sağ taraf içeriği
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Oyuncu adı
+                Text(
+                    text = player2Name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                // Süre bilgisi
+                if (useTimer) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = formatTime(player2Clock.reserveTimeSeconds),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (player2Clock.isActive) Color.Red else Color.Black
+                        )
+                        Text(
+                            text = "Delay: ${player2Clock.currentDelayRemaining}s",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+
+                // Zarlar
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Sağ zar 1
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${if (gameState == GameState.INITIAL_ROLL) player2Dice else rightDice1}",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                    }
+
+                    // Sağ zar 2
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${if (gameState == GameState.INITIAL_ROLL) 1 else rightDice2}",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                    }
+                }
+
+                // Buton metni
+                Text(
+                    text = when (gameState) {
+                        GameState.INITIAL_ROLL -> "ZAR AT\n(Kim Başlar)"
+                        GameState.PLAYING -> if (currentPlayer == 2) "ZAR AT\n(Sıran)" else "BEKLE"
+                        else -> "DURAKLAT"
+                    },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = if (currentPlayer == 2 || gameState == GameState.INITIAL_ROLL) Color.Black else Color.Gray
+                )
+            }
+        }
     }
 }
+
+private fun handlePlayerButtonPress(
+    playerNumber: Int,
+    gameState: GameState,
+    currentPlayer: Int,
+    onDiceRoll: (Int) -> Unit
+) {
+    when (gameState) {
+        GameState.INITIAL_ROLL -> {
+            // Başlangıç zarı at
+            val dice = Random.nextInt(1, 7)
+            onDiceRoll(dice)
+        }
+        GameState.PLAYING -> {
+            if (currentPlayer == playerNumber) {
+                // Sadece sırası olan oyuncu zar atabilir
+                onDiceRoll(0) // Parametre kullanılmıyor, random içeride
+            }
+        }
+        else -> {}
+    }
+}
+
+private fun formatTime(seconds: Int): String {
+    val minutes = seconds / 60
+    val secs = seconds % 60
+    return String.format("%d:%02d", minutes, secs)
+}
+
