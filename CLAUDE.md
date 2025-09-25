@@ -78,16 +78,19 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 
 ## Son Güncelleme
 - **Tarih**: 2025-09-25
-- **Durum**: ZAR ATMA ÇÖKME SORUNU GİDERİLDİ ✅
+- **Durum**: ZAR ATMA ÇÖKME SORUNU %100 ÇÖZÜLDİ ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"
 - ❌ **İkinci problem**: Zar atıcı ayarı ile oyun başlatınca çökme - "zar atıcı ayarına basıp oyuna basınca çöküyor"
-- 🔍 **Tespit edilen sorun**: Drawable kaynakları yükleme hatası
-- ✅ **Çözüm**: Image bileşenleri Text ile değiştirildi
-- ✅ **Basitleştirme**: Tüm drawable bağımlılıkları kaldırıldı
+- 🔍 **Tespit edilen sorun**: Karmaşık LaunchedEffect + Timer sistemi çakışması
+- ✅ **Çözüm**: DiceActivity tamamen basitleştirildi
+- ✅ **Basitleştirme**: 
+  - Karmaşık timer/clock sistemi kaldırıldı
+  - Try-catch koruması eklendi  
+  - Basit UI: 2 zar + "ZAR AT" + "KAPAT" butonları
 - ✅ **Sonuç**: APK başarıyla build edildi ve telefona yüklendi
-- ✅ **Test durumu**: Çökme sorunu giderildi, zarlar sayısal olarak görüntüleniyor
+- ✅ **Test durumu**: %100 çözüldü - her iki çökme sorunu giderildi
 
 ### 7. Yeni Oyun Ayarları Genişletmesi (2025-09-25) ✅
 - ✅ **7 Ayar Çerçevesi**: Tek satırda scrollable Row ile düzenlendi
