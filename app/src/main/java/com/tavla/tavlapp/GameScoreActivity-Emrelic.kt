@@ -622,20 +622,21 @@ fun GameScreen(
                             player1CanDouble &&
                             !isCrawfordGame // Crawford elinde küp kullanımı devre dışı
                         ) {
-                            Button(
-                                onClick = { player1OfferDouble() },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
-                                ),
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.9f)
-                                    .height(35.dp)
+                                    .height(50.dp)
+                                    .clickable { player1OfferDouble() }
+                                    .background(
+                                        Color(0xFF4CAF50).copy(alpha = 0.9f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "⚡ KATLA",
+                                    text = "T",
                                     color = Color.White,
-                                    fontSize = 18.sp,
+                                    fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -648,149 +649,121 @@ fun GameScreen(
                     // Katlama menüsü - Oyuncu 1 için
                     if (showPlayer1DoublingMenu) {
                         if (isLandscape) {
-                            // Yatay mod için butonları yan yana düzenleme - İyileştirilmiş boyutlar
+                            // T M B formatında buton bandı - Kesintisiz tam ekran
                             Row(
                                 modifier = Modifier
-                                    .padding(8.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp) // Butonlar arası boşluk
+                                    .fillMaxWidth()
+                                    .height(60.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Kabul Et butonu - Daha büyük boyutlar
-                                Button(
-                                    onClick = { player1AcceptDouble() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Green.copy(alpha = 0.9f)
-                                    ),
+                                // T butonu (Yeşil - Kabul Et)
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .fillMaxHeight()
+                                        .clickable { player1AcceptDouble() }
+                                        .background(Color.Green.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "✓ Kabul Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        text = "T",
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = Color.White
                                     )
                                 }
 
-                                // Pes Et butonu - Daha büyük boyutlar
-                                Button(
-                                    onClick = { player1Resign() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Red.copy(alpha = 0.9f)
-                                    ),
+                                // M butonu (Kırmızı - Pes Et)
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .fillMaxHeight()
+                                        .clickable { player1Resign() }
+                                        .background(Color.Red.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "✗ Pes Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        text = "M",
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = Color.White
                                     )
                                 }
 
-                                // İptal butonu - Daha büyük boyutlar
-                                Button(
-                                    onClick = { resetDoublingCube() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Gray.copy(alpha = 0.9f)
-                                    ),
+                                // B butonu (Gri - İptal)
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .fillMaxHeight()
+                                        .clickable { resetDoublingCube() }
+                                        .background(Color.Gray.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "↩ İptal",
-                                        fontSize = 20.sp, // Büyük font
+                                        text = "B",
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = Color.White
                                     )
                                 }
                             }
                         } else {
-                            // Dikey mod için orijinal dikey düzenleme - İyileştirilmiş boyutlar
-                            Column(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            // Dikey mod için T M B formatında buton bandı
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Kabul Et butonu
-                                Button(
-                                    onClick = { player1AcceptDouble() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Green.copy(alpha = 0.9f)
-                                    ),
+                                // T butonu (Yeşil - Kabul Et)
+                                Box(
                                     modifier = Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { player1AcceptDouble() }
+                                        .background(Color.Green.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("✓", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Kabul Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        text = "T",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                 }
 
-                                // Pes Et butonu
-                                Button(
-                                    onClick = { player1Resign() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Red.copy(alpha = 0.9f)
-                                    ),
+                                // M butonu (Kırmızı - Pes Et)
+                                Box(
                                     modifier = Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { player1Resign() }
+                                        .background(Color.Red.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("✗", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Pes Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        text = "M",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                 }
 
-                                // İptal butonu
-                                Button(
-                                    onClick = { resetDoublingCube() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Gray.copy(alpha = 0.9f)
-                                    ),
+                                // B butonu (Gri - İptal)
+                                Box(
                                     modifier = Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { resetDoublingCube() }
+                                        .background(Color.Gray.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("↩", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("İptal", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        text = "B",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                 }
                             }
                         }
@@ -898,20 +871,21 @@ fun GameScreen(
                             player2CanDouble &&
                             !isCrawfordGame // Crawford elinde küp kullanımı devre dışı
                         ) {
-                            Button(
-                                onClick = { player2OfferDouble() },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
-                                ),
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.9f)
-                                    .height(35.dp)
+                                    .height(50.dp)
+                                    .clickable { player2OfferDouble() }
+                                    .background(
+                                        Color(0xFF4CAF50).copy(alpha = 0.9f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "⚡ KATLA",
+                                    text = "T",
                                     color = Color.White,
-                                    fontSize = 18.sp,
+                                    fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -924,149 +898,121 @@ fun GameScreen(
                     // Katlama menüsü - Oyuncu 2 için
                     if (showPlayer2DoublingMenu) {
                         if (isLandscape) {
-                            // Yatay mod için butonları yan yana düzenleme - İyileştirilmiş boyutlar
+                            // T M B formatında buton bandı - Kesintisiz tam ekran
                             Row(
                                 modifier = Modifier
-                                    .padding(8.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp) // Butonlar arası boşluk
+                                    .fillMaxWidth()
+                                    .height(60.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Kabul Et butonu - Daha büyük boyutlar
-                                Button(
-                                    onClick = { player2AcceptDouble() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Green.copy(alpha = 0.9f)
-                                    ),
+                                // T butonu (Yeşil - Kabul Et)
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .fillMaxHeight()
+                                        .clickable { player2AcceptDouble() }
+                                        .background(Color.Green.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "✓ Kabul Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        text = "T",
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = Color.White
                                     )
                                 }
 
-                                // Pes Et butonu - Daha büyük boyutlar
-                                Button(
-                                    onClick = { player2Resign() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Red.copy(alpha = 0.9f)
-                                    ),
+                                // M butonu (Kırmızı - Pes Et)
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .fillMaxHeight()
+                                        .clickable { player2Resign() }
+                                        .background(Color.Red.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "✗ Pes Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        text = "M",
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = Color.White
                                     )
                                 }
 
-                                // İptal butonu - Daha büyük boyutlar
-                                Button(
-                                    onClick = { resetDoublingCube() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Gray.copy(alpha = 0.9f)
-                                    ),
+                                // B butonu (Gri - İptal)
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .fillMaxHeight()
+                                        .clickable { resetDoublingCube() }
+                                        .background(Color.Gray.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "↩ İptal",
-                                        fontSize = 20.sp, // Büyük font
+                                        text = "B",
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        color = Color.White
                                     )
                                 }
                             }
                         } else {
-                            // Dikey mod için orijinal dikey düzenleme - İyileştirilmiş boyutlar
-                            Column(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            // Dikey mod için T M B formatında buton bandı
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Kabul Et butonu
-                                Button(
-                                    onClick = { player2AcceptDouble() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Green.copy(alpha = 0.9f)
-                                    ),
+                                // T butonu (Yeşil - Kabul Et)
+                                Box(
                                     modifier = Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { player2AcceptDouble() }
+                                        .background(Color.Green.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("✓", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Kabul Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        text = "T",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                 }
 
-                                // Pes Et butonu
-                                Button(
-                                    onClick = { player2Resign() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Red.copy(alpha = 0.9f)
-                                    ),
+                                // M butonu (Kırmızı - Pes Et)
+                                Box(
                                     modifier = Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { player2Resign() }
+                                        .background(Color.Red.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("✗", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Pes Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        text = "M",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                 }
 
-                                // İptal butonu
-                                Button(
-                                    onClick = { resetDoublingCube() },
-                                    shape = RoundedCornerShape(4.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.Gray.copy(alpha = 0.9f)
-                                    ),
+                                // B butonu (Gri - İptal)
+                                Box(
                                     modifier = Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { resetDoublingCube() }
+                                        .background(Color.Gray.copy(alpha = 0.8f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text("↩", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("İptal", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        text = "B",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                 }
                             }
                         }

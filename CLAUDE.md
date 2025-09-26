@@ -76,9 +76,9 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Önde olan kazanırsa → Parti biter
   - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
 
-## Son Güncelleme
-- **Tarih**: 2025-09-25
-- **Durum**: ZAR ATMA ÇÖKME SORUNU %100 ÇÖZÜLDİ ✅
+## Son Güncelleme  
+- **Tarih**: 2025-09-26
+- **Durum**: SKORBOARD T M B BUTONLARI UYGULANMASI ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"
@@ -115,14 +115,28 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - ✅ **Çökme Sorunu Giderildi**: Drawable bağımlılıkları kaldırıldı
 - ✅ **Saat Sistemi**: FIBO kuralları (90sn rezerv + 12sn delay) korundu
 
+### 10. Skorboard T M B Buton Sistemi (2025-09-26) ✅
+- ✅ **KATLA butonları**: T formatına çevrildi (28sp, yeşil arka plan)
+- ✅ **Katlama cevap butonları**: T M B kesintisiz bant formatı
+  - T: Kabul Et (yeşil)
+  - M: Pes Et (kırmızı)  
+  - B: İptal (gri)
+- ✅ **Çift mod desteği**:
+  - Yatay mod: 60dp yükseklik, 28sp font
+  - Dikey mod: 50dp yükseklik, 24sp font
+- ✅ **Her iki oyuncu**: Player1 ve Player2 için aynı T M B formatı
+- ✅ **Tam ekran genişlik**: weight=1f ile eşit bölüştürme
+- ✅ **Fonksiyonellik korundu**: Tüm katlama mantığı değişmeden
+
 ## Mevcut Özellikler (Stabil Versiyon)
 - ✅ **Crawford kuralı**: Tam implementasyon
-- ✅ **Katlama sistemi**: Modern tavla için aktif
+- ✅ **Katlama sistemi**: Modern tavla için aktif, T M B formatında
 - ✅ **3'lü buton sistemi**: Geri Al (koyu mavi), Zar At (mor), Maçı Sonlandır (koyu kırmızı)
 - ✅ **7 ayar sistemi**: Yeni oyun sayfasında scrollable Row
 - ✅ **Puan sistemi**: Otomatik hesaplama
 - ✅ **Zar atma sistemi**: Tam sayfa DiceActivity, çökme sorunu çözüldü
 - ✅ **FIBO saat sistemi**: Profesyonel turnuva kuralları (90sn + 12sn delay)
+- ✅ **T M B buton sistemi**: Skorboard'da katlama butonları yeniden tasarlandı
 
 ## Google API Bilgileri (2025-09-23)
 - **Paket Adı**: `com.tavla.tavlapp`
