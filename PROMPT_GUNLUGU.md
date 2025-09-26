@@ -274,3 +274,30 @@ class DiceActivity : ComponentActivity() {
 
 ### 🎯 Nihai Durum:
 **%100 ÇÖZÜLDİ** - Artık zar atıcı ayarı ve skorboard zar at butonu çökmüyor!
+
+---
+
+## [2025-09-26] APK BUILD VE DEPLOY İŞLEMLERİ ✅
+
+### 🔄 "*bty" Komut Kullanımları:
+1. **İlk deneme**: APK build başarılı, telefon bağlı değildi
+2. **İkinci deneme**: Telefon bağlandı, imza sorunu çıktı
+3. **Çözüm**: Eski uygulama kaldırıldı, temiz kurulum yapıldı
+
+### 📱 İşlem Detayları:
+- ✅ **./gradlew assembleDebug** - Build successful (2s)
+- ✅ **adb devices** - R58M3418NMR telefon tespit edildi
+- ❌ **INSTALL_FAILED_UPDATE_INCOMPATIBLE** - İmza uyumsuzluğu
+- ✅ **adb uninstall com.tavla.tavlapp** - Eski versiyon kaldırıldı
+- ✅ **adb install "app\build\outputs\apk\debug\app-debug.apk"** - Temiz kurulum başarılı
+
+### 🎯 "*ncp" Komut Kullanımı:
+- Not defterleri okundu (CLAUDE.md + PROMPT_GUNLUGU.md)
+- CLAUDE.md'de son güncelleme tarihi güncellendi
+- PROMPT_GUNLUGU.md'ye bu oturum eklendi
+- Commit + push işlemi yapılacak
+
+### 📋 Protokol Takibi:
+- **Beep sistemi**: Görev sonunda ses çalındı ✅
+- **Todo sistemi**: Tüm adımlar takip edildi ✅
+- **Otomatik deploy**: APK build → telefona yükleme tamamlandı ✅
