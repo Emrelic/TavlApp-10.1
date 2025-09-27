@@ -42,13 +42,21 @@ class DiceActivity : ComponentActivity() {
         // Ekranı açık tut
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Intent'den süre kullanım bilgisini al
+        // Intent'den oyun ayarlarını al
         val useTimer = intent.getBooleanExtra("use_timer", false)
+        val gameType = intent.getStringExtra("game_type") ?: "Modern Tavla"
+        val player1Name = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
+        val player2Name = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
 
         try {
             setContent {
                 MaterialTheme {
-                    NewDiceScreen(useTimer = useTimer) { finish() }
+                    NewDiceScreen(
+                        useTimer = useTimer, 
+                        gameType = gameType,
+                        player1Name = player1Name,
+                        player2Name = player2Name
+                    ) { finish() }
                 }
             }
         } catch (e: Exception) {
@@ -59,14 +67,30 @@ class DiceActivity : ComponentActivity() {
 }
 
 @Composable
-fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
+fun NewDiceScreen(
+    useTimer: Boolean = false, 
+    gameType: String = "Modern Tavla",
+    player1Name: String = "Oyuncu 1",
+    player2Name: String = "Oyuncu 2",
+    onExit: () -> Unit
+) {
+    // Oyun modu kontrolü
+    val isModernBackgammon = gameType == "Modern Tavla"
+    
     // Zar durumları
     var leftDice1 by remember { mutableIntStateOf(1) }
     var leftDice2 by remember { mutableIntStateOf(2) }
     var rightDice1 by remember { mutableIntStateOf(3) }
     var rightDice2 by remember { mutableIntStateOf(4) }
     
+    // Animasyon durumları
     var isAnimating by remember { mutableStateOf(false) }
+    var leftDiceAnimating by remember { mutableStateOf(false) }
+    var rightDiceAnimating by remember { mutableStateOf(false) }
+    
+    // Zar görünüm durumları
+    var leftDiceActive by remember { mutableStateOf(false) }
+    var rightDiceActive by remember { mutableStateOf(false) }
     
     // Süre kontrol durumları
     var player1ReserveTime by remember { mutableStateOf(Duration.ZERO) }
@@ -103,13 +127,25 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
         } else null
     }
     
-    // Oyun durumu
-    var gamePhase by remember { mutableIntStateOf(0) } // 0: Başlangıç zarı, 1: Normal oyun
+    // Oyun durumu ve fazları
+    var gamePhase by remember { mutableIntStateOf(0) } 
+    // 0: Başlangıç zarı, 1: Geleneksel ikinci zar (eğer gerekli), 2: Normal oyun
     
     // Başlangıç zar değerleri
     var leftStartDice by remember { mutableIntStateOf(1) }
     var rightStartDice by remember { mutableIntStateOf(1) }
     var showStartDiceResult by remember { mutableStateOf(false) }
+    var leftHasRolled by remember { mutableStateOf(false) }
+    var rightHasRolled by remember { mutableStateOf(false) }
+    
+    // Geleneksel tavla için ekstra durumlar
+    var traditionalFirstPlayer by remember { mutableIntStateOf(0) } // Geleneksel tavlada ilk atan oyuncu
+    var traditionalFirstDice by remember { mutableIntStateOf(0) } // İlk atılan zar değeri
+    var needSecondRoll by remember { mutableStateOf(false) } // İkinci zar atış gereksinimi
+    
+    // Kazanan belirleme
+    var winnerDetermined by remember { mutableStateOf(false) }
+    var gameWinner by remember { mutableIntStateOf(0) } // 1: Sol, 2: Sağ
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -149,61 +185,194 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                 .clickable(enabled = !isAnimating) {
                     if (!isAnimating) {
                         isAnimating = true
+                        leftDiceAnimating = true
+                        leftDiceActive = true
                         val scope = CoroutineScope(Dispatchers.Main)
                         scope.launch {
                             if (gamePhase == 0) {
-                                // Başlangıç zarı - tek zar
-                                repeat(6) { i ->
-                                    leftStartDice = Random.nextInt(1, 7)
-                                    delay(100)
-                                }
+                                // Başlangıç zarı atma - sol taraf
+                                leftStartDice = Random.nextInt(1, 7)
+                                leftHasRolled = true
                                 showStartDiceResult = true
+                                
+                                if (isModernBackgammon) {
+                                    // Modern tavla: İki oyuncu da attıysa sonucu değerlendir
+                                    if (rightHasRolled) {
+                                        // Her iki taraf da attı, karşılaştır
+                                        if (leftStartDice > rightStartDice) {
+                                            gameWinner = 1
+                                            leftDice1 = leftStartDice
+                                            leftDice2 = rightStartDice
+                                            rightDice1 = 1
+                                            rightDice2 = 1
+                                        } else if (rightStartDice > leftStartDice) {
+                                            gameWinner = 2
+                                            rightDice1 = rightStartDice
+                                            rightDice2 = leftStartDice
+                                            leftDice1 = 1
+                                            leftDice2 = 1
+                                        } else {
+                                            // Berabere - tekrar at
+                                            gameWinner = 0
+                                            leftDiceActive = false
+                                            rightDiceActive = false
+                                            leftHasRolled = false
+                                            rightHasRolled = false
+                                            showStartDiceResult = false
+                                            leftDiceAnimating = false
+                                            isAnimating = false
+                                            return@launch
+                                        }
+                                        
+                                        winnerDetermined = true
+                                        gamePhase = 2
+                                        
+                                        if (useTimer) {
+                                            timeControl?.startGame(
+                                                if (gameWinner == 1) BackgammonTimeControl.Player.PLAYER1 
+                                                else BackgammonTimeControl.Player.PLAYER2
+                                            )
+                                        }
+                                    }
+                                    // Eğer sadece sol taraf attıysa, bekle (sağ taraf atmadı)
+                                } else {
+                                    // Geleneksel tavla: İlk zar sonucu
+                                    traditionalFirstPlayer = 1
+                                    traditionalFirstDice = leftStartDice
+                                    
+                                    when (traditionalFirstDice) {
+                                        1 -> {
+                                            gameWinner = 2 // Karşı taraf başlar
+                                            winnerDetermined = true
+                                            gamePhase = 2
+                                            // Karşı taraf zarları
+                                            rightDice1 = Random.nextInt(1, 7)
+                                            delay(200)
+                                            rightDice2 = Random.nextInt(1, 7)
+                                            leftDice1 = 1; leftDice2 = 1
+                                            
+                                            if (useTimer) {
+                                                timeControl?.startGame(BackgammonTimeControl.Player.PLAYER2)
+                                            }
+                                        }
+                                        6 -> {
+                                            gameWinner = 1 // Kendi başlar
+                                            winnerDetermined = true  
+                                            gamePhase = 2
+                                            // Kendi zarları
+                                            leftDice1 = Random.nextInt(1, 7)
+                                            delay(200)
+                                            leftDice2 = Random.nextInt(1, 7)
+                                            rightDice1 = 1; rightDice2 = 1
+                                            
+                                            if (useTimer) {
+                                                timeControl?.startGame(BackgammonTimeControl.Player.PLAYER1)
+                                            }
+                                        }
+                                        else -> {
+                                            needSecondRoll = true
+                                            gamePhase = 1
+                                        }
+                                    }
+                                }
+                            } else if (gamePhase == 1 && !isModernBackgammon) {
+                                // Geleneksel tavla ikinci zar atışı
+                                leftStartDice = Random.nextInt(1, 7)
+                                
+                                val secondDice = rightStartDice
+                                if (traditionalFirstDice > secondDice) {
+                                    gameWinner = 1
+                                } else if (secondDice > traditionalFirstDice) {
+                                    gameWinner = 2
+                                } else {
+                                    gameWinner = 0
+                                    leftDiceActive = false
+                                    rightDiceActive = false
+                                    showStartDiceResult = false
+                                    gamePhase = 0
+                                    needSecondRoll = false
+                                    leftDiceAnimating = false
+                                    isAnimating = false
+                                    return@launch
+                                }
+                                
+                                winnerDetermined = true
+                                gamePhase = 2
+                                
+                                if (gameWinner == 1) {
+                                    leftDice1 = Random.nextInt(1, 7)
+                                    delay(200)
+                                    leftDice2 = Random.nextInt(1, 7)
+                                    rightDice1 = 1; rightDice2 = 1
+                                } else {
+                                    rightDice1 = Random.nextInt(1, 7)
+                                    delay(200)
+                                    rightDice2 = Random.nextInt(1, 7)
+                                    leftDice1 = 1; leftDice2 = 1
+                                }
+                                
+                                if (useTimer) {
+                                    timeControl?.startGame(
+                                        if (gameWinner == 1) BackgammonTimeControl.Player.PLAYER1 
+                                        else BackgammonTimeControl.Player.PLAYER2
+                                    )
+                                }
                             } else {
                                 // Normal oyun - çift zar
-                                repeat(6) { i ->
-                                    leftDice1 = Random.nextInt(1, 7)
-                                    leftDice2 = Random.nextInt(1, 7)
-                                    delay(100)
-                                }
+                                leftDice1 = Random.nextInt(1, 7)
+                                delay(200)
+                                leftDice2 = Random.nextInt(1, 7)
                                 
                                 // Süre yönetimi - Player1'e geç
                                 timeControl?.switchToPlayer(BackgammonTimeControl.Player.PLAYER1)
                             }
+                            leftDiceAnimating = false
                             isAnimating = false
+                            
+                            // GamePhase 0'da zar attıktan sonra aktif kal (sadece animasyon bitsin)
+                            if (gamePhase == 0 && !winnerDetermined) {
+                                leftDiceActive = true
+                            }
                         }
                     }
                 }
-                .background(Color(0xFF1976D2).copy(alpha = 0.8f)),
+                .background(
+                    if (player1IsActive || gameWinner == 1 || (gameWinner == 0 && gamePhase <= 1)) 
+                        Color(0xFF1976D2).copy(alpha = 1.0f) // Parlak mavi - aktif
+                    else 
+                        Color(0xFF1976D2).copy(alpha = 0.4f) // Mat mavi - pasif
+                ),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = "SÜRE\nBAŞLAT",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.graphicsLayer(rotationZ = 0f)
-                )
-                
                 if (useTimer) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Rezerv:\n${(player1ReserveTime.inWholeMinutes)}:${(player1ReserveTime.inWholeSeconds % 60).toString().padStart(2, '0')}",
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Hamle:\n${player1MoveTime.inWholeSeconds}s",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (player1IsActive) Color.Yellow else Color.White,
-                        textAlign = TextAlign.Center
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Rezerv süre - daha büyük
+                        Text(
+                            text = "${(player1ReserveTime.inWholeMinutes)}:${(player1ReserveTime.inWholeSeconds % 60).toString().padStart(2, '0')}",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.graphicsLayer(rotationZ = 90f)
+                        )
+                        
+                        // Hamle süresi
+                        Text(
+                            text = "${player1MoveTime.inWholeSeconds}s",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (player1IsActive) Color.Yellow else Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.graphicsLayer(rotationZ = 90f)
+                        )
+                    }
                 }
             }
         }
@@ -217,63 +386,192 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                 .clickable(enabled = !isAnimating) {
                     if (!isAnimating) {
                         isAnimating = true
+                        rightDiceAnimating = true
+                        rightDiceActive = true
                         val scope = CoroutineScope(Dispatchers.Main)
                         scope.launch {
                             if (gamePhase == 0) {
-                                // Başlangıç zarı - tek zar
-                                repeat(6) { i ->
-                                    rightStartDice = Random.nextInt(1, 7)
-                                    delay(100)
-                                }
+                                // Başlangıç zarı atma - sağ taraf
+                                rightStartDice = Random.nextInt(1, 7)
+                                rightHasRolled = true
                                 showStartDiceResult = true
+                                
+                                if (isModernBackgammon) {
+                                    // Modern tavla: İki oyuncu da attıysa sonucu değerlendir
+                                    if (leftHasRolled) {
+                                        // Her iki taraf da attı, karşılaştır
+                                        if (leftStartDice > rightStartDice) {
+                                            gameWinner = 1
+                                            leftDice1 = leftStartDice
+                                            leftDice2 = rightStartDice
+                                            rightDice1 = 1
+                                            rightDice2 = 1
+                                        } else if (rightStartDice > leftStartDice) {
+                                            gameWinner = 2
+                                            rightDice1 = rightStartDice
+                                            rightDice2 = leftStartDice
+                                            leftDice1 = 1
+                                            leftDice2 = 1
+                                        } else {
+                                            // Berabere - tekrar at
+                                            gameWinner = 0
+                                            leftDiceActive = false
+                                            rightDiceActive = false
+                                            leftHasRolled = false
+                                            rightHasRolled = false
+                                            showStartDiceResult = false
+                                            rightDiceAnimating = false
+                                            isAnimating = false
+                                            return@launch
+                                        }
+                                        
+                                        winnerDetermined = true
+                                        gamePhase = 2
+                                        
+                                        if (useTimer) {
+                                            timeControl?.startGame(
+                                                if (gameWinner == 1) BackgammonTimeControl.Player.PLAYER1 
+                                                else BackgammonTimeControl.Player.PLAYER2
+                                            )
+                                        }
+                                    }
+                                    // Eğer sadece sağ taraf attıysa, bekle (sol taraf atmadı)
+                                } else {
+                                    // Geleneksel tavla: İlk zar sonucu (sağ)
+                                    traditionalFirstPlayer = 2
+                                    traditionalFirstDice = rightStartDice
+                                    
+                                    when (traditionalFirstDice) {
+                                        1 -> {
+                                            gameWinner = 1 // Karşı taraf başlar
+                                            winnerDetermined = true
+                                            gamePhase = 2
+                                            leftDice1 = Random.nextInt(1, 7)
+                                            delay(200)
+                                            leftDice2 = Random.nextInt(1, 7)
+                                            rightDice1 = 1; rightDice2 = 1
+                                            
+                                            if (useTimer) {
+                                                timeControl?.startGame(BackgammonTimeControl.Player.PLAYER1)
+                                            }
+                                        }
+                                        6 -> {
+                                            gameWinner = 2 // Kendi başlar
+                                            winnerDetermined = true  
+                                            gamePhase = 2
+                                            rightDice1 = Random.nextInt(1, 7)
+                                            delay(200)
+                                            rightDice2 = Random.nextInt(1, 7)
+                                            leftDice1 = 1; leftDice2 = 1
+                                            
+                                            if (useTimer) {
+                                                timeControl?.startGame(BackgammonTimeControl.Player.PLAYER2)
+                                            }
+                                        }
+                                        else -> {
+                                            needSecondRoll = true
+                                            gamePhase = 1
+                                        }
+                                    }
+                                }
+                            } else if (gamePhase == 1 && !isModernBackgammon) {
+                                // Geleneksel tavla ikinci zar atışı (sağ)
+                                rightStartDice = Random.nextInt(1, 7)
+                                
+                                val secondDice = leftStartDice
+                                if (traditionalFirstDice > secondDice) {
+                                    gameWinner = 2
+                                } else if (secondDice > traditionalFirstDice) {
+                                    gameWinner = 1
+                                } else {
+                                    gameWinner = 0
+                                    leftDiceActive = false
+                                    rightDiceActive = false
+                                    showStartDiceResult = false
+                                    gamePhase = 0
+                                    needSecondRoll = false
+                                    rightDiceAnimating = false
+                                    isAnimating = false
+                                    return@launch
+                                }
+                                
+                                winnerDetermined = true
+                                gamePhase = 2
+                                
+                                if (gameWinner == 1) {
+                                    leftDice1 = Random.nextInt(1, 7)
+                                    delay(200)
+                                    leftDice2 = Random.nextInt(1, 7)
+                                    rightDice1 = 1; rightDice2 = 1
+                                } else {
+                                    rightDice1 = Random.nextInt(1, 7)
+                                    delay(200)
+                                    rightDice2 = Random.nextInt(1, 7)
+                                    leftDice1 = 1; leftDice2 = 1
+                                }
+                                
+                                if (useTimer) {
+                                    timeControl?.startGame(
+                                        if (gameWinner == 1) BackgammonTimeControl.Player.PLAYER1 
+                                        else BackgammonTimeControl.Player.PLAYER2
+                                    )
+                                }
                             } else {
                                 // Normal oyun - çift zar
-                                repeat(6) { i ->
-                                    rightDice1 = Random.nextInt(1, 7)
-                                    rightDice2 = Random.nextInt(1, 7)
-                                    delay(100)
-                                }
+                                rightDice1 = Random.nextInt(1, 7)
+                                delay(200)
+                                rightDice2 = Random.nextInt(1, 7)
                                 
                                 // Süre yönetimi - Player2'ye geç
                                 timeControl?.switchToPlayer(BackgammonTimeControl.Player.PLAYER2)
                             }
+                            rightDiceAnimating = false
                             isAnimating = false
+                            
+                            // GamePhase 0'da zar attıktan sonra aktif kal (sadece animasyon bitsin)
+                            if (gamePhase == 0 && !winnerDetermined) {
+                                rightDiceActive = true
+                            }
                         }
                     }
                 }
-                .background(Color(0xFFD32F2F).copy(alpha = 0.8f)),
+                .background(
+                    if (player2IsActive || gameWinner == 2 || (gameWinner == 0 && gamePhase <= 1)) 
+                        Color(0xFFD32F2F).copy(alpha = 1.0f) // Parlak kırmızı - aktif
+                    else 
+                        Color(0xFFD32F2F).copy(alpha = 0.4f) // Mat kırmızı - pasif
+                ),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = "SÜRE\nBAŞLAT",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
-                )
-                
                 if (useTimer) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Rezerv:\n${(player2ReserveTime.inWholeMinutes)}:${(player2ReserveTime.inWholeSeconds % 60).toString().padStart(2, '0')}",
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.graphicsLayer(rotationZ = 180f)
-                    )
-                    Text(
-                        text = "Hamle:\n${player2MoveTime.inWholeSeconds}s",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (player2IsActive) Color.Yellow else Color.White,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.graphicsLayer(rotationZ = 180f)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Rezerv süre - daha büyük
+                        Text(
+                            text = "${(player2ReserveTime.inWholeMinutes)}:${(player2ReserveTime.inWholeSeconds % 60).toString().padStart(2, '0')}",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.graphicsLayer(rotationZ = 90f)
+                        )
+                        
+                        // Hamle süresi
+                        Text(
+                            text = "${player2MoveTime.inWholeSeconds}s",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (player2IsActive) Color.Yellow else Color.White,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.graphicsLayer(rotationZ = 90f)
+                        )
+                    }
                 }
             }
         }
@@ -299,14 +597,18 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     if (gamePhase == 0) {
-                        if (showStartDiceResult) {
+                        if (leftHasRolled) {
                             Text(
-                                "Sol Oyuncu",
+                                player1Name,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Blue
                             )
-                            DiceView(value = leftStartDice)
+                            DiceView(
+                                value = leftStartDice, 
+                                isActive = leftDiceActive,
+                                isAnimating = leftDiceAnimating
+                            )
                         } else {
                             Text(
                                 "Başlangıç\nZarı At",
@@ -314,11 +616,37 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                                 textAlign = TextAlign.Center,
                                 color = Color.Blue
                             )
-                            DiceView(value = 1)
+                            DiceView(
+                                value = 1, // Pasif zar
+                                isActive = false,
+                                isAnimating = leftDiceAnimating
+                            )
                         }
+                    } else if (gamePhase == 1 && !isModernBackgammon) {
+                        // Geleneksel tavla ikinci zar fazı
+                        Text(
+                            if (needSecondRoll) "İkinci Zar" else player1Name,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Blue
+                        )
+                        DiceView(
+                            value = leftStartDice,
+                            isActive = leftDiceActive,
+                            isAnimating = leftDiceAnimating
+                        )
                     } else {
-                        DiceView(value = leftDice1)
-                        DiceView(value = leftDice2)
+                        // Normal oyun - çift zar
+                        DiceView(
+                            value = if (gameWinner == 1 || gameWinner == 0) leftDice1 else 1,
+                            isActive = gameWinner == 1 || gameWinner == 0,
+                            isAnimating = leftDiceAnimating
+                        )
+                        DiceView(
+                            value = if (gameWinner == 1 || gameWinner == 0) leftDice2 else 1,
+                            isActive = gameWinner == 1 || gameWinner == 0,
+                            isAnimating = leftDiceAnimating
+                        )
                     }
                 }
                 
@@ -336,14 +664,18 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     if (gamePhase == 0) {
-                        if (showStartDiceResult) {
+                        if (rightHasRolled) {
                             Text(
-                                "Sağ Oyuncu",
+                                player2Name,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Red
                             )
-                            DiceView(value = rightStartDice)
+                            DiceView(
+                                value = rightStartDice,
+                                isActive = rightDiceActive,
+                                isAnimating = rightDiceAnimating
+                            )
                         } else {
                             Text(
                                 "Başlangıç\nZarı At",
@@ -351,66 +683,112 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                                 textAlign = TextAlign.Center,
                                 color = Color.Red
                             )
-                            DiceView(value = 1)
+                            DiceView(
+                                value = 1, // Pasif zar
+                                isActive = false,
+                                isAnimating = rightDiceAnimating
+                            )
                         }
+                    } else if (gamePhase == 1 && !isModernBackgammon) {
+                        // Geleneksel tavla ikinci zar fazı
+                        Text(
+                            if (needSecondRoll) "İkinci Zar" else player2Name,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                        DiceView(
+                            value = rightStartDice,
+                            isActive = rightDiceActive,
+                            isAnimating = rightDiceAnimating
+                        )
                     } else {
-                        DiceView(value = rightDice1)
-                        DiceView(value = rightDice2)
+                        // Normal oyun - çift zar
+                        DiceView(
+                            value = if (gameWinner == 2 || gameWinner == 0) rightDice1 else 1,
+                            isActive = gameWinner == 2 || gameWinner == 0,
+                            isAnimating = rightDiceAnimating
+                        )
+                        DiceView(
+                            value = if (gameWinner == 2 || gameWinner == 0) rightDice2 else 1,
+                            isActive = gameWinner == 2 || gameWinner == 0,
+                            isAnimating = rightDiceAnimating
+                        )
                     }
                 }
             }
             
             // Başlangıç sonuç ve kontroller
-            if (gamePhase == 0 && showStartDiceResult) {
+            if (showStartDiceResult && !winnerDetermined) {
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = when {
-                        leftStartDice > rightStartDice -> "Sol Oyuncu Başlıyor!"
-                        rightStartDice > leftStartDice -> "Sağ Oyuncu Başlıyor!"
-                        else -> "Berabere! Tekrar Atın!"
-                    },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        leftStartDice > rightStartDice -> Color.Blue
-                        rightStartDice > leftStartDice -> Color.Red
-                        else -> Color.Black
-                    }
-                )
                 
-                if (leftStartDice != rightStartDice) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            gamePhase = 1
-                            if (useTimer) {
-                                timeControl?.startGame(
-                                    if (leftStartDice > rightStartDice) 
-                                        BackgammonTimeControl.Player.PLAYER1 
-                                    else 
-                                        BackgammonTimeControl.Player.PLAYER2
+                if (isModernBackgammon && leftHasRolled && rightHasRolled) {
+                    // Modern tavla sonuç gösterimi
+                    Text(
+                        text = when {
+                            leftStartDice > rightStartDice -> "$player1Name Başlıyor!"
+                            rightStartDice > leftStartDice -> "$player2Name Başlıyor!"
+                            else -> "Berabere! Tekrar Atın!"
+                        },
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            leftStartDice > rightStartDice -> Color.Blue
+                            rightStartDice > leftStartDice -> Color.Red
+                            else -> Color.Black
+                        }
+                    )
+                } else if (!isModernBackgammon) {
+                    // Geleneksel tavla sonuç gösterimi
+                    when (gamePhase) {
+                        0 -> {
+                            Text(
+                                text = when (traditionalFirstDice) {
+                                    1 -> "${if (traditionalFirstPlayer == 1) player2Name else player1Name} Başlıyor! (1 atıldı)"
+                                    6 -> "${if (traditionalFirstPlayer == 1) player1Name else player2Name} Başlıyor! (6 atıldı)"
+                                    else -> "Karşı taraf da zar atsın (${traditionalFirstDice} atıldı)"
+                                },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+                        1 -> {
+                            if (leftDiceActive && rightDiceActive) {
+                                Text(
+                                    text = when {
+                                        leftStartDice > rightStartDice -> "$player1Name Başlıyor!"
+                                        rightStartDice > leftStartDice -> "$player2Name Başlıyor!"
+                                        else -> "Berabere! Tekrar Atın!"
+                                    },
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = when {
+                                        leftStartDice > rightStartDice -> Color.Blue
+                                        rightStartDice > leftStartDice -> Color.Red
+                                        else -> Color.Black
+                                    }
                                 )
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
-                    ) {
-                        Text("Oyuna Başla", fontSize = 16.sp)
+                        }
                     }
                 }
+            }
+            
+            // Oyuna başla butonu (sadece kazanan belirlendiğinde)
+            if (winnerDetermined && gamePhase == 2) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "${if (gameWinner == 1) player1Name else player2Name} oyuna başladı!",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (gameWinner == 1) Color.Blue else Color.Red
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
             
-            // FIBO kuralları bilgisi
-            if (useTimer) {
-                Text(
-                    text = "FIBO Kuralları: 90s rezerv + 12s hamle",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            Spacer(modifier = Modifier.height(16.dp))
             
             // Kapatma ve kontrol butonları
             Row(
@@ -447,85 +825,98 @@ fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
 }
 
 @Composable
-fun DiceView(value: Int) {
+fun DiceView(value: Int, isActive: Boolean = true, isAnimating: Boolean = false) {
+    val backgroundColor = when {
+        isAnimating -> Color.White // Parlak beyaz (animasyon sırasında)
+        isActive -> Color.White    // Parlak beyaz (aktif)
+        else -> Color(0xFFE0E0E0)  // Açık gri (pasif)
+    }
+    
+    val dotColor = when {
+        isAnimating -> Color.Black // Siyah noktalar (animasyon)
+        isActive -> Color.Black    // Siyah noktalar (aktif)
+        else -> Color.Gray         // Gri noktalar (pasif)
+    }
+    
     Box(
         modifier = Modifier
             .size(80.dp)
             .background(
-                Color.White,
+                backgroundColor,
                 androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             )
             .padding(8.dp),
         contentAlignment = Alignment.Center
     ) {
         when (value) {
-            1 -> DiceOne()
-            2 -> DiceTwo()
-            3 -> DiceThree()
-            4 -> DiceFour()
-            5 -> DiceFive()
-            6 -> DiceSix()
+            1 -> DiceOne(dotColor)
+            2 -> DiceTwo(dotColor)
+            3 -> DiceThree(dotColor)
+            4 -> DiceFour(dotColor)
+            5 -> DiceFive(dotColor)
+            6 -> DiceSix(dotColor)
+            else -> DiceOne(dotColor) // Varsayılan
         }
     }
 }
 
 @Composable
-fun DiceOne() {
+fun DiceOne(dotColor: Color = Color.Black) {
     Box(modifier = Modifier.fillMaxSize()) {
-        DiceDot(Modifier.align(Alignment.Center))
+        DiceDot(Modifier.align(Alignment.Center), dotColor)
     }
 }
 
 @Composable
-fun DiceTwo() {
+fun DiceTwo(dotColor: Color = Color.Black) {
     Box(modifier = Modifier.fillMaxSize()) {
-        DiceDot(Modifier.align(Alignment.TopStart))
-        DiceDot(Modifier.align(Alignment.BottomEnd))
+        DiceDot(Modifier.align(Alignment.TopStart), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomEnd), dotColor)
     }
 }
 
 @Composable
-fun DiceThree() {
+fun DiceThree(dotColor: Color = Color.Black) {
     Box(modifier = Modifier.fillMaxSize()) {
-        DiceDot(Modifier.align(Alignment.TopStart))
-        DiceDot(Modifier.align(Alignment.Center))
-        DiceDot(Modifier.align(Alignment.BottomEnd))
+        DiceDot(Modifier.align(Alignment.TopStart), dotColor)
+        DiceDot(Modifier.align(Alignment.Center), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomEnd), dotColor)
     }
 }
 
 @Composable
-fun DiceFour() {
+fun DiceFour(dotColor: Color = Color.Black) {
     Box(modifier = Modifier.fillMaxSize()) {
-        DiceDot(Modifier.align(Alignment.TopStart))
-        DiceDot(Modifier.align(Alignment.TopEnd))
-        DiceDot(Modifier.align(Alignment.BottomStart))
-        DiceDot(Modifier.align(Alignment.BottomEnd))
+        DiceDot(Modifier.align(Alignment.TopStart), dotColor)
+        DiceDot(Modifier.align(Alignment.TopEnd), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomStart), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomEnd), dotColor)
     }
 }
 
 @Composable
-fun DiceFive() {
+fun DiceFive(dotColor: Color = Color.Black) {
     Box(modifier = Modifier.fillMaxSize()) {
-        DiceDot(Modifier.align(Alignment.TopStart))
-        DiceDot(Modifier.align(Alignment.TopEnd))
-        DiceDot(Modifier.align(Alignment.Center))
-        DiceDot(Modifier.align(Alignment.BottomStart))
-        DiceDot(Modifier.align(Alignment.BottomEnd))
+        DiceDot(Modifier.align(Alignment.TopStart), dotColor)
+        DiceDot(Modifier.align(Alignment.TopEnd), dotColor)
+        DiceDot(Modifier.align(Alignment.Center), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomStart), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomEnd), dotColor)
     }
 }
 
 @Composable
-fun DiceSix() {
+fun DiceSix(dotColor: Color = Color.Black) {
     Box(modifier = Modifier.fillMaxSize()) {
-        DiceDot(Modifier.align(Alignment.TopStart))
-        DiceDot(Modifier.align(Alignment.TopEnd))
+        DiceDot(Modifier.align(Alignment.TopStart), dotColor)
+        DiceDot(Modifier.align(Alignment.TopEnd), dotColor)
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.Center
         ) {
-            DiceDot(Modifier)
+            DiceDot(Modifier, dotColor)
         }
         Column(
             modifier = Modifier
@@ -533,20 +924,21 @@ fun DiceSix() {
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.Center
         ) {
-            DiceDot(Modifier)
+            DiceDot(Modifier, dotColor)
         }
-        DiceDot(Modifier.align(Alignment.BottomStart))
-        DiceDot(Modifier.align(Alignment.BottomEnd))
+        DiceDot(Modifier.align(Alignment.BottomStart), dotColor)
+        DiceDot(Modifier.align(Alignment.BottomEnd), dotColor)
     }
 }
 
 @Composable
-fun DiceDot(modifier: Modifier = Modifier) {
+fun DiceDot(modifier: Modifier = Modifier, color: Color = Color.Black) {
     Box(
         modifier = modifier
             .size(12.dp)
-            .background(Color.Black, androidx.compose.foundation.shape.CircleShape)
+            .background(color, androidx.compose.foundation.shape.CircleShape)
     )
 }
+
 
 

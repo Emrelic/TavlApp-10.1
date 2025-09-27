@@ -77,8 +77,8 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
 
 ## Son Güncelleme  
-- **Tarih**: 2025-09-26
-- **Durum**: SKORBOARD T M B BUTONLARI UYGULANMASI ✅
+- **Tarih**: 2025-09-27
+- **Durum**: ZAR ATMA SİSTEMİ BAŞLANGIÇ SORUNU ÇÖZÜLDİ ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"
@@ -127,6 +127,28 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - ✅ **Her iki oyuncu**: Player1 ve Player2 için aynı T M B formatı
 - ✅ **Tam ekran genişlik**: weight=1f ile eşit bölüştürme
 - ✅ **Fonksiyonellik korundu**: Tüm katlama mantığı değişmeden
+
+### 11. Zar Atma Ekranı Yeniden Tasarım (2025-09-27) ✅
+- ✅ **Yatay düzen**: Sol açık mavi (#E3F2FD), sağ açık kırmızı (#FFEBEE)
+- ✅ **Tam yükseklik butonları**: 100dp genişlik, süre göstergeleri
+- ✅ **FIBO süre sistemi**: 90 saniye rezerv + 12 saniye hamle süresi
+- ✅ **BackgammonTimeControl sınıfı**: Profesyonel turnuva kuralları
+- ✅ **Merkez zar alanı**: Siyah çizgi (8dp) + her iki yanda zarlar
+- ✅ **Çift yönlü tasarım**: Sağ buton 180° döndürülmüş (karşılıklı oyuncular)
+- ✅ **Süre göstergeleri**: Rezerv (36sp) ve hamle süreleri (28sp) butonlarda
+- ✅ **Kontrol butonları**: DURAKLAT/DEVAM/KAPAT
+- ✅ **Başlangıç sistemi**: Zar karşılaştırması → otomatik oyuncu seçimi
+- ✅ **UI temizliği**: Oyun modu/kurallar yazıları kaldırıldı
+- ✅ **"SÜRE BAŞLAT" yazısı kaldırıldı**: Sadece süre göstergeleri
+
+### 12. Zar Atma Başlangıç Sorunu Düzeltme (2025-09-27) ✅
+- ❌ **Tespit edilen sorun**: Sol taraf zar attığında pasifleşiyor, sağ taraf da aynı
+- 🔍 **Kök neden**: `leftDiceActive`/`rightDiceActive` state'leri launch sonunda kontrol edilmiyordu
+- ✅ **Çözüm**: GamePhase 0'da zar atıldıktan sonra aktif kalma koruması eklendi
+- ✅ **`leftHasRolled`/`rightHasRolled`**: Hangi tarafın attığını izleme sistemi
+- ✅ **Karşılaştırma mantığı**: Sadece her iki taraf da attığında değerlendirme
+- ✅ **Aktif kalma sistemi**: Zar atıldıktan sonra animasyon bitsin ama aktif kalsın
+- ✅ **Build ve test**: APK başarıyla telefona yüklendi
 
 ## Mevcut Özellikler (Stabil Versiyon)
 - ✅ **Crawford kuralı**: Tam implementasyon

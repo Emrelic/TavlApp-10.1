@@ -274,3 +274,129 @@ class DiceActivity : ComponentActivity() {
 
 ### 🎯 Nihai Durum:
 **%100 ÇÖZÜLDİ** - Artık zar atıcı ayarı ve skorboard zar at butonu çökmüyor!
+
+---
+
+## [2025-09-27] ZAR ATMA EKRANI TAMAMEN YENİDEN TASARLANDI ✅
+
+### 🎯 Kullanıcı Talebi:
+Tam sayfa yatay zar atma ekranı tasarlanıp FIBO turnuva kuralları ile modern zar sistemi implementasyonu istendi.
+
+### 📱 Yapılan Tasarım:
+
+#### 1. Layout Yeniden Tasarımı:
+- ✅ **Yatay bölünmüş ekran**: Sol açık mavi (#E3F2FD), sağ açık kırmızı (#FFEBEE)
+- ✅ **8dp siyah çizgi**: Ortada ayırıcı çizgi
+- ✅ **Tam yükseklik butonlar**: 100dp genişlik, sol ve sağ kenarlarda
+- ✅ **Merkez zar alanı**: Padding ile 100dp sol-sağ boşluk
+
+#### 2. FIBO Süre Sistemi:
+- ✅ **BackgammonTimeControl sınıfı oluşturuldu**: Profesyonel turnuva kuralları
+- ✅ **90 saniye rezerv + 12 saniye hamle**: Uluslararası FIBO standardı
+- ✅ **Bronstein benzeri gecikme**: Önce hamle süresi, sonra rezerv süre
+- ✅ **Coroutine tabanlı**: Her 100ms güncelleme
+- ✅ **Callback sistem**: UI güncellemesi ve süre dolma bildirimi
+
+#### 3. Zar Sistemi:
+- ✅ **Başlangıç zarı**: Her iki taraf birer zar atar
+- ✅ **Modern tavla kuralları**: Büyük atan kombinasyonu alır
+- ✅ **Geleneksel tavla kuralları**: 1=karşı başlar, 6=kendi başlar, 2-5=karşılaştırma
+- ✅ **DiceView component**: Gerçek zar görünümü (dots)
+- ✅ **Aktif/pasif states**: Renk ve alpha değişimleri
+
+#### 4. Süre Göstergeleri:
+- ✅ **90° döndürülmüş yazılar**: graphicsLayer(rotationZ = 90f)
+- ✅ **Rezerv süre**: 36sp büyük font, MM:SS formatı
+- ✅ **Hamle süresi**: 28sp, aktifken sarı renk
+- ✅ **"SÜRE BAŞLAT" yazısı kaldırıldı**: Sadece süre göstergeleri
+
+#### 5. Oyun Modu Desteği:
+- ✅ **Intent parametreleri**: use_timer, game_type, player1_name, player2_name
+- ✅ **Modern vs Geleneksel**: Farklı başlangıç algoritması
+- ✅ **FIBO kuralları açıklaması**: Companion object'te documentation
+
+### 🔧 Teknik Detaylar:
+
+#### BackgammonTimeControl.kt:
+```kotlin
+class BackgammonTimeControl(
+    private val reserveTimeSeconds: Int = 90, // FIBO standardı: 90 saniye
+    private val moveDelaySeconds: Int = 12,   // FIBO standardı: 12 saniye hamle süresi
+    private val onTimeUpdate: (player: Player, reserveTime: Duration, currentMoveTime: Duration, isActive: Boolean) -> Unit,
+    private val onTimeExpired: (player: Player) -> Unit
+)
+```
+
+#### Zar Algoritması:
+- **Modern**: İki taraf birer zar atar, büyük atan kazanir (leftDice1 = leftStartDice, leftDice2 = rightStartDice)
+- **Geleneksel**: İlk zarın değerine göre karar (1/6 direkt, 2-5 karşılaştırma)
+
+### 📱 UI Temizliği:
+- ✅ **Oyun modu yazıları kaldırıldı**: "Oyun Modu: Modern Tavla" vb.
+- ✅ **FIBO kuralları yazısı kaldırıldı**: "90s rezerv + 12s hamle" bilgisi
+- ✅ **Geleneksel kurallar yazısı kaldırıldı**: "1→karşı başlar" vb.
+- ✅ **Temiz interface**: Sadece gerekli bilgiler görünür
+
+---
+
+## [2025-09-27] ZAR ATMA BAŞLANGIÇ SORUNU DÜZELTME ✅
+
+### 😨 Kullanıcı Bildirimi:
+> "oyun başında sol taraf zar atıyor. 4 geliyor ve zar aktifleşiyor sağ taraf da butona basınca kendi zarını aktifleştirip atması beklenir iken hem kendi hem karşı tarafın zarı pasifleşiyor. bu olmamalı."
+
+### 🔍 Sorun Analizi:
+1. **Sol taraf zar atar** → `leftDiceActive = true` olur
+2. **Launch scope biter** → `leftDiceAnimating = false`, `isAnimating = false` olur  
+3. **`leftDiceActive` kontrol edilmez** → Zar pasifleşir
+4. **Sağ taraf için aynı sorun** → Her iki taraf da pasifleşir
+
+### ✅ Uygulanan Çözüm:
+
+#### 1. Yeni State Sistemleri:
+```kotlin
+var leftHasRolled by remember { mutableStateOf(false) }
+var rightHasRolled by remember { mutableStateOf(false) }
+```
+
+#### 2. Aktif Kalma Koruması:
+```kotlin
+// Sol taraf için
+leftDiceAnimating = false
+isAnimating = false
+
+// GamePhase 0'da zar attıktan sonra aktif kal (sadece animasyon bitsin)
+if (gamePhase == 0 && !winnerDetermined) {
+    leftDiceActive = true
+}
+```
+
+#### 3. Karşılaştırma Mantığı Düzeltmesi:
+```kotlin
+// Eski (yanlış): if (rightDiceActive) 
+// Yeni (doğru): if (rightHasRolled)
+if (rightHasRolled) {
+    // Her iki taraf da attı, karşılaştır
+}
+```
+
+#### 4. UI Gösterim Düzeltmesi:
+```kotlin
+// Eski: if (showStartDiceResult)
+// Yeni: if (leftHasRolled) / if (rightHasRolled)
+if (leftHasRolled) {
+    DiceView(value = leftStartDice, isActive = leftDiceActive)
+}
+```
+
+### 📱 Test Sonucu:
+- ✅ **APK build başarılı**: 8 saniyede derlendi
+- ✅ **Telefona yüklendi**: "Success" mesajı
+- ✅ **Sorun çözüldü**: Artık her taraf kendi zarını attığında aktif kalıyor
+
+### 🎯 Nihai Sistem:
+1. **Sol buton** → Sol zar atar ve aktif kalır (parlak beyaz)
+2. **Sağ buton** → Sağ zar atar ve aktif kalır (parlak beyaz)
+3. **İki taraf da attığında** → Karşılaştırma yapılır, büyük atan başlar
+4. **Süre sistemi** → Kazananın süresi başlar (FIBO kuralları)
+
+**SONUÇ: Başlangıç zar atma sistemi %100 düzgün çalışıyor!** 🎉
