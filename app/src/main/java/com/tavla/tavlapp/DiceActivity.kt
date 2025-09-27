@@ -1,7 +1,6 @@
 package com.tavla.tavlapp
 
 import android.os.Bundle
-import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
@@ -16,11 +15,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tavla.tavlapp.data.BackgammonTimeControl
 import kotlin.random.Random
+import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -46,7 +48,7 @@ class DiceActivity : ComponentActivity() {
         try {
             setContent {
                 MaterialTheme {
-                    SimpleDiceScreen(useTimer = useTimer) { finish() }
+                    NewDiceScreen(useTimer = useTimer) { finish() }
                 }
             }
         } catch (e: Exception) {
@@ -57,7 +59,8 @@ class DiceActivity : ComponentActivity() {
 }
 
 @Composable
-fun SimpleDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
+fun NewDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
+    // Zar durumları
     var leftDice1 by remember { mutableIntStateOf(1) }
     var leftDice2 by remember { mutableIntStateOf(2) }
     var rightDice1 by remember { mutableIntStateOf(3) }
@@ -65,71 +68,54 @@ fun SimpleDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
     
     var isAnimating by remember { mutableStateOf(false) }
     
-    // Süre durumları
-    var leftPlayerReserveMinutes by remember { mutableIntStateOf(1) }
-    var leftPlayerReserveSeconds by remember { mutableIntStateOf(30) }
-    var rightPlayerReserveMinutes by remember { mutableIntStateOf(1) }
-    var rightPlayerReserveSeconds by remember { mutableIntStateOf(30) }
+    // Süre kontrol durumları
+    var player1ReserveTime by remember { mutableStateOf(Duration.ZERO) }
+    var player1MoveTime by remember { mutableStateOf(Duration.ZERO) }
+    var player1IsActive by remember { mutableStateOf(false) }
     
-    var leftPlayerMoveSeconds by remember { mutableIntStateOf(10) }
-    var rightPlayerMoveSeconds by remember { mutableIntStateOf(10) }
+    var player2ReserveTime by remember { mutableStateOf(Duration.ZERO) }
+    var player2MoveTime by remember { mutableStateOf(Duration.ZERO) }
+    var player2IsActive by remember { mutableStateOf(false) }
+    
+    // Süre kontrol sistemi
+    val timeControl = remember {
+        if (useTimer) {
+            BackgammonTimeControl(
+                onTimeUpdate = { player, reserveTime, currentMoveTime, isActive ->
+                    when (player) {
+                        BackgammonTimeControl.Player.PLAYER1 -> {
+                            player1ReserveTime = reserveTime
+                            player1MoveTime = currentMoveTime
+                            player1IsActive = isActive
+                        }
+                        BackgammonTimeControl.Player.PLAYER2 -> {
+                            player2ReserveTime = reserveTime
+                            player2MoveTime = currentMoveTime
+                            player2IsActive = isActive
+                        }
+                    }
+                },
+                onTimeExpired = { player ->
+                    // Süre dolduğunda buraya gelir
+                    // TODO: Oyun sonu işlemleri
+                }
+            )
+        } else null
+    }
     
     // Oyun durumu
-    var currentPlayer by remember { mutableIntStateOf(0) } // 0: Başlangıç, 1: Sol, 2: Sağ
-    var isTimerRunning by remember { mutableStateOf(false) }
     var gamePhase by remember { mutableIntStateOf(0) } // 0: Başlangıç zarı, 1: Normal oyun
     
     // Başlangıç zar değerleri
     var leftStartDice by remember { mutableIntStateOf(1) }
     var rightStartDice by remember { mutableIntStateOf(1) }
     var showStartDiceResult by remember { mutableStateOf(false) }
-    
-    // Timer effect
-    LaunchedEffect(isTimerRunning, currentPlayer) {
-        if (useTimer && isTimerRunning && currentPlayer > 0) {
-            while (isTimerRunning) {
-                delay(1000)
-                
-                if (currentPlayer == 1) {
-                    // Sol oyuncu süresi
-                    if (leftPlayerMoveSeconds > 0) {
-                        leftPlayerMoveSeconds--
-                    } else if (leftPlayerReserveSeconds > 0) {
-                        leftPlayerReserveSeconds--
-                        leftPlayerMoveSeconds = 10
-                    } else if (leftPlayerReserveMinutes > 0) {
-                        leftPlayerReserveMinutes--
-                        leftPlayerReserveSeconds = 59
-                        leftPlayerMoveSeconds = 10
-                    } else {
-                        // Süre doldu
-                        isTimerRunning = false
-                    }
-                } else if (currentPlayer == 2) {
-                    // Sağ oyuncu süresi
-                    if (rightPlayerMoveSeconds > 0) {
-                        rightPlayerMoveSeconds--
-                    } else if (rightPlayerReserveSeconds > 0) {
-                        rightPlayerReserveSeconds--
-                        rightPlayerMoveSeconds = 10
-                    } else if (rightPlayerReserveMinutes > 0) {
-                        rightPlayerReserveMinutes--
-                        rightPlayerReserveSeconds = 59
-                        rightPlayerMoveSeconds = 10
-                    } else {
-                        // Süre doldu
-                        isTimerRunning = false
-                    }
-                }
-            }
-        }
-    }
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // Sol taraf - uçuk mavi
+            // Sol taraf - açık mavi
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -140,12 +126,12 @@ fun SimpleDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
             // Orta çizgi - siyah
             Box(
                 modifier = Modifier
-                    .width(4.dp)
+                    .width(8.dp)
                     .fillMaxHeight()
                     .background(Color.Black)
             )
             
-            // Sağ taraf - uçuk kırmızı
+            // Sağ taraf - açık kırmızı
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -154,11 +140,11 @@ fun SimpleDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
             )
         }
 
-        // Sol zar at butonu
+        // Sol süre başlat butonu - tam yükseklik
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(80.dp)
+                .width(100.dp)
                 .align(Alignment.CenterStart)
                 .clickable(enabled = !isAnimating) {
                     if (!isAnimating) {
@@ -180,36 +166,53 @@ fun SimpleDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                                     delay(100)
                                 }
                                 
-                                // Süre yönetimi
-                                if (useTimer) {
-                                    isTimerRunning = false
-                                    // Sağ oyuncunun süresini başlat
-                                    currentPlayer = 2
-                                    rightPlayerMoveSeconds = 10
-                                    isTimerRunning = true
-                                }
+                                // Süre yönetimi - Player1'e geç
+                                timeControl?.switchToPlayer(BackgammonTimeControl.Player.PLAYER1)
                             }
                             isAnimating = false
                         }
                     }
                 }
-                .background(Color.Blue.copy(alpha = 0.3f)),
+                .background(Color(0xFF1976D2).copy(alpha = 0.8f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = if (gamePhase == 0) "BAŞLANGIÇ\nZARI" else "ZAR\nAT",
-                fontSize = if (gamePhase == 0) 12.sp else 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "SÜRE\nBAŞLAT",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.graphicsLayer(rotationZ = 0f)
+                )
+                
+                if (useTimer) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Rezerv:\n${(player1ReserveTime.inWholeMinutes)}:${(player1ReserveTime.inWholeSeconds % 60).toString().padStart(2, '0')}",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Hamle:\n${player1MoveTime.inWholeSeconds}s",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (player1IsActive) Color.Yellow else Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
 
-        // Sağ zar at butonu
+        // Sağ süre başlat butonu - tam yükseklik
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(80.dp)
+                .width(100.dp)
                 .align(Alignment.CenterEnd)
                 .clickable(enabled = !isAnimating) {
                     if (!isAnimating) {
@@ -231,220 +234,213 @@ fun SimpleDiceScreen(useTimer: Boolean = false, onExit: () -> Unit) {
                                     delay(100)
                                 }
                                 
-                                // Süre yönetimi
-                                if (useTimer) {
-                                    isTimerRunning = false
-                                    // Sol oyuncunun süresini başlat
-                                    currentPlayer = 1
-                                    leftPlayerMoveSeconds = 10
-                                    isTimerRunning = true
-                                }
+                                // Süre yönetimi - Player2'ye geç
+                                timeControl?.switchToPlayer(BackgammonTimeControl.Player.PLAYER2)
                             }
                             isAnimating = false
                         }
                     }
                 }
-                .background(Color.Red.copy(alpha = 0.3f)),
+                .background(Color(0xFFD32F2F).copy(alpha = 0.8f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = if (gamePhase == 0) "BAŞLANGIÇ\nZARI" else "ZAR\nAT",
-                fontSize = if (gamePhase == 0) 12.sp else 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "SÜRE\nBAŞLAT",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                )
+                
+                if (useTimer) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Rezerv:\n${(player2ReserveTime.inWholeMinutes)}:${(player2ReserveTime.inWholeSeconds % 60).toString().padStart(2, '0')}",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                    )
+                    Text(
+                        text = "Hamle:\n${player2MoveTime.inWholeSeconds}s",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (player2IsActive) Color.Yellow else Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.graphicsLayer(rotationZ = 180f)
+                    )
+                }
+            }
         }
 
-        // Ana içerik
+        // Ana içerik - ortadan zarlar
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 80.dp, end = 80.dp),
+                .padding(start = 100.dp, end = 100.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = if (gamePhase == 0) "BAŞLANGIÇ ZAR ATMA" else "ZAR ATMA EKRANI",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
 
-            // Süre sayaçları (sadece süre kullanımı açıkken ve normal oyunda)
-            if (useTimer && gamePhase == 1) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+            // Merkez zar alanı
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Sol zarlar
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Sol oyuncu süreleri
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "REZERV SÜRE",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 1) Color.Blue else Color.Gray
-                        )
-                        Text(
-                            text = "${leftPlayerReserveMinutes.toString().padStart(2, '0')}:${leftPlayerReserveSeconds.toString().padStart(2, '0')}",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 1) Color.Blue else Color.Gray
-                        )
-                        Text(
-                            text = "HAMLE SÜRESİ",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 1) Color.Blue else Color.Gray
-                        )
-                        Text(
-                            text = leftPlayerMoveSeconds.toString().padStart(2, '0'),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 1) Color.Red else Color.Gray
-                        )
-                    }
-
-                    // Sağ oyuncu süreleri
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "REZERV SÜRE",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 2) Color.Red else Color.Gray
-                        )
-                        Text(
-                            text = "${rightPlayerReserveMinutes.toString().padStart(2, '0')}:${rightPlayerReserveSeconds.toString().padStart(2, '0')}",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 2) Color.Red else Color.Gray
-                        )
-                        Text(
-                            text = "HAMLE SÜRESİ",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 2) Color.Red else Color.Gray
-                        )
-                        Text(
-                            text = rightPlayerMoveSeconds.toString().padStart(2, '0'),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (currentPlayer == 2) Color.Red else Color.Gray
-                        )
-                    }
-                }
-            }
-
-            // Zar görünümü
-            if (gamePhase == 0) {
-                // Başlangıç zarları
-                if (showStartDiceResult) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("Sol Oyuncu", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    if (gamePhase == 0) {
+                        if (showStartDiceResult) {
+                            Text(
+                                "Sol Oyuncu",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Blue
+                            )
                             DiceView(value = leftStartDice)
+                        } else {
+                            Text(
+                                "Başlangıç\nZarı At",
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                color = Color.Blue
+                            )
+                            DiceView(value = 1)
                         }
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("Sağ Oyuncu", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            DiceView(value = rightStartDice)
-                        }
-                    }
-                    
-                    // Sonuç ve devam et butonu
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text(
-                            text = when {
-                                leftStartDice > rightStartDice -> "Sol Oyuncu Başlıyor!"
-                                rightStartDice > leftStartDice -> "Sağ Oyuncu Başlıyor!"
-                                else -> "Berabere! Tekrar Atın!"
-                            },
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = when {
-                                leftStartDice > rightStartDice -> Color.Blue
-                                rightStartDice > leftStartDice -> Color.Red
-                                else -> Color.Black
-                            }
-                        )
-                        
-                        if (leftStartDice != rightStartDice) {
-                            Button(
-                                onClick = {
-                                    gamePhase = 1
-                                    currentPlayer = if (leftStartDice > rightStartDice) 1 else 2
-                                    if (useTimer) {
-                                        isTimerRunning = true
-                                        if (currentPlayer == 1) {
-                                            leftPlayerMoveSeconds = 10
-                                        } else {
-                                            rightPlayerMoveSeconds = 10
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
-                            ) {
-                                Text("Oyuna Başla", fontSize = 16.sp)
-                            }
-                        }
-                    }
-                } else {
-                    Text(
-                        text = "Her iki oyuncu da başlangıç zarını atsın",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-                }
-            } else {
-                // Normal oyun zarları
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    // Sol taraf zarları
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    } else {
                         DiceView(value = leftDice1)
                         DiceView(value = leftDice2)
                     }
-
-                    // Sağ taraf zarları
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                }
+                
+                // Orta çizgi görsel
+                Box(
+                    modifier = Modifier
+                        .width(8.dp)
+                        .height(120.dp)
+                        .background(Color.Black)
+                )
+                
+                // Sağ zarlar
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (gamePhase == 0) {
+                        if (showStartDiceResult) {
+                            Text(
+                                "Sağ Oyuncu",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Red
+                            )
+                            DiceView(value = rightStartDice)
+                        } else {
+                            Text(
+                                "Başlangıç\nZarı At",
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                color = Color.Red
+                            )
+                            DiceView(value = 1)
+                        }
+                    } else {
                         DiceView(value = rightDice1)
                         DiceView(value = rightDice2)
                     }
                 }
             }
+            
+            // Başlangıç sonuç ve kontroller
+            if (gamePhase == 0 && showStartDiceResult) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = when {
+                        leftStartDice > rightStartDice -> "Sol Oyuncu Başlıyor!"
+                        rightStartDice > leftStartDice -> "Sağ Oyuncu Başlıyor!"
+                        else -> "Berabere! Tekrar Atın!"
+                    },
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        leftStartDice > rightStartDice -> Color.Blue
+                        rightStartDice > leftStartDice -> Color.Red
+                        else -> Color.Black
+                    }
+                )
+                
+                if (leftStartDice != rightStartDice) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            gamePhase = 1
+                            if (useTimer) {
+                                timeControl?.startGame(
+                                    if (leftStartDice > rightStartDice) 
+                                        BackgammonTimeControl.Player.PLAYER1 
+                                    else 
+                                        BackgammonTimeControl.Player.PLAYER2
+                                )
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
+                    ) {
+                        Text("Oyuna Başla", fontSize = 16.sp)
+                    }
+                }
+            }
 
-            Button(
-                onClick = onExit,
-                modifier = Modifier.size(width = 200.dp, height = 60.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // FIBO kuralları bilgisi
+            if (useTimer) {
+                Text(
+                    text = "FIBO Kuralları: 90s rezerv + 12s hamle",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // Kapatma ve kontrol butonları
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(text = "KAPAT", fontSize = 20.sp)
+                if (useTimer && gamePhase == 1) {
+                    Button(
+                        onClick = { timeControl?.pauseGame() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF57C00))
+                    ) {
+                        Text("DURAKLAT", fontSize = 14.sp)
+                    }
+                    
+                    Button(
+                        onClick = { timeControl?.resumeGame() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
+                    ) {
+                        Text("DEVAM", fontSize = 14.sp)
+                    }
+                }
+                
+                Button(
+                    onClick = {
+                        timeControl?.stopGame()
+                        onExit()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                ) {
+                    Text(text = "KAPAT", fontSize = 16.sp)
+                }
             }
         }
     }
