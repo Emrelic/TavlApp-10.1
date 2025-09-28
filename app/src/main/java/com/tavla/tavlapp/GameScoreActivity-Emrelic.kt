@@ -599,12 +599,12 @@ fun GameScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Skor
+                    // Skor - Geleneksel tavlada 3x büyük
                     Text(
                         text = player1Score.toString(),
                         color = Color.White,
                         style = MaterialTheme.typography.displayLarge,
-                        fontSize = 60.sp
+                        fontSize = if (isTraditionalGame) 180.sp else 60.sp
                     )
 
                     // Butonlar için yeterli alan - Üst kısımda konumlandır
@@ -615,8 +615,9 @@ fun GameScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Katla butonu - Oyuncu 1 için
-                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
+                        // Katla butonu - Oyuncu 1 için (sadece Modern tavla)
+                        if (!isTraditionalGame && 
+                            !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
                             player1CanDouble &&
@@ -802,23 +803,32 @@ fun GameScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.offset(y = (-50).dp)
                 ) {
-                    // ZAR AT butonu
-                    Button(
-                        onClick = { showDiceScreen = true },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF9C27B0).copy(alpha = 0.9f)
-                        ),
-                        modifier = Modifier
-                            .width(100.dp)
-                            .height(30.dp)
-                    ) {
-                        Text(
-                            text = "🎲 ZAR AT",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    // ZAR AT / SAAT butonu - Koşullu görünüm
+                    if (useDiceRoller || useTimer) {
+                        val buttonText = when {
+                            useDiceRoller && useTimer -> "🎲⏰ ZAR/SAAT"
+                            useDiceRoller -> "🎲 ZAR AT"
+                            useTimer -> "⏰ SAAT KULLAN"
+                            else -> "🎲 ZAR AT"
+                        }
+                        
+                        Button(
+                            onClick = { showDiceScreen = true },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF9C27B0).copy(alpha = 0.9f)
+                            ),
+                            modifier = Modifier
+                                .width(100.dp)
+                                .height(30.dp)
+                        ) {
+                            Text(
+                                text = buttonText,
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -875,12 +885,12 @@ fun GameScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Skor
+                    // Skor - Geleneksel tavlada 3x büyük
                     Text(
                         text = player2Score.toString(),
                         color = Color.White,
                         style = MaterialTheme.typography.displayLarge,
-                        fontSize = 60.sp
+                        fontSize = if (isTraditionalGame) 180.sp else 60.sp
                     )
 
                     // Butonlar için yeterli alan - Üst kısımda konumlandır
@@ -891,8 +901,9 @@ fun GameScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Katla butonu - Oyuncu 2 için
-                        if (!showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
+                        // Katla butonu - Oyuncu 2 için (sadece Modern tavla)
+                        if (!isTraditionalGame && 
+                            !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
                             player2CanDouble &&
@@ -2237,6 +2248,11 @@ fun GameScreen(
                         onClick = {
                             // Skoru manuel olarak artır
                             player1Score++
+                            
+                            // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
+                            if (isTraditionalGame && player1Score >= targetRounds) {
+                                endMatch()
+                            }
                         },
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
@@ -2326,6 +2342,11 @@ fun GameScreen(
                         onClick = {
                             // Skoru manuel olarak artır
                             player2Score++
+                            
+                            // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
+                            if (isTraditionalGame && player2Score >= targetRounds) {
+                                endMatch()
+                            }
                         },
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
@@ -2417,23 +2438,38 @@ fun GameScreen(
                     }
                 }
 
-                // Zar at butonu - Ortada mor renk
-                Button(
-                    onClick = { showDiceScreen = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF9C27B0) // Mor renk
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                // Zar/Saat butonu - Koşullu görünüm
+                if (useDiceRoller || useTimer) {
+                    val buttonIcon = when {
+                        useDiceRoller && useTimer -> "🎲⏰"
+                        useDiceRoller -> "🎲"
+                        useTimer -> "⏰"
+                        else -> "🎲"
+                    }
+                    val buttonText = when {
+                        useDiceRoller && useTimer -> "Zar/Saat"
+                        useDiceRoller -> "Zar At"
+                        useTimer -> "Saat Kullan"
+                        else -> "Zar At"
+                    }
+                    
+                    Button(
+                        onClick = { showDiceScreen = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF9C27B0) // Mor renk
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
                     ) {
-                        Text("🎲", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Zar At", color = Color.White, fontSize = 12.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(buttonIcon, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(buttonText, color = Color.White, fontSize = 12.sp)
+                        }
                     }
                 }
 

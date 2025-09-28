@@ -77,8 +77,8 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
 
 ## Son Güncelleme
-- **Tarih**: 2025-09-26
-- **Durum**: APK BUILD VE DEPLOY BAŞARILI ✅
+- **Tarih**: 2025-09-28
+- **Durum**: PROFESYONEL SATRANÇ SAATİ TAMAMLANDI ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"
@@ -115,6 +115,24 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - ✅ **Çökme Sorunu Giderildi**: Drawable bağımlılıkları kaldırıldı
 - ✅ **Saat Sistemi**: FIBO kuralları (90sn rezerv + 12sn delay) korundu
 
+### 10. Profesyonel Satranç Saati Sistemi (2025-09-28) ✅
+- ✅ **DGT3000 Tarzı Tasarım**: Profesyonel elektronik satranç saati arayüzü
+- ✅ **Yatay (Landscape) Düzen**: Sol-sağ oyuncu yerleşimi
+- ✅ **Döndürülmüş Görünüm**: 
+  - Sol oyuncu: +90° döndürülmüş
+  - Sağ oyuncu: -90° döndürülmüş
+- ✅ **Orta Kontrol Paneli**: Dikey yerleşim (120dp)
+  - PAUSE/PLAY butonu (dinamik renk)
+  - Timer durumu göstergesi (RUNNING/PAUSED) 
+  - DGT Timer branding
+  - RESET butonu
+- ✅ **Profesyonel Görünüm**:
+  - Koyu gri arka plan (#1E1E1E)
+  - Aktif/pasif renk kodlaması (yeşil/gri)
+  - Monospace font kullanımı (48sp ana süre)
+  - Border efektleri ve aktif oyuncu göstergeleri
+- ✅ **FIBO Kuralları Uyumlu**: 90sn rezerv + 12sn hamle delay sistemi
+
 ## Mevcut Özellikler (Stabil Versiyon)
 - ✅ **Crawford kuralı**: Tam implementasyon
 - ✅ **Katlama sistemi**: Modern tavla için aktif
@@ -123,6 +141,7 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - ✅ **Puan sistemi**: Otomatik hesaplama
 - ✅ **Zar atma sistemi**: Tam sayfa DiceActivity, çökme sorunu çözüldü
 - ✅ **FIBO saat sistemi**: Profesyonel turnuva kuralları (90sn + 12sn delay)
+- ✅ **Profesyonel satranç saati**: DGT3000 tarzı yatay düzen, tam profesyonel görünüm
 
 ## Google API Bilgileri (2025-09-23)
 - **Paket Adı**: `com.tavla.tavlapp`
@@ -156,6 +175,12 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 1. **🔧 Otomatik Build & Deploy:**
    - Her yenilik → APK build → telefona yükleme
    - Kullanıcı sorgulamaz, otomatik yapılır
+   
+1.5. **📅 Build Tarih Damgası Protokolü:**
+   - Her build ve telefona yüklemede program simgesine build tarih/saati yazılacak
+   - Format: "DD.MM.YY HH:mm" (örn: "28.09.25 14:30")
+   - App launcher icon'unda veya uygulama hakkında bölümünde görünecek
+   - Her *bty ve *ty komutunda otomatik uygulanacak
 
 0. **🪟 Terminal Başlık Protokolü:**
    - Claude Code terminalinde başlık değişikliği sınırlı
