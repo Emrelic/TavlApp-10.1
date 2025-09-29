@@ -612,8 +612,8 @@ fun GameScreen(
                     Text(
                         text = player1Score.toString(),
                         color = Color.White,
-                        fontSize = if (isTraditionalGame) 144.sp else 60.sp,
-                        lineHeight = if (isTraditionalGame) 154.sp else 70.sp,
+                        fontSize = if (isTraditionalGame) 120.sp else 60.sp,
+                        lineHeight = if (isTraditionalGame) 130.sp else 70.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -901,8 +901,8 @@ fun GameScreen(
                     Text(
                         text = player2Score.toString(),
                         color = Color.White,
-                        fontSize = if (isTraditionalGame) 144.sp else 60.sp,
-                        lineHeight = if (isTraditionalGame) 154.sp else 70.sp,
+                        fontSize = if (isTraditionalGame) 120.sp else 60.sp,
+                        lineHeight = if (isTraditionalGame) 130.sp else 70.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -1105,7 +1105,7 @@ fun GameScreen(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = if (isTraditionalGame && isScoreAutomatic) 39.dp else if (isTraditionalGame) 24.dp else 4.dp),
                 textAlign = TextAlign.Center
             )
 
@@ -2388,25 +2388,27 @@ fun GameScreen(
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Son hamleyi geri al butonu - Koyu mavi
-                Button(
-                    onClick = { undoLastRound() },
-                    enabled = undoStack.isNotEmpty(), // Pasif durumda göster
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0D47A1), // Koyu mavi (iki ton koyu)
-                        disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                // Geri al butonu - Her modda göster
+                if (true) {
+                    Button(
+                        onClick = { undoLastRound() },
+                        enabled = undoStack.size > 0,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF0D47A1), // Koyu mavi
+                            disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
                     ) {
-                        Text("↶", fontSize = 20.sp, color = Color.White)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Geri Al", color = Color.White, fontSize = 12.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text("↶", fontSize = 20.sp, color = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Geri Al", color = Color.White, fontSize = 12.sp)
+                        }
                     }
                 }
 
@@ -2415,6 +2417,7 @@ fun GameScreen(
                     // Bu Eli Kaydet butonu - Yeşil renk
                     Button(
                         onClick = {
+                            println("DEBUG: Bu Eli Kaydet tıklandı, mevcut undoStack boyutu: ${undoStack.size}")
                             // Mevcut puanları kaydet
                             if (player1Score > player2Score) {
                                 // Oyuncu 1 kazandı
@@ -2443,6 +2446,7 @@ fun GameScreen(
                             // Skorları sıfırla
                             player1Score = 0
                             player2Score = 0
+                            println("DEBUG: Kaydetme tamamlandı, yeni undoStack boyutu: ${undoStack.size}")
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF2E7D32) // Yeşil renk

@@ -2,6 +2,8 @@ package com.tavla.tavlapp
 
 import android.os.Bundle
 import android.view.View
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
@@ -122,6 +124,18 @@ fun DiceScreen(
     var leftSideActive by remember { mutableStateOf(true) }
     var rightSideActive by remember { mutableStateOf(true) }
     
+    // Animasyon state'leri
+    var isAnimatingDice by remember { mutableStateOf(false) }
+    var showDragAnimation by remember { mutableStateOf(false) }
+    
+    // Sürükleme animasyonu
+    LaunchedEffect(showDragAnimation) {
+        if (showDragAnimation) {
+            delay(1000) // 1 saniye bekle
+            showDragAnimation = false
+        }
+    }
+    
     // Profesyonel timer sistemi
     LaunchedEffect(timerRunning, currentPlayer) {
         if (timerRunning && useTimer && gamePhase == "playing") {
@@ -165,16 +179,53 @@ fun DiceScreen(
                     if (!isRolling && leftSideActive) {
                         when (gamePhase) {
                             "opening_modern" -> {
-                                if (currentPlayer == 1) {
-                                    isRolling = true
-                                    openingDice1 = (1..6).random()
-                                    isRolling = false
-                                    currentPlayer = 2
+                                // Sol tarafa basıldı, sol zarı at
+                                isRolling = true
+                                // Zar sesi efekti
+                                try {
+                                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
+                                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                                    toneGenerator.release()
+                                } catch (e: Exception) { }
+                                openingDice1 = (1..6).random()
+                                isRolling = false
+                                
+                                // Her iki zar da atıldıysa karşılaştır
+                                if (openingDice1 > 0 && openingDice2 > 0) {
+                                    if (openingDice1 > openingDice2) {
+                                        // Sol büyük attı, sol başlar
+                                        showDragAnimation = true
+                                        currentPlayer = 1
+                                        leftDice1 = openingDice1
+                                        leftDice2 = openingDice2
+                                        gamePhase = "playing"
+                                        rightSideActive = false
+                                        timerRunning = useTimer
+                                    } else if (openingDice2 > openingDice1) {
+                                        // Sağ büyük attı, sağ başlar
+                                        showDragAnimation = true
+                                        currentPlayer = 2
+                                        rightDice1 = openingDice1
+                                        rightDice2 = openingDice2
+                                        gamePhase = "playing" 
+                                        leftSideActive = false
+                                        timerRunning = useTimer
+                                    } else {
+                                        // Eşit, tekrar at
+                                        openingDice1 = 0
+                                        openingDice2 = 0
+                                    }
                                 }
                             }
                             "playing" -> {
                                 if (currentPlayer == 1) {
                                     isRolling = true
+                                    // Zar sesi efekti
+                                    try {
+                                        val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
+                                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                                        toneGenerator.release()
+                                    } catch (e: Exception) { }
                                     leftDice1 = (1..6).random()
                                     leftDice2 = (1..6).random()
                                     isRolling = false
@@ -257,11 +308,11 @@ fun DiceScreen(
             // Sol taraf zarları
             when (gamePhase) {
                 "opening_modern" -> {
-                    if (openingDice1 > 0 || currentPlayer == 1) {
+                    if (openingDice1 > 0) {
                         ProfessionalDiceComponent(
                             value = openingDice1,
                             size = 120.dp, // 200dp → 120dp (ekrana sığacak boyut) // 2x büyük (100dp → 200dp)
-                            isAnimating = isRolling && currentPlayer == 1,
+                            isAnimating = isRolling,
                             isActive = leftSideActive
                         )
                     }
@@ -296,11 +347,11 @@ fun DiceScreen(
             // Sağ taraf zarları
             when (gamePhase) {
                 "opening_modern" -> {
-                    if (openingDice2 > 0 || currentPlayer == 2) {
+                    if (openingDice2 > 0) {
                         ProfessionalDiceComponent(
                             value = openingDice2,
                             size = 120.dp, // 200dp → 120dp (ekrana sığacak boyut)
-                            isAnimating = isRolling && currentPlayer == 2,
+                            isAnimating = isRolling,
                             isActive = rightSideActive
                         )
                     }
@@ -326,41 +377,55 @@ fun DiceScreen(
                     if (!isRolling && rightSideActive) {
                         when (gamePhase) {
                             "opening_modern" -> {
-                                if (currentPlayer == 2) {
-                                    isRolling = true
-                                    openingDice2 = (1..6).random()
-                                    isRolling = false
-                                    
-                                    // Modern tavla: büyük atan başlar
-                                    if (openingDice2 > openingDice1) {
-                                        currentPlayer = 2
-                                        rightDice1 = openingDice1
-                                        rightDice2 = openingDice2
-                                        rightSideActive = true
-                                        leftSideActive = false
-                                    } else if (openingDice2 < openingDice1) {
+                                // Sağ tarafa basıldı, sağ zarı at
+                                isRolling = true
+                                // Zar sesi efekti
+                                try {
+                                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
+                                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                                    toneGenerator.release()
+                                } catch (e: Exception) { }
+                                openingDice2 = (1..6).random()
+                                isRolling = false
+                                
+                                // Her iki zar da atıldıysa karşılaştır
+                                if (openingDice1 > 0 && openingDice2 > 0) {
+                                    if (openingDice1 > openingDice2) {
+                                        // Sol büyük attı, sol başlar
+                                        showDragAnimation = true
                                         currentPlayer = 1
                                         leftDice1 = openingDice1
                                         leftDice2 = openingDice2
-                                        leftSideActive = true
+                                        gamePhase = "playing"
                                         rightSideActive = false
+                                        timerRunning = useTimer
+                                        player1MoveTime = delayTime
+                                    } else if (openingDice2 > openingDice1) {
+                                        // Sağ büyük attı, sağ başlar
+                                        showDragAnimation = true
+                                        currentPlayer = 2
+                                        rightDice1 = openingDice1
+                                        rightDice2 = openingDice2
+                                        gamePhase = "playing" 
+                                        leftSideActive = false
+                                        timerRunning = useTimer
+                                        player2MoveTime = delayTime
                                     } else {
                                         // Eşit, tekrar at
-                                        currentPlayer = 1
                                         openingDice1 = 0
                                         openingDice2 = 0
-                                        return@clickable
                                     }
-                                    
-                                    gamePhase = "playing"
-                                    timerRunning = true
-                                    if (currentPlayer == 1) player1MoveTime = delayTime
-                                    else player2MoveTime = delayTime
                                 }
                             }
                             "playing" -> {
                                 if (currentPlayer == 2) {
                                     isRolling = true
+                                    // Zar sesi efekti
+                                    try {
+                                        val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 50)
+                                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                                        toneGenerator.release()
+                                    } catch (e: Exception) { }
                                     rightDice1 = (1..6).random()
                                     rightDice2 = (1..6).random()
                                     isRolling = false
@@ -429,6 +494,27 @@ fun DiceScreen(
                 textAlign = TextAlign.Center
             )
             
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Maçı Bitir butonu
+            Button(
+                onClick = { onBack() },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD32F2F) // Kırmızı
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = "MAÇI BİTİR",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
@@ -437,10 +523,23 @@ fun DiceScreen(
 @Composable
 fun ProfessionalDiceComponent(value: Int, size: androidx.compose.ui.unit.Dp, isAnimating: Boolean, isActive: Boolean) {
     val animatedRotation by animateFloatAsState(
-        targetValue = if (isAnimating) 360f else 0f,
+        targetValue = if (isAnimating) 720f else 0f, // 2 tam dönüş
         animationSpec = if (isAnimating) {
             infiniteRepeatable(
-                animation = tween(300, easing = LinearEasing),
+                animation = tween(800, easing = FastOutSlowInEasing), // Daha uzun, gerçekçi easing
+                repeatMode = RepeatMode.Restart
+            )
+        } else {
+            tween(0)
+        }, label = ""
+    )
+    
+    // Y ekseni dönüşü için ayrı animasyon
+    val animatedRotationY by animateFloatAsState(
+        targetValue = if (isAnimating) 540f else 0f, // 1.5 tam dönüş
+        animationSpec = if (isAnimating) {
+            infiniteRepeatable(
+                animation = tween(700, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             )
         } else {
@@ -477,7 +576,9 @@ fun ProfessionalDiceComponent(value: Int, size: androidx.compose.ui.unit.Dp, isA
     }
 
     Box(
-        modifier = Modifier.size(size)
+        modifier = Modifier
+            .size(size)
+            .rotate(animatedRotation)
     ) {
         // Gerçekçi gölge efekti - offset ve blur
         repeat(4) { index ->
