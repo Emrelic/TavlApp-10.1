@@ -77,8 +77,8 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
 
 ## Son Güncelleme
-- **Tarih**: 2025-09-28
-- **Durum**: PROFESYONEL SATRANÇ SAATİ TAMAMLANDI ✅
+- **Tarih**: 2025-09-29
+- **Durum**: NOT DEFTERLERİ GÜNCEL DURUMA GETİRİLDİ ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"

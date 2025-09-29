@@ -302,3 +302,43 @@ class DiceActivity : ComponentActivity() {
 - **Todo sistemi**: TÃ¼m adÄ±mlar takip edildi âœ…
 - **Otomatik deploy**: APK build â†’ telefona yÃ¼kleme tamamlandÄ± âœ…[] ZAR ATMA EKRANI PROMPT: şu saçmasapan zar atma ekranını kaldır. bir ekran yap yarısı açık mavi yarısı açık kırmızı olsun en sağ ve en solda ( ekranımız yatay pozisyonda bir ekran biliyorsun) birer buton olacak. butonların üzerinde tavla saati için sat gösterilecek. tavla saati için kuralları algoritmaları uluslararası tavla kuruluşlarının sitelerinden öğren ve bu süre fonksiyonunu implemente et. rezerv zaman hamle zamanı vesaire nasıl kaç kural varsa hepsini öğren ona göre implementasyon yap. öğrendiğin kurallarıda bana söyle. butonların üzerinde iki ayrı zaman sayacı olacak rezerv zaman ve hamle zamanı olmak üzere. ekranın ortasında iki bölümü ayıran bir çizgi olacak ve bu çizginin sağında ve solunda ikişer tane zar olacak. zar algoritması şu şekilde oalcak.zar atma butonuna basıldığında her bir zar kendi içinde random bir fonksiyon çalıştıracak 1-6 arasında bir sayı random fonksiyonla bulunacak ve 1-6 dizisi içinden elenecek ve hızlıca zar üzerinde bu sayının deseni görüşlecek. sonra 1 sayı daha random bulunacak ve diziden o sayıda elenecek. 1-6 arasındaki sayılar random bir şekilde teker teker elenecek ve 5. sayıda elendiği zaman elenmeyen en son sayı zarın atılmış random sayısı olacak. her sayı randomize bulunup elendiğinde bu elenen sayının zar deseni zar üzerinde görülecek. dolayısı ile bu zarda bir dönme efekti yaratılacak. teker teker 5 sayı elendikten sonra geriye kalan sayı atılmış zarın değeri olacak. mesela zar atma butonuna basıldı diyelim önce 3 sonra 2 sonra 6 sonra 1 sonra 2 sonra 5 elendi diyelim en sona kalan 4 zarın değeri olarak görülecek. yeni maç ayarlarında eğer geleneksel seçilmiş ise maç başladığında öncelikle her renk bölgesinde bireer zar görünecek. bir taraf bir zar atacak bu zar 6 gelir ise oyuna 6 atan başlayacak. 1 atar ise karşı taraf başlayacak. farklı bir sayı atmış ise diğer tarafda atışını yapacak ve büüyük atan taraf oyuna başlayacak eşit atılmış ise aynı mantıkda yeniden zarlar atılacak. büyük atan ve oyuna başlama hakkı kazanan tarafın süresi otomatikman başlayacak. büyük atan taraf iki zarın ikisinide yeniden atarak oyuna başlayacak. eğer modern tavla seçilmiş ise iki tarafda birer zar atacak ve büyük atan taraf oyuna başlama hakkı kazanacak. süresi otomatik başlayacak. ve ortadaki kombinasyona göre oyuna başlayacaktır. bunu iplemente et gerisini sonra anlatayım
 [] ZAR EKRANI PROMPTU 2 NUMARA: zar at butonları yatay ekranın en sağında ve en solunda aşağıya inen bir sütun gibi boylu bounca olmalı bu butonların üerinde süre için iki geri sayma saati olmalı rezerv ve hamle süresi zarlar ekranın ortasında yer almalı vetoplam ekran alanının 1/8 zi kadar büyük olmalı modern tavla ayarı seçilmiş ise ve süre kullan zar atıcı kullan seçilmiş ise ekran açıldığında butonların züerinde geri saymaya hazır saat ile birlikte ekran açılır. birer tane her tarafta zar vardır iki tarafta zarlara basar ve zarları atar. büyük atan tarafın süresi geri saymaya başlar ve sıra ona geçmiş olur küçük gelen zar sürüklenerek diğer büyük zarın yanına göçer. oyuna başlamayacak olan kişinin tarafında da iki tane zar zuhur eder fakat bu zarlar parlak beyaz değil gri, renktedir ve pasif görünümlüdür ayrıca küçük atan tarafın bölgeside renk olarak parlak renkde değil matlaşır. zarı oynayan taraf butona basarak sırayı karşı tarafa geçirir ve karşı tarafın saati geri saymaya başlar. bu arada bu butona basılmasıylla beraber karşı tarafın pasif olan gri renkteki zarları beyaz renge bürünerek iki zarda atılır.bu arada sırayı savan tarafın renk özellikleri matlaşır ve zarları pasif görünüme geçer zarlarını oynayan diğer taraf butona basarak kendi saatini durdurup karşı tarafın saatini başlatır ve karşı tarafın zarını atmış olur iki adet zar olarak. kendi tarafındaki zarklar pasif görünüme geçer ve parlak renkli kendi tarafının renkleri matlaşır pasif görünüme sahip olur. sıra bu şekilde devam eder.
+---
+
+## [2025-09-29] NOT DEFTERLERÄ° GÃœNCELLEMESÄ° VE PROJE DURUMU Ä°NCELEMESÄ°
+
+### ğŸ¯ KullanÄ±cÄ± Talebi:
+TavlApp projesindeki tÃ¼m not defterlerini oku ve gÃ¼ncel durumu commit + push yap.
+
+### ğŸ“‹ Bulunan Not Defterleri:
+1. **CLAUDE.md** - Ana geliÅŸtirme notlarÄ± (269 satÄ±r)
+2. **PROMPT_GUNLUGU.md** - Prompt geÃ§miÅŸi ve detaylarÄ± (305+ satÄ±r)
+3. **YAPILACAKLAR.md** - BulunamadÄ± (henÃ¼z oluÅŸturulmamÄ±ÅŸ)
+
+### ğŸ“Š Proje Mevcut Durumu:
+#### Tamamlanan Ã–zellikler:
+- âœ… **Crawford kuralÄ±**: Tam implementasyon (2025-09-22)
+- âœ… **Katlama sistemi**: Modern tavla iÃ§in aktif
+- âœ… **3'lÃ¼ buton sistemi**: Geri Al (koyu mavi), Zar At (mor), MaÃ§Ä± SonlandÄ±r (koyu kÄ±rmÄ±zÄ±)
+- âœ… **7 ayar sistemi**: Yeni oyun sayfasÄ±nda scrollable Row
+- âœ… **Zar atma sistemi**: Ã‡Ã¶kme sorunu %100 Ã§Ã¶zÃ¼ldÃ¼ (2025-09-25)
+- âœ… **Profesyonel satranÃ§ saati**: DGT3000 tarzÄ± yatay dÃ¼zen (2025-09-28)
+
+#### Son YapÄ±lan Ä°ÅŸlemler:
+- ğŸ”§ **Zar sistemi basitleÅŸtirildi**: KarmaÅŸÄ±k timer sistemi kaldÄ±rÄ±ldÄ±
+- ğŸ› ï¸ **Try-catch korumasÄ±**: DiceActivity'ye eklendi
+- ğŸ“± **APK build ve deploy**: BaÅŸarÄ±lÄ± test edildi (2025-09-26)
+
+### ğŸ® Aktif Ã–zellikler:
+- **Katlama sistemi**: Modern tavla modunda KATLA butonlarÄ±
+- **FIBO saat sistemi**: 90sn rezerv + 12sn delay kurallarÄ±
+- **Crawford gÃ¶stergesi**: KÃ¼p Ã¼stÃ¼nde "CRAWFORD" yazÄ±sÄ±
+- **Build ve deploy protokolÃ¼**: Otomatik APK oluÅŸturma ve telefona yÃ¼kleme
+
+### ğŸ“ GÃ¼ncellenen Bilgiler:
+- **Son gÃ¼ncelleme tarihi**: 2025-09-28 â†’ 2025-09-29
+- **Durum**: "PROFESYONEL SATRANÃ‡ SAATÄ° TAMAMLANDI" â†’ "NOT DEFTERLERÄ° GÃœNCEL DURUMA GETÄ°RÄ°LDÄ°"
+
+### ğŸ’¾ Git Ä°ÅŸlemleri:
+- Not defterleri okundu ve gÃ¼ncel durum tespit edildi
+- CLAUDE.md ve PROMPT_GUNLUGU.md gÃ¼ncellendi
+- Commit + push iÅŸlemi iÃ§in hazÄ±r hale getirildi
