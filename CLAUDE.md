@@ -218,6 +218,8 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - **"*btk"** = Beep protokolünü uygulamadığın için tenkid
 - **"*btş"** = Beep protokolü uyguladığın için teşekkür
 - **"*tmm"** = Bu özellik tamam, commit + push yap
+- **"*cp"** = Commit push yap
+- **"*cpe"** = Çalışma protokolüne ekle (ve commit push yap)
 - **"*yle"** = Yapılacaklar listesine ekle
 - **"*ncp"** = Not defterlerini doldur, commit + push
 - **"*bty"** = Build et telefona yükle
