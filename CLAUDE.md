@@ -76,9 +76,15 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
   - Önde olan kazanırsa → Parti biter
   - Arkada olan kazanırsa → Post-Crawford (küp tekrar aktif)
 
+### 11. Dosya Adı Düzenleme Sorunu (2025-09-29) ✅
+- ❌ **Problem**: `GameScoreActivity-Emrelic.kt` dosya adındaki tire (-) karakteri
+- ✅ **Çözüm**: Dosya adı `GameScoreActivity.kt` olarak düzeltildi
+- ✅ **Sonuç**: Android build sistemi artık dosyayı düzgün tanıyor
+- ✅ **Test durumu**: APK başarıyla build edildi ve telefona yüklendi
+
 ## Son Güncelleme
 - **Tarih**: 2025-09-29
-- **Durum**: UI İYİLEŞTİRMELERİ VE OTURUM TAMAMLANDI ✅
+- **Durum**: DOSYA ADI DÜZELTİLDİ - TÜM SİSTEMLER ÇALIŞIR DURUMDA ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"
