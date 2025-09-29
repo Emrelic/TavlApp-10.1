@@ -78,7 +78,7 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 
 ## Son Güncelleme
 - **Tarih**: 2025-09-29
-- **Durum**: NOT DEFTERLERİ GÜNCEL DURUMA GETİRİLDİ ✅
+- **Durum**: UI İYİLEŞTİRMELERİ VE OTURUM TAMAMLANDI ✅
 
 ### 6. Zar Atma Sistemi Çökme Sorunu (2025-09-25) ✅
 - ❌ **İlk problem**: DiceActivity çökme sorunu - "program çöküyor zar atma butonuna basınca"

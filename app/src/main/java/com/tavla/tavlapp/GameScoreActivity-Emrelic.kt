@@ -182,7 +182,7 @@ fun GameScreen(
     var player2CanDouble by remember { mutableStateOf(true) }
 
     // Crawford kuralı için yeni değişkenler
-    var matchTargetScore by remember { mutableIntStateOf(11) } // Parti hedef puanı
+    var matchTargetScore by remember { mutableIntStateOf(targetRounds) } // Parti hedef puanı (ayarlardan)
     var isCrawfordGame by remember { mutableStateOf(false) } // Şu an Crawford eli mi?
     var crawfordGamePlayed by remember { mutableStateOf(false) } // Crawford eli daha önce oynanmış mı?
     var isPostCrawford by remember { mutableStateOf(false) } // Post-Crawford durumu mu?
@@ -323,9 +323,17 @@ fun GameScreen(
         handleCrawfordGameEnd()
         checkCrawfordStatus()
 
-        // Hedef puana ulaşıldıysa maçı bitir
-        if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
-            endMatch()
+        // Hedef puana/ele ulaşıldıysa maçı bitir
+        if (isTraditionalGame) {
+            // Geleneksel modda el sayısına göre kontrol et
+            if (player1RoundsWon >= targetRounds || player2RoundsWon >= targetRounds) {
+                endMatch()
+            }
+        } else {
+            // Modern modda puana göre kontrol et
+            if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
+                endMatch()
+            }
         }
     }
 
@@ -590,11 +598,12 @@ fun GameScreen(
                         .weight(1f)
                         .padding(16.dp)
                 ) {
-                    // Oyuncu adı
+                    // Oyuncu adı - 1.5x büyük font
                     Text(
                         text = "$player1Name ($player1RoundsWon)",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
+                        fontSize = 33.sp, // titleLarge (~22sp) × 1.5 = ~33sp
+                        fontWeight = FontWeight.Bold
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -603,8 +612,9 @@ fun GameScreen(
                     Text(
                         text = player1Score.toString(),
                         color = Color.White,
-                        style = MaterialTheme.typography.displayLarge,
-                        fontSize = if (isTraditionalGame) 180.sp else 60.sp
+                        fontSize = if (isTraditionalGame) 144.sp else 60.sp,
+                        lineHeight = if (isTraditionalGame) 154.sp else 70.sp,
+                        fontWeight = FontWeight.Bold
                     )
 
                     // Butonlar için yeterli alan - Üst kısımda konumlandır
@@ -665,11 +675,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .height(55.dp) // Daha büyük cevap butonları
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        fontSize = 16.sp, // Uygun font boyutu
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -687,11 +697,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .height(55.dp) // Daha büyük cevap butonları
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        fontSize = 16.sp, // Uygun font boyutu
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -709,11 +719,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .height(55.dp) // Daha büyük cevap butonları
                                 ) {
                                     Text(
                                         text = "↩ İptal",
-                                        fontSize = 20.sp, // Büyük font
+                                        fontSize = 16.sp, // Uygun font boyutu
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -738,7 +748,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .height(50.dp) // Daha büyük dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -746,7 +756,7 @@ fun GameScreen(
                                     ) {
                                         Text("✓", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Kabul Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("Kabul Et", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -760,7 +770,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .height(50.dp) // Daha büyük dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -768,7 +778,7 @@ fun GameScreen(
                                     ) {
                                         Text("✗", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Pes Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("Pes Et", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -782,7 +792,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .height(50.dp) // Daha büyük dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -790,7 +800,7 @@ fun GameScreen(
                                     ) {
                                         Text("↩", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("İptal", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("İptal", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -859,12 +869,13 @@ fun GameScreen(
                         )
                     }
 
-                    // Metin (arka planın üzerinde)
+                    // Metin (arka planın üzerinde) - Geleneksel modda 10dp aşağıya
                     Text(
                         text = "$targetRounds",
                         color = Color.White,
                         style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = if (isTraditionalGame) Modifier.offset(y = 10.dp) else Modifier
                     )
                     }
                 }
@@ -876,11 +887,12 @@ fun GameScreen(
                         .weight(1f)
                         .padding(16.dp)
                 ) {
-                    // Oyuncu adı
+                    // Oyuncu adı - 1.5x büyük font
                     Text(
                         text = "$player2Name ($player2RoundsWon)",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
+                        fontSize = 33.sp, // titleLarge (~22sp) × 1.5 = ~33sp
+                        fontWeight = FontWeight.Bold
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -889,8 +901,9 @@ fun GameScreen(
                     Text(
                         text = player2Score.toString(),
                         color = Color.White,
-                        style = MaterialTheme.typography.displayLarge,
-                        fontSize = if (isTraditionalGame) 180.sp else 60.sp
+                        fontSize = if (isTraditionalGame) 144.sp else 60.sp,
+                        lineHeight = if (isTraditionalGame) 154.sp else 70.sp,
+                        fontWeight = FontWeight.Bold
                     )
 
                     // Butonlar için yeterli alan - Üst kısımda konumlandır
@@ -951,11 +964,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .height(55.dp) // Daha büyük cevap butonları
                                 ) {
                                     Text(
                                         text = "✓ Kabul Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        fontSize = 16.sp, // Uygun font boyutu
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -973,11 +986,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .height(55.dp) // Daha büyük cevap butonları
                                 ) {
                                     Text(
                                         text = "✗ Pes Et",
-                                        fontSize = 20.sp, // Büyük font
+                                        fontSize = 16.sp, // Uygun font boyutu
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -995,11 +1008,11 @@ fun GameScreen(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(45.dp) // Daha ince cevap butonları
+                                        .height(55.dp) // Daha büyük cevap butonları
                                 ) {
                                     Text(
                                         text = "↩ İptal",
-                                        fontSize = 20.sp, // Büyük font
+                                        fontSize = 16.sp, // Uygun font boyutu
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -1024,7 +1037,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .height(50.dp) // Daha büyük dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1032,7 +1045,7 @@ fun GameScreen(
                                     ) {
                                         Text("✓", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Kabul Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("Kabul Et", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -1046,7 +1059,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .height(50.dp) // Daha büyük dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1054,7 +1067,7 @@ fun GameScreen(
                                     ) {
                                         Text("✗", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Pes Et", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("Pes Et", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
@@ -1068,7 +1081,7 @@ fun GameScreen(
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth()
-                                        .height(40.dp) // Daha ince dikey mod cevap butonları
+                                        .height(50.dp) // Daha büyük dikey mod cevap butonları
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1076,7 +1089,7 @@ fun GameScreen(
                                     ) {
                                         Text("↩", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("İptal", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text("İptal", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -2236,177 +2249,136 @@ fun GameScreen(
                         }
                     }
                 }
-            } else {
-                // Manuel skor artırma butonları - Manuel modda gösteriliyor
+            }
+
+            // Manuel skor artırma butonları - Sadece manuel skor modunda göster
+            if (!isScoreAutomatic) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 4.dp)
-                ) {
-                    // Sol taraf (Mavi) - Artı buton
-                    Button(
-                        onClick = {
-                            // Skoru manuel olarak artır
-                            player1Score++
-                            
-                            // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
-                            if (isTraditionalGame && player1Score >= targetRounds) {
-                                endMatch()
-                            }
-                        },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(60.dp)
-                            .padding(horizontal = 2.dp)
-                    ) {
-                        Text(
-                            text = "+",
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.White
-                        )
-                    }
-
-                    // Sol taraf (Mavi) - Eksi buton
-                    Button(
-                        onClick = {
-                            // Skoru manuel olarak azalt
-                            if (player1Score > 0) player1Score--
-                        },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(60.dp)
-                            .padding(horizontal = 2.dp)
-                    ) {
-                        Text(
-                            text = "-",
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.White
-                        )
-                    }
-
-                    // Ortadaki temizle butonu (Mor)
-                    Button(
-                        onClick = {
-                            // Skorları sıfırla
-                            player1Score = 0
-                            player2Score = 0
-                            // Crawford değişkenlerini sıfırla
-                            isCrawfordGame = false
-                            crawfordGamePlayed = false
-                            isPostCrawford = false
-                        },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = purpleColor),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(60.dp)
-                            .padding(horizontal = 2.dp)
-                    ) {
-                        Text(
-                            text = "C",
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.White
-                        )
-                    }
-
-                    // Sağ taraf (Kırmızı) - Eksi buton
-                    Button(
-                        onClick = {
-                            // Skoru manuel olarak azalt
-                            if (player2Score > 0) player2Score--
-                        },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(60.dp)
-                            .padding(horizontal = 2.dp)
-                    ) {
-                        Text(
-                            text = "-",
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.White
-                        )
-                    }
-
-                    // Sağ taraf (Kırmızı) - Artı buton
-                    Button(
-                        onClick = {
-                            // Skoru manuel olarak artır
-                            player2Score++
-                            
-                            // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
-                            if (isTraditionalGame && player2Score >= targetRounds) {
-                                endMatch()
-                            }
-                        },
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(60.dp)
-                            .padding(horizontal = 2.dp)
-                    ) {
-                        Text(
-                            text = "+",
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.White
-                        )
-                    }
-                }
-
-                // Manuel modda kaydetme butonu ekliyoruz
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp), // Daha az padding
+                horizontalArrangement = Arrangement.spacedBy(4.dp) // Butonlar arası minimal boşluk
+            ) {
+                // Sol taraf (Mavi) - Artı buton
                 Button(
                     onClick = {
-                        // Mevcut puanları kaydet
-                        if (player1Score > player2Score) {
-                            // Oyuncu 1 kazandı
-                            val difference = player1Score - player2Score
-                            val winType = when {
-                                difference >= 3 && !isTraditionalGame -> "BACKGAMMON"
-                                difference >= 2 -> "MARS"
-                                else -> "SINGLE"
-                            }
-                            addRound(player1Id, player1Name, winType, difference)
-                        } else if (player2Score > player1Score) {
-                            // Oyuncu 2 kazandı
-                            val difference = player2Score - player1Score
-                            val winType = when {
-                                difference >= 3 && !isTraditionalGame -> "BACKGAMMON"
-                                difference >= 2 -> "MARS"
-                                else -> "SINGLE"
-                            }
-                            addRound(player2Id, player2Name, winType, difference)
-                        } else {
-                            // Beraberlik - geçersiz durum
-                            Toast.makeText(
-                                context,
-                                "Beraberlik olamaz! Lütfen geçerli bir skor girin.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                        // Skoru manuel olarak artır
+                        player1Score++
+                        
+                        // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
+                        if (isTraditionalGame && player1Score >= targetRounds) {
+                            endMatch()
                         }
+                    },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(45.dp) // Daha küçük yükseklik
+                        .padding(horizontal = 1.dp) // Minimal padding
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 18.sp, // Daha küçük font
+                        textAlign = TextAlign.Center,
+                        color = Color.White
+                    )
+                }
 
+                // Sol taraf (Mavi) - Eksi buton
+                Button(
+                    onClick = {
+                        // Skoru manuel olarak azalt
+                        if (player1Score > 0) player1Score--
+                    },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(45.dp)
+                        .padding(horizontal = 1.dp)
+                ) {
+                    Text(
+                        text = "-",
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center,
+                        color = Color.White
+                    )
+                }
+
+                // Ortadaki temizle butonu (Mor)
+                Button(
+                    onClick = {
                         // Skorları sıfırla
                         player1Score = 0
                         player2Score = 0
-                        // Crawford değişkenlerini sıfırla (el kaydedildikten sonra)
-                        // Not: Bu durumda zaten addRound fonksiyonu çağrılacak
+                        // Crawford değişkenlerini sıfırla
+                        isCrawfordGame = false
+                        crawfordGamePlayed = false
+                        isPostCrawford = false
                     },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = purpleColor),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .weight(1f)
+                        .height(45.dp)
+                        .padding(horizontal = 1.dp)
                 ) {
-                    Text("Bu Eli Kaydet")
+                    Text(
+                        text = "C",
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center,
+                        color = Color.White
+                    )
                 }
+
+                // Sağ taraf (Kırmızı) - Eksi buton
+                Button(
+                    onClick = {
+                        // Skoru manuel olarak azalt
+                        if (player2Score > 0) player2Score--
+                    },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(45.dp)
+                        .padding(horizontal = 1.dp)
+                ) {
+                    Text(
+                        text = "-",
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center,
+                        color = Color.White
+                    )
+                }
+
+                // Sağ taraf (Kırmızı) - Artı buton
+                Button(
+                    onClick = {
+                        // Skoru manuel olarak artır
+                        player2Score++
+                        
+                        // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
+                        if (isTraditionalGame && player2Score >= targetRounds) {
+                            endMatch()
+                        }
+                    },
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(45.dp)
+                        .padding(horizontal = 1.dp)
+                ) {
+                    Text(
+                        text = "+",
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center,
+                        color = Color.White
+                    )
+                }
+            }
             }
 
             // ✅ Geri alma, zar atma ve maçı sonlandırma butonları - aynı satırda
@@ -2438,25 +2410,42 @@ fun GameScreen(
                     }
                 }
 
-                // Zar/Saat butonu - Koşullu görünüm
-                if (useDiceRoller || useTimer) {
-                    val buttonIcon = when {
-                        useDiceRoller && useTimer -> "🎲⏰"
-                        useDiceRoller -> "🎲"
-                        useTimer -> "⏰"
-                        else -> "🎲"
-                    }
-                    val buttonText = when {
-                        useDiceRoller && useTimer -> "Zar/Saat"
-                        useDiceRoller -> "Zar At"
-                        useTimer -> "Saat Kullan"
-                        else -> "Zar At"
-                    }
-                    
+                // Geleneksel modda kaydet butonu, Modern modda zar/saat butonu
+                if (isTraditionalGame) {
+                    // Bu Eli Kaydet butonu - Yeşil renk
                     Button(
-                        onClick = { showDiceScreen = true },
+                        onClick = {
+                            // Mevcut puanları kaydet
+                            if (player1Score > player2Score) {
+                                // Oyuncu 1 kazandı
+                                val difference = player1Score - player2Score
+                                val winType = when {
+                                    difference >= 2 -> "MARS"
+                                    else -> "SINGLE"
+                                }
+                                addRound(player1Id, player1Name, winType, difference)
+                            } else if (player2Score > player1Score) {
+                                // Oyuncu 2 kazandı
+                                val difference = player2Score - player1Score
+                                val winType = when {
+                                    difference >= 2 -> "MARS"
+                                    else -> "SINGLE"
+                                }
+                                addRound(player2Id, player2Name, winType, difference)
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "Skorlar eşit, kazanan yok!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+
+                            // Skorları sıfırla
+                            player1Score = 0
+                            player2Score = 0
+                        },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF9C27B0) // Mor renk
+                            containerColor = Color(0xFF2E7D32) // Yeşil renk
                         ),
                         modifier = Modifier
                             .weight(1f)
@@ -2466,9 +2455,44 @@ fun GameScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Text(buttonIcon, fontSize = 16.sp)
+                            Text("💾", fontSize = 16.sp)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(buttonText, color = Color.White, fontSize = 12.sp)
+                            Text("Bu Eli Kaydet", color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    // Zar/Saat butonu - Koşullu görünüm (Modern mod)
+                    if (useDiceRoller || useTimer) {
+                        val buttonIcon = when {
+                            useDiceRoller && useTimer -> "🎲⏰"
+                            useDiceRoller -> "🎲"
+                            useTimer -> "⏰"
+                            else -> "🎲"
+                        }
+                        val buttonText = when {
+                            useDiceRoller && useTimer -> "Zar/Saat"
+                            useDiceRoller -> "Zar At"
+                            useTimer -> "Saat Kullan"
+                            else -> "Zar At"
+                        }
+                        
+                        Button(
+                            onClick = { showDiceScreen = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF9C27B0) // Mor renk
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(buttonIcon, fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(buttonText, color = Color.White, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -2487,6 +2511,7 @@ fun GameScreen(
                 }
             }
         }
+
 
         // Katlama Zarı - Sadece Modern tavla için görünür
         if (!isTraditionalGame) {

@@ -810,6 +810,8 @@ fun ProfessionalChessClockScreen(
     onPauseTimer: () -> Unit,
     onResetTimer: () -> Unit
 ) {
+    // Ayar popup state
+    var showSettingsDialog by remember { mutableStateOf(false) }
     // Profesyonel DGT3000 tarzı tasarım - YATAY (LANDSCAPE) DÜZEN
     Box(
         modifier = Modifier
@@ -943,13 +945,31 @@ fun ProfessionalChessClockScreen(
                             containerColor = Color(0xFF757575)
                         ),
                         modifier = Modifier
-                            .height(60.dp)
+                            .height(50.dp)
                             .width(90.dp)
                     ) {
                         Text(
                             text = "RESET",
                             color = Color.White,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    // AYARLAR Butonu
+                    Button(
+                        onClick = { showSettingsDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF607D8B)
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .width(90.dp)
+                    ) {
+                        Text(
+                            text = "AYAR",
+                            color = Color.White,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -1019,5 +1039,215 @@ fun ProfessionalChessClockScreen(
                 }
             }
         }
+        
+        // AYARLAR POPUP DİALOG
+        if (showSettingsDialog) {
+            ChessClockSettingsDialog(
+                onDismiss = { showSettingsDialog = false },
+                onApplySettings = { /* Ayarları uygula */ }
+            )
+        }
     }
 }
+
+@Composable
+fun ChessClockSettingsDialog(
+    onDismiss: () -> Unit,
+    onApplySettings: (ChessClockSettings) -> Unit
+) {
+    // Ayar state'leri
+    var selectedTimeControl by remember { mutableStateOf("Fischer") }
+    var initialTime by remember { mutableIntStateOf(15) } // dakika
+    var incrementTime by remember { mutableIntStateOf(10) } // saniye
+    var delayTime by remember { mutableIntStateOf(12) } // saniye
+    var selectedGameMode by remember { mutableStateOf("Blitz") }
+    
+    // Backdrop overlay
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.7f))
+            .clickable { onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        // Ana ayar paneli
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .fillMaxHeight(0.8f)
+                .clickable { /* Dialog içi tıklamasını engelle */ },
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E2E2E)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Başlık
+                Text(
+                    text = "⚙️ Satranç Saati Ayarları",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Süre kontrolü seçimi
+                Text(
+                    text = "Süre Kontrolü:",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("Fischer", "Bronstein", "Simple").forEach { mode ->
+                        FilterChip(
+                            onClick = { selectedTimeControl = mode },
+                            label = { Text(mode) },
+                            selected = selectedTimeControl == mode,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF4CAF50),
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+                
+                // Oyun modu seçimi
+                Text(
+                    text = "Oyun Modu:",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("Bullet", "Blitz", "Rapid", "Classical").forEach { mode ->
+                        FilterChip(
+                            onClick = { 
+                                selectedGameMode = mode
+                                // Preset değerleri ayarla
+                                when (mode) {
+                                    "Bullet" -> { initialTime = 1; incrementTime = 1 }
+                                    "Blitz" -> { initialTime = 5; incrementTime = 3 }
+                                    "Rapid" -> { initialTime = 15; incrementTime = 10 }
+                                    "Classical" -> { initialTime = 90; incrementTime = 30 }
+                                }
+                            },
+                            label = { Text(mode) },
+                            selected = selectedGameMode == mode,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF2196F3),
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+                
+                // Başlangıç süresi
+                Text(
+                    text = "Başlangıç Süresi: $initialTime dakika",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+                Slider(
+                    value = initialTime.toFloat(),
+                    onValueChange = { initialTime = it.toInt() },
+                    valueRange = 1f..180f,
+                    steps = 178,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF4CAF50),
+                        activeTrackColor = Color(0xFF4CAF50)
+                    )
+                )
+                
+                // Increment/Delay süresi
+                Text(
+                    text = "${if (selectedTimeControl == "Fischer") "Increment" else "Delay"}: $incrementTime saniye",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+                Slider(
+                    value = incrementTime.toFloat(),
+                    onValueChange = { incrementTime = it.toInt() },
+                    valueRange = 0f..60f,
+                    steps = 59,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF4CAF50),
+                        activeTrackColor = Color(0xFF4CAF50)
+                    )
+                )
+                
+                // Açıklama metni
+                Text(
+                    text = when (selectedTimeControl) {
+                        "Fischer" -> "Fischer: Her hamleden sonra süre eklenir"
+                        "Bronstein" -> "Bronstein: Harcanan süre kadar eklenir (max delay)"
+                        "Simple" -> "Simple: Sabit delay süresi"
+                        else -> ""
+                    },
+                    color = Color(0xFFBDBDBD),
+                    fontSize = 12.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.weight(1f))
+                
+                // Butonlar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF757575)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("İptal", color = Color.White)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Button(
+                        onClick = {
+                            val settings = ChessClockSettings(
+                                timeControl = selectedTimeControl,
+                                initialTimeMinutes = initialTime,
+                                incrementSeconds = incrementTime,
+                                gameMode = selectedGameMode
+                            )
+                            onApplySettings(settings)
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Uygula", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Ayar data class'ı
+data class ChessClockSettings(
+    val timeControl: String,
+    val initialTimeMinutes: Int,
+    val incrementSeconds: Int,
+    val gameMode: String
+)
