@@ -271,7 +271,7 @@ fun DiceScreen(
                     )
                     Text(
                         text = formatTime(player1ReserveTime),
-                        color = if (currentPlayer == 1) Color.Yellow else Color.White,
+                        color = if (currentPlayer == 2) Color.Yellow else Color.White, // ÇAPRAZLAMA
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -283,7 +283,7 @@ fun DiceScreen(
                     )
                     Text(
                         text = "${player1MoveTime}s",
-                        color = if (currentPlayer == 1) Color.Red else Color.White,
+                        color = if (currentPlayer == 2) Color.Red else Color.White, // ÇAPRAZLAMA
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -307,7 +307,7 @@ fun DiceScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(if (currentPlayer == 1) Color(0xFF4CAF50) else Color(0xFF90A4AE)), // Yeşil (aktif) / Mat gri (pasif)
+                .background(if (currentPlayer == 1) Color(0xFF4CAF50) else Color(0xFF90A4AE)), // SOL YEŞİL: Sağ tıklama→currentPlayer=1
             contentAlignment = Alignment.Center
         ) {
             // Sol taraf zarları
@@ -346,7 +346,7 @@ fun DiceScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(if (currentPlayer == 2) Color(0xFF4CAF50) else Color(0xFF90A4AE)), // Yeşil (aktif) / Mat gri (pasif)
+                .background(if (currentPlayer == 2) Color(0xFF4CAF50) else Color(0xFF90A4AE)), // SAĞ YEŞİL: Sol tıklama→currentPlayer=2
             contentAlignment = Alignment.Center
         ) {
             // Sağ taraf zarları
@@ -475,7 +475,7 @@ fun DiceScreen(
                     )
                     Text(
                         text = formatTime(player2ReserveTime),
-                        color = if (currentPlayer == 2) Color.Yellow else Color.White,
+                        color = if (currentPlayer == 1) Color.Yellow else Color.White, // ÇAPRAZLAMA
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -487,7 +487,7 @@ fun DiceScreen(
                     )
                     Text(
                         text = "${player2MoveTime}s",
-                        color = if (currentPlayer == 2) Color.Red else Color.White,
+                        color = if (currentPlayer == 1) Color.Red else Color.White, // ÇAPRAZLAMA
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -937,11 +937,16 @@ fun ProfessionalChessClockScreen(
                     .fillMaxHeight()
                     .weight(1f)
                     .background(
+                        // ÇAPRAZLAMA: Sol taraf currentPlayer==1 olduğunda yeşil olmalı (Sağ tıklama)
                         if (currentPlayer == 1) Color(0xFF2E7D32) // Aktif yeşil
                         else Color(0xFF424242) // Pasif gri
                     )
-                    .clickable { onPlayerSwitch(1) }
+                    .clickable { 
+                        // SOL TARAFA TIKLANINCA SAĞ OYUNCUNUN SAATİ ÇALIŞMALI (ÇAPRAZLAMA)
+                        onPlayerSwitch(2)  // 1 değil 2 olmalı!
+                    }
                     .border(
+                        // ÇAPRAZLAMA: Sol taraf currentPlayer==1 olduğunda aktif border (Sağ tıklama)
                         width = if (currentPlayer == 1) 4.dp else 1.dp,
                         color = if (currentPlayer == 1) Color(0xFF4CAF50) else Color(0xFF757575)
                     )
@@ -977,14 +982,14 @@ fun ProfessionalChessClockScreen(
                     // Hamle süresi
                     Text(
                         text = "Hamle: ${player1MoveTime}s",
-                        color = if (currentPlayer == 1) Color(0xFFFFEB3B) else Color(0xFFBDBDBD),
+                        color = if (currentPlayer == 2) Color(0xFFFFEB3B) else Color(0xFFBDBDBD), // ÇAPRAZLAMA
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
                 
-                // Aktif oyuncu göstergesi
-                if (currentPlayer == 1) {
+                // Aktif oyuncu göstergesi - ÇAPRAZLAMA
+                if (currentPlayer == 2) {
                     Box(
                         modifier = Modifier
                             .size(12.dp)
@@ -1092,11 +1097,16 @@ fun ProfessionalChessClockScreen(
                     .fillMaxHeight()
                     .weight(1f)
                     .background(
+                        // ÇAPRAZLAMA: Sağ taraf currentPlayer==2 olduğunda yeşil olmalı (Sol tıklama)
                         if (currentPlayer == 2) Color(0xFF2E7D32) // Aktif yeşil
                         else Color(0xFF424242) // Pasif gri
                     )
-                    .clickable { onPlayerSwitch(2) }
+                    .clickable { 
+                        // SAĞ TARAFA TIKLANINCA SOL OYUNCUNUN SAATİ ÇALIŞMALI (ÇAPRAZLAMA)
+                        onPlayerSwitch(1)  // 2 değil 1 olmalı!
+                    }
                     .border(
+                        // ÇAPRAZLAMA: Sağ taraf currentPlayer==2 olduğunda aktif border (Sol tıklama)
                         width = if (currentPlayer == 2) 4.dp else 1.dp,
                         color = if (currentPlayer == 2) Color(0xFF4CAF50) else Color(0xFF757575)
                     )
@@ -1132,14 +1142,14 @@ fun ProfessionalChessClockScreen(
                     // Hamle süresi
                     Text(
                         text = "Hamle: ${player2MoveTime}s",
-                        color = if (currentPlayer == 2) Color(0xFFFFEB3B) else Color(0xFFBDBDBD),
+                        color = if (currentPlayer == 1) Color(0xFFFFEB3B) else Color(0xFFBDBDBD), // ÇAPRAZLAMA
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
                 
-                // Aktif oyuncu göstergesi
-                if (currentPlayer == 2) {
+                // Aktif oyuncu göstergesi - ÇAPRAZLAMA
+                if (currentPlayer == 1) {
                     Box(
                         modifier = Modifier
                             .size(12.dp)
