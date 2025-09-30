@@ -176,7 +176,8 @@ fun DiceScreen(
                 .fillMaxHeight()
                 .background(Color(0xFF1976D2)) // Koyu mavi buton alanı
                 .clickable {
-                    if (!isRolling && leftSideActive) {
+                    if (!isRolling && currentPlayer == 1) {
+                        // SOL TARAFA BASILDI - Karşı tarafın (sağın) saati başlamalı
                         when (gamePhase) {
                             "opening_modern" -> {
                                 // Sol tarafa basıldı, sol zarı at
@@ -218,7 +219,8 @@ fun DiceScreen(
                                 }
                             }
                             "playing" -> {
-                                if (currentPlayer == 1) {
+                                // SOL TARAFA BASILDI - Karşı tarafın (sağın) saati başlamalı
+                                if (!isRolling) {
                                     isRolling = true
                                     // Zar sesi efekti
                                     try {
@@ -230,13 +232,16 @@ fun DiceScreen(
                                     leftDice2 = (1..6).random()
                                     isRolling = false
                                     
-                                    // Sırayı karşı tarafa geçir
-                                    currentPlayer = 2
+                                    // Sol tarafa basıldı = Sol oyuncu hamlesi bitti, SAĞ oyuncunun saati çalışmalı
+                                    println("SOL TARAF BASILDI: Sol oyuncu bitti, SAĞ oyuncunun saati çalışacak")
+                                    currentPlayer = 2  // SAĞ OYUNCUNUN SAATİ ÇALIŞACAK
                                     player2MoveTime = delayTime
+                                    timerRunning = useTimer // TIMER'I BAŞLAT
+                                    println("currentPlayer = $currentPlayer, timerRunning = $timerRunning, useTimer = $useTimer")
                                     
-                                    // Pasif/aktif durumları değiştir
-                                    leftSideActive = false
-                                    rightSideActive = true
+                                    // Pasif/aktif durumları değiştir - SAĞ TARAF YEŞİL OLMALI
+                                    leftSideActive = false   // Sol pasif
+                                    rightSideActive = true   // Sağ aktif (yeşil)
                                 }
                             }
                         }
@@ -302,7 +307,7 @@ fun DiceScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(if (leftSideActive) Color(0xFF64B5F6) else Color(0xFF90A4AE)), // Açık mavi / Mat gri
+                .background(if (currentPlayer == 1) Color(0xFF4CAF50) else Color(0xFF90A4AE)), // Yeşil (aktif) / Mat gri (pasif)
             contentAlignment = Alignment.Center
         ) {
             // Sol taraf zarları
@@ -313,15 +318,15 @@ fun DiceScreen(
                             value = openingDice1,
                             size = 120.dp, // 200dp → 120dp (ekrana sığacak boyut) // 2x büyük (100dp → 200dp)
                             isAnimating = isRolling,
-                            isActive = leftSideActive
+                            isActive = currentPlayer == 1
                         )
                     }
                 }
                 "playing" -> {
-                    if (currentPlayer == 1 || leftSideActive) {
+                    if (leftDice1 > 0 && leftDice2 > 0) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ProfessionalDiceComponent(leftDice1, 120.dp, isRolling && currentPlayer == 1, leftSideActive)
-                            ProfessionalDiceComponent(leftDice2, 120.dp, isRolling && currentPlayer == 1, leftSideActive)
+                            ProfessionalDiceComponent(leftDice1, 120.dp, isRolling && currentPlayer == 1, currentPlayer == 1)
+                            ProfessionalDiceComponent(leftDice2, 120.dp, isRolling && currentPlayer == 1, currentPlayer == 1)
                         }
                     }
                 }
@@ -341,7 +346,7 @@ fun DiceScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(if (rightSideActive) Color(0xFFEF5350) else Color(0xFF90A4AE)), // Açık kırmızı / Mat gri
+                .background(if (currentPlayer == 2) Color(0xFF4CAF50) else Color(0xFF90A4AE)), // Yeşil (aktif) / Mat gri (pasif)
             contentAlignment = Alignment.Center
         ) {
             // Sağ taraf zarları
@@ -352,15 +357,15 @@ fun DiceScreen(
                             value = openingDice2,
                             size = 120.dp, // 200dp → 120dp (ekrana sığacak boyut)
                             isAnimating = isRolling,
-                            isActive = rightSideActive
+                            isActive = currentPlayer == 2
                         )
                     }
                 }
                 "playing" -> {
-                    if (currentPlayer == 2 || rightSideActive) {
+                    if (rightDice1 > 0 && rightDice2 > 0) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ProfessionalDiceComponent(rightDice1, 120.dp, isRolling && currentPlayer == 2, rightSideActive)
-                            ProfessionalDiceComponent(rightDice2, 120.dp, isRolling && currentPlayer == 2, rightSideActive)
+                            ProfessionalDiceComponent(rightDice1, 120.dp, isRolling && currentPlayer == 2, currentPlayer == 2)
+                            ProfessionalDiceComponent(rightDice2, 120.dp, isRolling && currentPlayer == 2, currentPlayer == 2)
                         }
                     }
                 }
@@ -374,7 +379,7 @@ fun DiceScreen(
                 .fillMaxHeight()
                 .background(Color(0xFFD32F2F)) // Koyu kırmızı buton alanı
                 .clickable {
-                    if (!isRolling && rightSideActive) {
+                    if (!isRolling && currentPlayer == 2) {
                         when (gamePhase) {
                             "opening_modern" -> {
                                 // Sağ tarafa basıldı, sağ zarı at
@@ -418,7 +423,8 @@ fun DiceScreen(
                                 }
                             }
                             "playing" -> {
-                                if (currentPlayer == 2) {
+                                // SAĞ TARAFA BASILDI - Karşı tarafın (solun) saati başlamalı
+                                if (!isRolling) {
                                     isRolling = true
                                     // Zar sesi efekti
                                     try {
@@ -430,13 +436,16 @@ fun DiceScreen(
                                     rightDice2 = (1..6).random()
                                     isRolling = false
                                     
-                                    // Sırayı karşı tarafa geçir
-                                    currentPlayer = 1
+                                    // Sağ tarafa basıldı = Sağ oyuncu hamlesi bitti, SOL oyuncunun saati çalışmalı
+                                    println("SAĞ TARAF BASILDI: Sağ oyuncu bitti, SOL oyuncunun saati çalışacak")
+                                    currentPlayer = 1  // SOL OYUNCUNUN SAATİ ÇALIŞACAK
                                     player1MoveTime = delayTime
+                                    timerRunning = useTimer // TIMER'I BAŞLAT
+                                    println("currentPlayer = $currentPlayer, timerRunning = $timerRunning, useTimer = $useTimer")
                                     
-                                    // Pasif/aktif durumları değiştir
-                                    rightSideActive = false
-                                    leftSideActive = true
+                                    // Pasif/aktif durumları değiştir - SOL TARAF YEŞİL OLMALI
+                                    rightSideActive = false  // Sağ pasif
+                                    leftSideActive = true    // Sol aktif (yeşil)
                                 }
                             }
                         }

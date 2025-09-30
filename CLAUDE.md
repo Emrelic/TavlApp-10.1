@@ -183,10 +183,10 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
    - Kullanıcı sorgulamaz, otomatik yapılır
    
 1.5. **📅 Build Tarih Damgası Protokolü:**
-   - Her build ve telefona yüklemede program simgesine build tarih/saati yazılacak
-   - Format: "DD.MM.YY HH:mm" (örn: "28.09.25 14:30")
-   - App launcher icon'unda veya uygulama hakkında bölümünde görünecek
-   - Her *bty ve *ty komutunda otomatik uygulanacak
+   - Her build ve telefona yüklemede program simge ismine build tarih/saati eklenir
+   - Format: "TavlApp.DD.MM.YYYY.HH.MM" (örn: "TavlApp.30.09.2025.00.39")
+   - strings.xml dosyasındaki app_name değeri güncellenir
+   - Her *bty ve *ty komutunda otomatik uygulanacak (şu anki build: 30.09.2025.00.47)
 
 0. **🪟 Terminal Başlık Protokolü:**
    - Claude Code terminalinde başlık değişikliği sınırlı
