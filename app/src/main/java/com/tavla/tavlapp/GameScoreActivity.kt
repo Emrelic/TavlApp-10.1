@@ -2571,17 +2571,29 @@ fun GameScreen(
 
     // Zar atma ekranı - Yeni tam sayfa Activity'ye yönlendirme
     if (showDiceScreen) {
-        LaunchedEffect(showDiceScreen) {
-            val intent = Intent(context, DiceActivity::class.java).apply {
-                putExtra("game_type", gameType)
-                putExtra("use_dice_roller", useDiceRoller)
-                putExtra("use_timer", useTimer)
-                putExtra("player1_name", player1Name)
-                putExtra("player2_name", player2Name)
+        DisposableEffect(Unit) {
+            try {
+                val intent = Intent(context, DiceActivity::class.java).apply {
+                    putExtra("game_type", gameType)
+                    putExtra("use_dice_roller", useDiceRoller)
+                    putExtra("use_timer", useTimer)
+                    putExtra("player1_name", player1Name)
+                    putExtra("player2_name", player2Name)
+                    putExtra("match_length", targetRounds)
+                }
+                context.startActivity(intent)
+                Toast.makeText(context, "Zar ekranı açılıyor...", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Zar ekranı açılamadı: ${e.message}", Toast.LENGTH_LONG).show()
             }
-            context.startActivity(intent)
-            showDiceScreen = false
+            
+            onDispose {
+                // Activity açıldığında state'i sıfırla
+            }
         }
+        
+        // State'i hemen sıfırla
+        showDiceScreen = false
     }
 
     // Aktivite sonlandığında yapılacak işlemler
