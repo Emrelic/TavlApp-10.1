@@ -86,12 +86,21 @@ fun DiceScreen(
     matchLength: Int,
     onBack: () -> Unit
 ) {
-    // Ekran tipini belirle: Sadece süre tutucu ise satranç saati ekranı
+    // Ekran tipini belirle: 
     if (!useDiceRoller && useTimer) {
+        // Sadece süre tutucu ise satranç saati ekranı
         ChessClockScreen(
             player1Name = player1Name,
             player2Name = player2Name,
             matchLength = matchLength,
+            onBack = onBack
+        )
+        return
+    } else if (useDiceRoller && useTimer) {
+        // Zar + Saat entegre ekranı - RESİMDEKİ GİBİ
+        SimpleIntegratedScreen(
+            player1Name = player1Name,
+            player2Name = player2Name,
             onBack = onBack
         )
         return
@@ -1371,3 +1380,142 @@ data class ChessClockSettings(
     val incrementSeconds: Int,
     val gameMode: String
 )
+
+@Composable
+fun SimpleIntegratedScreen(
+    player1Name: String,
+    player2Name: String,
+    onBack: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF1E1E1E))
+    ) {
+        // SOL OYUNCU ADI - DİKEY
+        Box(
+            modifier = Modifier
+                .width(30.dp)
+                .fillMaxHeight()
+                .background(Color(0xFF37474F)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = player1Name,
+                color = Color.White,
+                fontSize = 10.sp,
+                modifier = Modifier.rotate(90f)
+            )
+        }
+        
+        // SOL SÜRE ALANI
+        Box(
+            modifier = Modifier
+                .width(60.dp)
+                .fillMaxHeight()
+                .background(Color(0xFF2E2E2E)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("05", color = Color.White, fontSize = 18.sp, modifier = Modifier.rotate(90f))
+        }
+        
+        // SOL YEŞİL ALAN + ZAR
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color(0xFF4CAF50)),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .border(1.dp, Color.Black, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("6", fontSize = 24.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        }
+        
+        // ORTA KONTROL PANELİ
+        Column(
+            modifier = Modifier
+                .width(80.dp)
+                .fillMaxHeight()
+                .background(Color(0xFF37474F))
+                .padding(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Button(
+                onClick = { },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            ) {
+                Text("PLAY", color = Color.White, fontSize = 8.sp)
+            }
+            
+            Text("PAUSED", color = Color(0xFFFF9800), fontSize = 8.sp)
+            
+            Button(
+                onClick = { },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575))
+            ) {
+                Text("RESET", color = Color.White, fontSize = 8.sp)
+            }
+            
+            Button(
+                onClick = onBack,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+            ) {
+                Text("KAPAT", color = Color.White, fontSize = 8.sp)
+            }
+        }
+        
+        // SAĞ GRİ ALAN + ZAR
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(Color(0xFF9E9E9E)),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .border(1.dp, Color.Black, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("3", fontSize = 24.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        }
+        
+        // SAĞ SÜRE ALANI
+        Box(
+            modifier = Modifier
+                .width(60.dp)
+                .fillMaxHeight()
+                .background(Color(0xFF2E2E2E)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("18", color = Color.White, fontSize = 18.sp, modifier = Modifier.rotate(-90f))
+        }
+        
+        // SAĞ OYUNCU ADI - DİKEY TERS
+        Box(
+            modifier = Modifier
+                .width(30.dp)
+                .fillMaxHeight()
+                .background(Color(0xFF37474F)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = player2Name,
+                color = Color.White,
+                fontSize = 10.sp,
+                modifier = Modifier.rotate(-90f)
+            )
+        }
+    }
+}

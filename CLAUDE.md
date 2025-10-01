@@ -232,7 +232,7 @@ adb shell am start -n com.tavla.tavlapp/.MainActivity
 - **"*ty"** = Telefona yükle (build et + yükle)
 - **"*nto"** = Not defterlerini oku (ntk equivalent)
 - **"*mo"** = md uzantılı tüm not defterlerini oku
-- **"*çpe"** = Çalışma protokolüne ekle (ve terminal başlığını TavlApp yap)
+- **"*çpe"** = Çalışma protokolüne ekle (ve terminal başlığını TavlApp yap) + HER PROMPT'U OTOMATİK GÜNLÜĞE EKLE
 - **"*tpb"** = Terminal pencere başlığını TavlApp olarak ayarla
 - **"*ege"** = Ekran görüntülerine ekle
 - **"*tsp"** = Sorunun ne olduğunu tespit et (bütün ihtimalleri listele)
