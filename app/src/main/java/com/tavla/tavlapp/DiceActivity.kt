@@ -746,12 +746,3 @@ fun ChessClockScreen(
     Text("Chess Clock - $player1Name vs $player2Name")
 }
 
-@Composable
-fun SimpleIntegratedScreen(
-    player1Name: String,
-    player2Name: String,
-    onBack: () -> Unit
-) {
-    // Basit entegre ekran implementasyonu
-    Text("Simple Integrated - $player1Name vs $player2Name")
-}
