@@ -40,37 +40,34 @@ fun SimpleIntegratedScreen(
 ) {
     // === OYUN DURUMU ===
     var currentPlayer by remember { mutableIntStateOf(1) } // 1 = Player1, 2 = Player2
-    var gamePhase by remember { mutableStateOf("playing") } // "playing", "paused"
-    
+    var gamePhase by remember { mutableStateOf("initial") } // "initial", "playing"
+
     // === ZAR DURUMU ===
     var dice1 by remember { mutableIntStateOf(1) }
     var dice2 by remember { mutableIntStateOf(2) }
+    var leftDice by remember { mutableIntStateOf(0) } // Sol taraf zarı
+    var rightDice by remember { mutableIntStateOf(0) } // Sağ taraf zarı
     var isRolling by remember { mutableStateOf(false) }
-    var diceMarkedAsPlayed by remember { mutableStateOf(false) }
-    
+    var isRollingLeft by remember { mutableStateOf(false) }
+    var isRollingRight by remember { mutableStateOf(false) }
+
     // === SÜRE DURUMU ===
-    val reserveTimePerPlayer = matchLength * 2 * 60 // 2dk × maç uzunluğu  
+    val reserveTimePerPlayer = matchLength * 2 * 60 // 2dk × maç uzunluğu
     val moveTimeDelay = 12 // 12 saniye
-    
+
     var player1ReserveTime by remember { mutableIntStateOf(reserveTimePerPlayer) }
     var player2ReserveTime by remember { mutableIntStateOf(reserveTimePerPlayer) }
     var player1MoveTime by remember { mutableIntStateOf(moveTimeDelay) }
     var player2MoveTime by remember { mutableIntStateOf(moveTimeDelay) }
-    
+
     var timerRunning by remember { mutableStateOf(false) }
-    
-    // === İSTATİSTİK DURUMU ===
-    var totalDiceRolls by remember { mutableIntStateOf(0) }
-    var playedDiceRolls by remember { mutableIntStateOf(0) }
-    var player1TotalMoves by remember { mutableIntStateOf(0) }
-    var player2TotalMoves by remember { mutableIntStateOf(0) }
-    
+
     // === TIMER SİSTEMİ ===
     LaunchedEffect(timerRunning, currentPlayer) {
         if (timerRunning) {
             while (timerRunning) {
                 delay(1000)
-                
+
                 if (currentPlayer == 1) {
                     if (player1MoveTime > 0) {
                         player1MoveTime--
@@ -91,285 +88,366 @@ fun SimpleIntegratedScreen(
             }
         }
     }
-    
-    // === ZAR ATMA FONKSİYONU ===
+
+    // === ZAR RANDOM ATMA ALGORİTMASI (1-6 diziden elenme) ===
+    suspend fun rollDiceWithElimination(): Int {
+        val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
+        var result = 1
+
+        // 5 sayı elenecek
+        repeat(5) {
+            val randomIndex = numbers.indices.random()
+            result = numbers[randomIndex]
+            numbers.removeAt(randomIndex)
+            delay(80) // Her eleme görsel olarak gösterilecek
+        }
+
+        // Son kalan sayı
+        return numbers[0]
+    }
+
+    // === SOL TARAF ZAR ATMA (Oyun başlangıcı) ===
+    fun rollLeftDice() {
+        if (!isRollingLeft) {
+            CoroutineScope(Dispatchers.Main).launch {
+                isRollingLeft = true
+
+                // Ses efekti
+                try {
+                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                    toneGenerator.release()
+                } catch (e: Exception) { }
+
+                // Random eliminasyon algoritması
+                val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
+                repeat(5) {
+                    val randomIndex = numbers.indices.random()
+                    leftDice = numbers[randomIndex]
+                    numbers.removeAt(randomIndex)
+                    delay(80)
+                }
+                leftDice = numbers[0] // Son kalan sayı
+
+                isRollingLeft = false
+            }
+        }
+    }
+
+    // === SAĞ TARAF ZAR ATMA (Oyun başlangıcı) ===
+    fun rollRightDice() {
+        if (!isRollingRight) {
+            CoroutineScope(Dispatchers.Main).launch {
+                isRollingRight = true
+
+                // Ses efekti
+                try {
+                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                    toneGenerator.release()
+                } catch (e: Exception) { }
+
+                // Random eliminasyon algoritması
+                val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
+                repeat(5) {
+                    val randomIndex = numbers.indices.random()
+                    rightDice = numbers[randomIndex]
+                    numbers.removeAt(randomIndex)
+                    delay(80)
+                }
+                rightDice = numbers[0] // Son kalan sayı
+
+                isRollingRight = false
+
+                // Karşılaştır ve oyunu başlat
+                if (leftDice > 0 && rightDice > 0) {
+                    delay(500)
+                    if (leftDice > rightDice) {
+                        // Sol kazandı
+                        currentPlayer = 1
+                        dice1 = leftDice
+                        dice2 = rightDice
+                        gamePhase = "playing"
+                        timerRunning = true
+                    } else if (rightDice > leftDice) {
+                        // Sağ kazandı
+                        currentPlayer = 2
+                        dice1 = leftDice
+                        dice2 = rightDice
+                        gamePhase = "playing"
+                        timerRunning = true
+                    } else {
+                        // Berabere - yeniden at
+                        leftDice = 0
+                        rightDice = 0
+                        delay(1000)
+                        rollLeftDice()
+                    }
+                }
+            }
+        }
+    }
+
+    // === NORMAL ZAR ATMA (Oyun sırasında) ===
     suspend fun rollDice() {
         if (!isRolling) {
             isRolling = true
-            diceMarkedAsPlayed = false
-            
+
             // Ses efekti
             try {
                 val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
                 toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
                 toneGenerator.release()
             } catch (e: Exception) { }
-            
-            // Animasyonlu zar atma
-            repeat(8) {
-                dice1 = (1..6).random()
-                dice2 = (1..6).random()
+
+            // İki zar için random eliminasyon
+            val numbers1 = mutableListOf(1, 2, 3, 4, 5, 6)
+            val numbers2 = mutableListOf(1, 2, 3, 4, 5, 6)
+
+            repeat(5) {
+                val idx1 = numbers1.indices.random()
+                val idx2 = numbers2.indices.random()
+                dice1 = numbers1[idx1]
+                dice2 = numbers2[idx2]
+                numbers1.removeAt(idx1)
+                numbers2.removeAt(idx2)
                 delay(80)
             }
-            
-            // Final zarlar
-            dice1 = (1..6).random()
-            dice2 = (1..6).random()
-            
+
+            dice1 = numbers1[0]
+            dice2 = numbers2[0]
+
             isRolling = false
-            totalDiceRolls++
-            
+
             // Timer'ı başlat
             if (!timerRunning) {
                 timerRunning = true
-                if (currentPlayer == 1) {
-                    player1MoveTime = moveTimeDelay
-                } else {
-                    player2MoveTime = moveTimeDelay
-                }
             }
         }
     }
-    
-    // === ANA EKRAN: YARI YARIYA BÖLÜNMÜŞ ===
+
+    // === ANA EKRAN ===
     Row(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1A1A1A))
     ) {
         // === SOL DİKEY BUTON ===
-        Column(
+        Box(
             modifier = Modifier
-                .width(80.dp)
+                .width(120.dp)
                 .fillMaxHeight()
-                .background(if (currentPlayer == 1) Color(0xFF000000) else Color(0xFF4CAF50)) // Aktif=Siyah, Pasif=Yeşil
+                .background(
+                    if (gamePhase == "initial") Color(0xFFB3E5FC) // Açık mavi başlangıç
+                    else if (currentPlayer == 1) Color(0xFF000000) else Color(0xFF808080) // Aktif=Siyah, Pasif=Gri
+                )
                 .clickable {
-                    if (!isRolling) {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            rollDice()
-                            // Zar atıldıktan sonra timer'ı başlat
-                            timerRunning = true
+                    if (gamePhase == "initial") {
+                        // Başlangıç zar atma
+                        rollLeftDice()
+                    } else {
+                        // Normal zar atma
+                        if (!isRolling && currentPlayer == 1) {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                rollDice()
+                                timerRunning = true
+                            }
                         }
                     }
                 }
-                .padding(8.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Sol Oyuncu Bilgileri - Döndürülmüş (Simetrik düzen)
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .rotate(90f),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Hamle süresi - Sol tarafta
+            // Üst: Hamle süresi
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(90f)
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "HAMLE",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(
                     text = "${player1MoveTime}s",
-                    color = Color.White,
-                    fontSize = 36.sp, // 3 katı (12sp × 3)
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Rezerv süre - Sağ tarafta  
-                Text(
-                    text = formatTimeSimple(player1ReserveTime),
-                    color = Color.White,
-                    fontSize = 54.sp, // 3 katı (18sp × 3)
+                    color = Color(0xFFFFEB3B),
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Alt: Rezerv süre
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(90f)
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "REZERV",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = formatTimeSimple(player1ReserveTime),
+                    color = Color.White,
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
+            }
         }
-        
+
         // === SOL YARIM: SOL ZAR ===
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(if (currentPlayer == 1) Color(0xFF000000) else Color(0xFF4CAF50)) // Aktif=Siyah, Pasif=Yeşil
+                .background(
+                    if (gamePhase == "initial") Color(0xFFB3E5FC) // Açık mavi başlangıç
+                    else if (currentPlayer == 1) Color(0xFF000000) else Color(0xFF808080)
+                )
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Sol Zar
-            Enhanced3DDice(value = dice1, isRolling = isRolling, size = 150.dp)
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Sol Zar Kontrolleri
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "SOL ZAR",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Değer: $dice1",
-                    color = Color(0xFFBBBBBB),
-                    fontSize = 14.sp
-                )
+            if (gamePhase == "initial") {
+                // Başlangıç zarı
+                Enhanced3DDice(value = leftDice, isRolling = isRollingLeft, size = 120.dp)
+            } else {
+                // Normal zar
+                Enhanced3DDice(value = dice1, isRolling = isRolling, size = 120.dp)
             }
         }
-        
+
         // === ORTA ÇİZGİ ===
         Box(
             modifier = Modifier
                 .width(4.dp)
                 .fillMaxHeight()
-                .background(Color.White) // Beyaz dikey çizgi
+                .background(Color.White)
         )
-        
+
         // === SAĞ YARIM: SAĞ ZAR ===
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .background(if (currentPlayer == 2) Color(0xFF000000) else Color(0xFF4CAF50)) // Aktif=Siyah, Pasif=Yeşil
+                .background(
+                    if (gamePhase == "initial") Color(0xFFFFCDD2) // Açık kırmızı başlangıç
+                    else if (currentPlayer == 2) Color(0xFF000000) else Color(0xFF808080)
+                )
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Sağ Zar
-            Enhanced3DDice(value = dice2, isRolling = isRolling, size = 150.dp)
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Sağ Zar Kontrolleri
+            if (gamePhase == "initial") {
+                // Başlangıç zarı
+                Enhanced3DDice(value = rightDice, isRolling = isRollingRight, size = 120.dp)
+            } else {
+                // Normal zar
+                Enhanced3DDice(value = dice2, isRolling = isRolling, size = 120.dp)
+            }
+        }
+
+        // === SAĞ DİKEY BUTON ===
+        Box(
+            modifier = Modifier
+                .width(120.dp)
+                .fillMaxHeight()
+                .background(
+                    if (gamePhase == "initial") Color(0xFFFFCDD2) // Açık kırmızı başlangıç
+                    else if (currentPlayer == 2) Color(0xFF000000) else Color(0xFF808080)
+                )
+                .clickable {
+                    if (gamePhase == "initial") {
+                        // Başlangıç zar atma
+                        rollRightDice()
+                    } else {
+                        // Sıra değiştirme
+                        currentPlayer = if (currentPlayer == 1) 2 else 1
+                        timerRunning = false
+
+                        if (currentPlayer == 1) {
+                            player1MoveTime = moveTimeDelay
+                        } else {
+                            player2MoveTime = moveTimeDelay
+                        }
+
+                        timerRunning = true
+                    }
+                }
+        ) {
             Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+            // Üst: Hamle süresi
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(-90f)
+                    .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "SAĞ ZAR",
+                    text = "HAMLE",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${player2MoveTime}s",
+                    color = Color(0xFFFFEB3B),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Alt: Rezerv süre
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .rotate(-90f)
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "REZERV",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Değer: $dice2",
-                    color = Color(0xFFBBBBBB),
-                    fontSize = 14.sp
-                )
-            }
-        }
-        
-        // === SAĞ DİKEY BUTON ===
-        Column(
-            modifier = Modifier
-                .width(80.dp)
-                .fillMaxHeight()
-                .background(if (currentPlayer == 2) Color(0xFF000000) else Color(0xFF4CAF50)) // Aktif=Siyah, Pasif=Yeşil
-                .clickable {
-                    // SAĞ BUTON: Her zaman çalışabilir - sıra değiştirme
-                    currentPlayer = if (currentPlayer == 1) 2 else 1
-                    
-                    // Timer'ı durdur ve yeniden başlat
-                    timerRunning = false
-                    
-                    // Aktif oyuncunun süresini sıfırla
-                    if (currentPlayer == 1) {
-                        player1TotalMoves++
-                        player1MoveTime = moveTimeDelay
-                    } else {
-                        player2TotalMoves++
-                        player2MoveTime = moveTimeDelay
-                    }
-                    
-                    // Oynandı işaretleme
-                    if (totalDiceRolls > 0) {
-                        diceMarkedAsPlayed = true
-                        playedDiceRolls++
-                    }
-                    
-                    // Timer'ı tekrar başlat
-                    timerRunning = true
-                }
-                .padding(8.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Sağ Oyuncu Bilgileri - Döndürülmüş (Simetrik düzen)
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .rotate(-90f),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Hamle süresi - Sol tarafta
-                Text(
-                    text = "${player2MoveTime}s",
-                    color = Color.White,
-                    fontSize = 36.sp, // 3 katı (12sp × 3)
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Rezerv süre - Sağ tarafta
-                Text(
                     text = formatTimeSimple(player2ReserveTime),
                     color = Color.White,
-                    fontSize = 54.sp, // 3 katı (18sp × 3)
+                    fontSize = 36.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun PlayerInfoCard(
-    playerName: String,
-    reserveTime: Int,
-    moveTime: Int,
-    isActive: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .border(
-                width = if (isActive) 3.dp else 1.dp,
-                color = if (isActive) Color(0xFF4CAF50) else Color.Gray,
-                shape = RoundedCornerShape(12.dp)
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isActive) Color(0xFF1B5E20) else Color(0xFF2C2C2C)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = playerName,
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Text(
-                text = formatTimeSimple(reserveTime),
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-            )
-            
-            Text(
-                text = "Hamle: ${moveTime}s",
-                color = Color(0xFFBBBBBB),
-                fontSize = 12.sp
-            )
+            }
         }
     }
 }
@@ -391,7 +469,7 @@ fun Enhanced3DDice(
             tween(300, easing = FastOutSlowInEasing)
         }, label = ""
     )
-    
+
     Box(
         modifier = Modifier
             .size(size)
@@ -416,7 +494,7 @@ fun Enhanced3DDice(
                         )
                     )
                 }
-                
+
                 canvas.drawPath(
                     shadowPath,
                     Paint().apply {
@@ -424,7 +502,7 @@ fun Enhanced3DDice(
                         isAntiAlias = true
                     }
                 )
-                
+
                 // Ana zar gövdesi - Gradient
                 val gradient = Brush.radialGradient(
                     colors = listOf(
@@ -435,13 +513,13 @@ fun Enhanced3DDice(
                     ),
                     radius = this@Canvas.size.width * 0.8f
                 )
-                
+
                 drawRoundRect(
                     brush = gradient,
                     size = this@Canvas.size,
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(32f, 32f)
                 )
-                
+
                 // Border
                 drawRoundRect(
                     color = Color(0xFF666666),
@@ -449,9 +527,11 @@ fun Enhanced3DDice(
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(32f, 32f),
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f)
                 )
-                
+
                 // Zar noktaları
-                drawDiceDots(value, this@Canvas.size, Color(0xFF333333))
+                if (value > 0) {
+                    drawDiceDots(value, this@Canvas.size, Color(0xFF333333))
+                }
             }
         }
     }
@@ -462,7 +542,7 @@ fun DrawScope.drawDiceDots(value: Int, canvasSize: androidx.compose.ui.geometry.
     val centerX = canvasSize.width / 2
     val centerY = canvasSize.height / 2
     val offset = canvasSize.width * 0.25f
-    
+
     when (value) {
         1 -> {
             drawCircle(color, dotRadius, Offset(centerX, centerY))
@@ -497,25 +577,6 @@ fun DrawScope.drawDiceDots(value: Int, canvasSize: androidx.compose.ui.geometry.
             drawCircle(color, dotRadius, Offset(centerX - offset, centerY + offset))
             drawCircle(color, dotRadius, Offset(centerX + offset, centerY + offset))
         }
-    }
-}
-
-@Composable
-fun StatItem(label: String, value: String) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = label,
-            color = Color(0xFFBBBBBB),
-            fontSize = 12.sp
-        )
     }
 }
 
