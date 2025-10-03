@@ -613,7 +613,7 @@ fun GameScreen(
                         text = player1Score.toString(),
                         color = Color.White,
                         fontSize = if (isTraditionalGame) 120.sp else 60.sp,
-                        lineHeight = if (isTraditionalGame) 130.sp else 70.sp,
+                        lineHeight = if (isTraditionalGame) 110.sp else 70.sp,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -902,7 +902,7 @@ fun GameScreen(
                         text = player2Score.toString(),
                         color = Color.White,
                         fontSize = if (isTraditionalGame) 120.sp else 60.sp,
-                        lineHeight = if (isTraditionalGame) 130.sp else 70.sp,
+                        lineHeight = if (isTraditionalGame) 110.sp else 70.sp,
                         fontWeight = FontWeight.Bold
                     )
 

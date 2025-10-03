@@ -1,5 +1,6 @@
 package com.tavla.tavlapp
 
+import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.compose.animation.core.*
@@ -8,8 +9,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,10 +24,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +51,7 @@ fun SimpleIntegratedScreen(
     matchLength: Int,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     // === OYUN DURUMU ===
     var gamePhase by remember { mutableStateOf("opening_single") } // opening_single, playing, finished
     var currentPlayer by remember { mutableIntStateOf(0) } // 0 = hiçbiri, 1 = Player1, 2 = Player2
@@ -81,6 +87,7 @@ fun SimpleIntegratedScreen(
     // === İSTATİSTİK DURUMU ===
     var player1Stats by remember { mutableStateOf(DiceStats()) }
     var player2Stats by remember { mutableStateOf(DiceStats()) }
+    var showStatsDialog by remember { mutableStateOf(false) }
     
     // === ANİMASYON DURUMU ===
     var showDragAnimation by remember { mutableStateOf(false) }
@@ -307,6 +314,35 @@ fun SimpleIntegratedScreen(
         }
     }
     
+    // === İSTATİSTİK KALICI SAKLAMA ===
+    fun saveStatsToStorage() {
+        try {
+            val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+            val editor = sharedPrefs.edit()
+            
+            // Player1 istatistiklerini kaydet
+            editor.putInt("${player1Name}_power", player1Stats.powerSum)
+            editor.putInt("${player1Name}_gele", player1Stats.geleCount)
+            editor.putInt("${player1Name}_doubles", player1Stats.doublesCount)
+            
+            // Player2 istatistiklerini kaydet
+            editor.putInt("${player2Name}_power", player2Stats.powerSum)
+            editor.putInt("${player2Name}_gele", player2Stats.geleCount)
+            editor.putInt("${player2Name}_doubles", player2Stats.doublesCount)
+            
+            editor.apply()
+            
+        } catch (e: Exception) {
+            // Hata durumunda sessizce devam et
+        }
+    }
+    
+    // === MAÇI BİTİR VE İSTATİSTİKLERİ GÖSTER ===
+    fun finishGameWithStats() {
+        saveStatsToStorage()
+        showStatsDialog = true
+    }
+    
     // === İSTATİSTİK KAYDET ===
     fun saveStats() {
         val stats = if (currentPlayer == 1) player1Stats else player2Stats
@@ -347,11 +383,17 @@ fun SimpleIntegratedScreen(
     }
     
     // === ANA EKRAN ===
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1A1A1A))
     ) {
+        // === ZAR VE SÜRE ALANI ===
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
         // === SOL İSTATİSTİK BUTONU ===
         Box(
             modifier = Modifier
@@ -612,6 +654,143 @@ fun SimpleIntegratedScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.rotate(-90f)
             )
+        }
+        }
+        
+        // === ALT BUTON ALANI ===
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF1A1A1A))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Button(
+                onClick = { finishGameWithStats() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+            ) {
+                Text(
+                    text = "📊 MAÇI BİTİR VE İSTATİSTİKLERİ GÖSTER",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+    
+    // === İSTATİSTİK DİALOGU ===
+    if (showStatsDialog) {
+        Dialog(onDismissRequest = { showStatsDialog = false }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "🎲 ZAR İSTATİSTİKLERİ",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 20.dp)
+                    )
+                    
+                    // Player1 İstatistikleri
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "👤 $player1Name",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1976D2)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text("📊 Toplam Güç: ${player1Stats.powerSum}")
+                            Text("❌ Gele Sayısı: ${player1Stats.geleCount}")
+                            Text("🎯 Çift Sayısı: ${player1Stats.doublesCount}")
+                            
+                            if (player1Stats.combinationCount.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("🎲 Zar Kombinasyonları:", fontWeight = FontWeight.Bold)
+                                player1Stats.combinationCount.forEach { (combo, count) ->
+                                    Text("  $combo: ${count}x", fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Player2 İstatistikleri
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "👤 $player2Name",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFD32F2F)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text("📊 Toplam Güç: ${player2Stats.powerSum}")
+                            Text("❌ Gele Sayısı: ${player2Stats.geleCount}")
+                            Text("🎯 Çift Sayısı: ${player2Stats.doublesCount}")
+                            
+                            if (player2Stats.combinationCount.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("🎲 Zar Kombinasyonları:", fontWeight = FontWeight.Bold)
+                                player2Stats.combinationCount.forEach { (combo, count) ->
+                                    Text("  $combo: ${count}x", fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(20.dp))
+                    
+                    // Butonlar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = { showStatsDialog = false },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                        ) {
+                            Text("KAPAT")
+                        }
+                        
+                        Button(
+                            onClick = { 
+                                showStatsDialog = false
+                                onBack()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) {
+                            Text("ANA MENÜ")
+                        }
+                    }
+                }
+            }
         }
     }
 }
