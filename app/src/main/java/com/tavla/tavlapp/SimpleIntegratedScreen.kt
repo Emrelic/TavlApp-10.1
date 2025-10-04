@@ -266,62 +266,95 @@ fun SimpleIntegratedScreen(
         }
     }
     
-    // === TEK ZAR ATMA FONKSİYONU (Açılış) ===
+    // === ELEME SİSTEMİ İLE ZAR ATMA ===
+    suspend fun rollDiceWithElimination(updateDiceValue: (Int) -> Unit): Int {
+        val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
+
+        // 5 kez eleme yap (her elenen sayıyı göster)
+        repeat(5) {
+            val randomIndex = numbers.indices.random()
+            val eliminatedValue = numbers[randomIndex]
+            numbers.removeAt(randomIndex)
+
+            // Elenen sayıyı zarda göster
+            updateDiceValue(eliminatedValue)
+            delay(100) // Her eleme 100ms göster
+        }
+
+        // Son kalan sayıyı göster ve döndür
+        val finalValue = numbers.first()
+        updateDiceValue(finalValue)
+        delay(200) // Final değeri biraz daha uzun göster
+
+        return finalValue
+    }
+
+    // === TEK ZAR ATMA FONKSİYONU (Açılış) - ELEME SİSTEMİ ===
     fun rollOpeningDice(player: Int) {
         if (!isRollingOpening) {
             CoroutineScope(Dispatchers.Main).launch {
                 isRollingOpening = true
-                
+
                 // Ses efekti
                 try {
                     val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
                     toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
                     toneGenerator.release()
                 } catch (e: Exception) { }
-                
-                // Random zar atma
-                val diceValue = (1..6).random()
-                
-                if (player == 1) {
-                    player1OpeningDice = diceValue
-                } else {
-                    player2OpeningDice = diceValue
+
+                // Eleme sistemi ile zar atma (her elenen sayı görünecek)
+                val diceValue = rollDiceWithElimination { value ->
+                    if (player == 1) {
+                        player1OpeningDice = value
+                    } else {
+                        player2OpeningDice = value
+                    }
                 }
-                
-                delay(500)
+
+                // Final değer zaten rollDiceWithElimination içinde set edildi
+
+                delay(300)
                 isRollingOpening = false
-                
+
                 // Açılış kontrolü
                 checkOpeningResult()
             }
         }
     }
     
-    // === İKİ ZAR ATMA FONKSİYONU ===
+    // === İKİ ZAR ATMA FONKSİYONU - ELEME SİSTEMİ ===
     fun rollGameDice() {
         if (!isRollingGame) {
             CoroutineScope(Dispatchers.Main).launch {
                 isRollingGame = true
-                
+
                 // Ses efekti
                 try {
                     val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
                     toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
                     toneGenerator.release()
                 } catch (e: Exception) { }
-                
-                // İki zar at
-                dice1 = (1..6).random()
-                dice2 = (1..6).random()
-                
+
+                // İki zar paralel olarak eleme sistemi ile at
+                val job1 = launch {
+                    dice1 = rollDiceWithElimination { value -> dice1 = value }
+                }
+                val job2 = launch {
+                    dice2 = rollDiceWithElimination { value -> dice2 = value }
+                }
+
+                // Her iki zarın da tamamlanmasını bekle
+                job1.join()
+                job2.join()
+
                 // Çift kontrolü
                 isDouble = (dice1 == dice2)
-                dice1Checked = true
-                dice2Checked = true
-                dice3Checked = true
-                dice4Checked = true
-                
-                delay(500)
+                dice1State = CheckboxState.CHECKED
+                dice2State = CheckboxState.CHECKED
+                dice3State = CheckboxState.CHECKED
+                dice4State = CheckboxState.CHECKED
+
+                delay(300)
                 isRollingGame = false
             }
         }
@@ -357,14 +390,14 @@ fun SimpleIntegratedScreen(
             val editor = sharedPrefs.edit()
             
             // Player1 istatistiklerini kaydet
-            editor.putInt("${player1Name}_power", player1Stats.powerSum)
-            editor.putInt("${player1Name}_gele", player1Stats.geleCount)
-            editor.putInt("${player1Name}_doubles", player1Stats.doublesCount)
-            
+            editor.putInt("${player1Name}_power", player1Stats.playedPower)
+            editor.putInt("${player1Name}_gele", player1Stats.gelePower)
+            editor.putInt("${player1Name}_doubles", player1Stats.thrownDoubles)
+
             // Player2 istatistiklerini kaydet
-            editor.putInt("${player2Name}_power", player2Stats.powerSum)
-            editor.putInt("${player2Name}_gele", player2Stats.geleCount)
-            editor.putInt("${player2Name}_doubles", player2Stats.doublesCount)
+            editor.putInt("${player2Name}_power", player2Stats.playedPower)
+            editor.putInt("${player2Name}_gele", player2Stats.gelePower)
+            editor.putInt("${player2Name}_doubles", player2Stats.thrownDoubles)
             
             editor.apply()
             
@@ -382,38 +415,38 @@ fun SimpleIntegratedScreen(
     // === İSTATİSTİK KAYDET ===
     fun saveStats() {
         val stats = if (currentPlayer == 1) player1Stats else player2Stats
-        
+
         if (isDouble) {
             // Çift zar istatistiği
             val combination = "${dice1}-${dice1}"
-            stats.combinationCount[combination] = stats.combinationCount.getOrDefault(combination, 0) + 1
-            stats.doublesCount++
-            
+            stats.thrownDice.add(combination)
+            stats.thrownDoubles++
+
             // Güç hesabı ve gele hesabı
-            var playedDice = 0
+            var playedDiceCount = 0
             var totalPower = 0
-            if (dice1Checked) { playedDice++; totalPower += dice1 }
-            if (dice2Checked) { playedDice++; totalPower += dice1 }
-            if (dice3Checked) { playedDice++; totalPower += dice1 }
-            if (dice4Checked) { playedDice++; totalPower += dice1 }
-            
-            stats.powerSum += totalPower
-            stats.geleCount += (dice1 * 4) - totalPower
-            
+            if (dice1State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
+            if (dice2State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
+            if (dice3State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
+            if (dice4State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
+
+            stats.playedPower += totalPower
+            stats.gelePower += (dice1 * 4) - totalPower
+
         } else {
             // Normal zar istatistiği
             val combination = if (dice1 <= dice2) "${dice1}-${dice2}" else "${dice2}-${dice1}"
-            stats.combinationCount[combination] = stats.combinationCount.getOrDefault(combination, 0) + 1
-            
+            stats.thrownDice.add(combination)
+
             // Güç hesabı ve gele hesabı
             var totalPower = 0
-            if (dice1Checked) totalPower += dice1
-            if (dice2Checked) totalPower += dice2
-            
-            stats.powerSum += totalPower
-            stats.geleCount += (dice1 + dice2) - totalPower
+            if (dice1State == CheckboxState.CHECKED) totalPower += dice1
+            if (dice2State == CheckboxState.CHECKED) totalPower += dice2
+
+            stats.playedPower += totalPower
+            stats.gelePower += (dice1 + dice2) - totalPower
         }
-        
+
         // Sırayı değiştir
         switchTurn()
     }
@@ -433,18 +466,19 @@ fun SimpleIntegratedScreen(
         // === SOL İSTATİSTİK BUTONU ===
         Box(
             modifier = Modifier
-                .width(70.dp)
+                .width(50.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
                 .clickable { if (gamePhase == "playing" && currentPlayer == 1) saveStats() },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTAT\nKAYDET",
+                text = "İSTATİSTİK KAYDET",
                 color = Color.White,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                maxLines = 1,
                 modifier = Modifier.rotate(90f)
             )
         }
@@ -517,10 +551,10 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "left", 60.dp)
-                                    DiceWithCheckbox(dice1, dice2Checked, { dice2Checked = !dice2Checked }, "left", 60.dp)
-                                    DiceWithCheckbox(dice1, dice3Checked, { dice3Checked = !dice3Checked }, "left", 60.dp)
-                                    DiceWithCheckbox(dice1, dice4Checked, { dice4Checked = !dice4Checked }, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice2State, { dice2State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice3State, { dice3State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice4State, { dice4State = it }, {}, "left", 60.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -528,8 +562,8 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "left", 120.dp)
-                                    DiceWithCheckbox(dice2, dice2Checked, { dice2Checked = !dice2Checked }, "left", 120.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "left", 120.dp)
+                                    DiceWithCheckbox(dice2, dice2, dice2State, { dice2State = it }, {}, "left", 120.dp)
                                 }
                             }
                         } else {
@@ -589,10 +623,10 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "right", 60.dp)
-                                    DiceWithCheckbox(dice1, dice2Checked, { dice2Checked = !dice2Checked }, "right", 60.dp)
-                                    DiceWithCheckbox(dice1, dice3Checked, { dice3Checked = !dice3Checked }, "right", 60.dp)
-                                    DiceWithCheckbox(dice1, dice4Checked, { dice4Checked = !dice4Checked }, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice2State, { dice2State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice3State, { dice3State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice4State, { dice4State = it }, {}, "right", 60.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -600,8 +634,8 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "right", 120.dp)
-                                    DiceWithCheckbox(dice2, dice2Checked, { dice2Checked = !dice2Checked }, "right", 120.dp)
+                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "right", 120.dp)
+                                    DiceWithCheckbox(dice2, dice2, dice2State, { dice2State = it }, {}, "right", 120.dp)
                                 }
                             }
                         } else {
@@ -628,7 +662,9 @@ fun SimpleIntegratedScreen(
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 // Rezerv süre
                 Text(
                     text = formatTimeSimple(player2ReserveTime),
@@ -644,18 +680,19 @@ fun SimpleIntegratedScreen(
         // === SAĞ İSTATİSTİK BUTONU ===
         Box(
             modifier = Modifier
-                .width(70.dp)
+                .width(50.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
                 .clickable { if (gamePhase == "playing" && currentPlayer == 2) saveStats() },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTAT\nKAYDET",
+                text = "İSTATİSTİK KAYDET",
                 color = Color.White,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                maxLines = 1,
                 modifier = Modifier.rotate(-90f)
             )
         }
@@ -723,15 +760,15 @@ fun SimpleIntegratedScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            Text("📊 Toplam Güç: ${player1Stats.powerSum}")
-                            Text("❌ Gele Sayısı: ${player1Stats.geleCount}")
-                            Text("🎯 Çift Sayısı: ${player1Stats.doublesCount}")
-                            
-                            if (player1Stats.combinationCount.isNotEmpty()) {
+                            Text("📊 Toplam Güç: ${player1Stats.playedPower}")
+                            Text("❌ Gele Sayısı: ${player1Stats.gelePower}")
+                            Text("🎯 Çift Sayısı: ${player1Stats.thrownDoubles}")
+
+                            if (player1Stats.thrownDice.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("🎲 Zar Kombinasyonları:", fontWeight = FontWeight.Bold)
-                                player1Stats.combinationCount.forEach { (combo, count) ->
-                                    Text("  $combo: ${count}x", fontSize = 14.sp)
+                                Text("🎲 Atılan Zarlar:", fontWeight = FontWeight.Bold)
+                                player1Stats.thrownDice.forEach { dice ->
+                                    Text("  $dice", fontSize = 14.sp)
                                 }
                             }
                         }
@@ -753,15 +790,15 @@ fun SimpleIntegratedScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            Text("📊 Toplam Güç: ${player2Stats.powerSum}")
-                            Text("❌ Gele Sayısı: ${player2Stats.geleCount}")
-                            Text("🎯 Çift Sayısı: ${player2Stats.doublesCount}")
-                            
-                            if (player2Stats.combinationCount.isNotEmpty()) {
+                            Text("📊 Toplam Güç: ${player2Stats.playedPower}")
+                            Text("❌ Gele Sayısı: ${player2Stats.gelePower}")
+                            Text("🎯 Çift Sayısı: ${player2Stats.thrownDoubles}")
+
+                            if (player2Stats.thrownDice.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("🎲 Zar Kombinasyonları:", fontWeight = FontWeight.Bold)
-                                player2Stats.combinationCount.forEach { (combo, count) ->
-                                    Text("  $combo: ${count}x", fontSize = 14.sp)
+                                Text("🎲 Atılan Zarlar:", fontWeight = FontWeight.Bold)
+                                player2Stats.thrownDice.forEach { dice ->
+                                    Text("  $dice", fontSize = 14.sp)
                                 }
                             }
                         }
@@ -932,8 +969,8 @@ fun DraggableDice(
                     onDragEnd = {
                         dragAmount = 0f
                     }
-                ) { change, _ ->
-                    dragAmount += change.y
+                ) { change, dragAmountChange ->
+                    dragAmount += dragAmountChange.y
                     val steps = (dragAmount / sensitivity).toInt()
                     if (steps != 0) {
                         val newValue = (value - steps).coerceIn(1, 6)
