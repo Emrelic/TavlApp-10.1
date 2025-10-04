@@ -8,6 +8,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -35,12 +38,42 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-// İstatistik veri sınıfı
-data class DiceStats(
-    var combinationCount: MutableMap<String, Int> = mutableMapOf(),
-    var powerSum: Int = 0,
-    var doublesCount: Int = 0,
-    var geleCount: Int = 0
+// Gelişmiş İstatistik veri sınıfları
+enum class CheckboxState { CHECKED, UNCHECKED, SQUARE }
+
+data class DiceRoll(
+    val originalValue: Int,
+    val playedValue: Int,
+    val checkboxState: CheckboxState
+)
+
+data class AdvancedDiceStats(
+    // Atılan zar istatistikleri
+    var thrownDice: MutableList<String> = mutableListOf(), // "6-5", "4-4" vb.
+    var thrownPower: Int = 0,
+    var thrownParts: Int = 0,
+    var thrownDoubles: Int = 0,
+    
+    // Oynanan zar istatistikleri  
+    var playedDice: MutableList<String> = mutableListOf(), // "6-1-1-X", "0-5" vb.
+    var playedPower: Int = 0,
+    var playedParts: Int = 0,
+    
+    // Kısmi oynanan zar istatistikleri
+    var partialPower: Int = 0, // Boşa giden kuvvet
+    var partialParts: Int = 0, // Boşa giden pare sayısı
+    
+    // Gele istatistikleri
+    var gelePower: Int = 0,
+    var geleParts: Int = 0,
+    
+    // Bitiş artığı istatistikleri
+    var endRemainPower: Int = 0,
+    var endRemainParts: Int = 0,
+    
+    // Çift zar istatistikleri
+    var doublesFullPlayed: Int = 0, // Tam oynanan çiftler
+    var doublesPartialPlayed: Int = 0 // Kısmi oynanan çiftler
 )
 
 @Composable
@@ -69,10 +102,13 @@ fun SimpleIntegratedScreen(
     
     // === ÇİFT ZAR DURUMU ===
     var isDouble by remember { mutableStateOf(false) }
-    var dice1Checked by remember { mutableStateOf(true) }
-    var dice2Checked by remember { mutableStateOf(true) }
-    var dice3Checked by remember { mutableStateOf(true) }
-    var dice4Checked by remember { mutableStateOf(true) }
+    
+    // === GELIŞMIŞ ZAR DURUMU ===
+    var currentDiceRolls by remember { mutableStateOf(listOf<DiceRoll>()) }
+    var dice1State by remember { mutableStateOf(CheckboxState.CHECKED) }
+    var dice2State by remember { mutableStateOf(CheckboxState.CHECKED) }
+    var dice3State by remember { mutableStateOf(CheckboxState.CHECKED) }
+    var dice4State by remember { mutableStateOf(CheckboxState.CHECKED) }
     
     // === SÜRE DURUMU ===
     val reserveTimePerPlayer = matchLength * 2 * 60 // 2dk × maç uzunluğu
@@ -85,8 +121,8 @@ fun SimpleIntegratedScreen(
     var timerRunning by remember { mutableStateOf(false) }
     
     // === İSTATİSTİK DURUMU ===
-    var player1Stats by remember { mutableStateOf(DiceStats()) }
-    var player2Stats by remember { mutableStateOf(DiceStats()) }
+    var player1Stats by remember { mutableStateOf(AdvancedDiceStats()) }
+    var player2Stats by remember { mutableStateOf(AdvancedDiceStats()) }
     var showStatsDialog by remember { mutableStateOf(false) }
     
     // === ANİMASYON DURUMU ===
@@ -397,14 +433,14 @@ fun SimpleIntegratedScreen(
         // === SOL İSTATİSTİK BUTONU ===
         Box(
             modifier = Modifier
-                .width(80.dp)
+                .width(70.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
                 .clickable { if (gamePhase == "playing" && currentPlayer == 1) saveStats() },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTATİSTİK\nKAYDET",
+                text = "İSTAT\nKAYDET",
                 color = Color.White,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -413,8 +449,9 @@ fun SimpleIntegratedScreen(
             )
         }
         
-        // === SOL YARIM EKRAN ===
-        Column(
+        
+        // === SOL ZAR ALANI ===
+        Row(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
@@ -432,33 +469,40 @@ fun SimpleIntegratedScreen(
                     }
                 }
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Üst: Hamle süresi
+            // Sol oyuncu - süre göstergeleri zarların solunda
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 16.dp)
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(end = 16.dp)
             ) {
-                Text(
-                    text = "HAMLE",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                // Hamle süresi
                 Text(
                     text = "${player1MoveTime}s",
                     color = Color(0xFFFFEB3B),
-                    fontSize = 32.sp,
+                    fontSize = 48.sp, // 2 katı
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Rezerv süre
+                Text(
+                    text = formatTimeSimple(player1ReserveTime),
+                    color = Color.White,
+                    fontSize = 50.sp, // 2.5 katı
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
             }
             
-            // Orta: Zarlar
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.weight(1f)
+            // Zar alanı
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 when (gamePhase) {
                     "opening_single" -> {
@@ -468,28 +512,24 @@ fun SimpleIntegratedScreen(
                     "playing" -> {
                         if (currentPlayer == 1) {
                             if (isDouble) {
-                                // 4 zar (çift)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                // 4 zar (çift) - dikey alt alta
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Column {
-                                        DiceWithCheckbox(dice1, dice1Checked) { dice1Checked = !dice1Checked }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        DiceWithCheckbox(dice1, dice3Checked) { dice3Checked = !dice3Checked }
-                                    }
-                                    Column {
-                                        DiceWithCheckbox(dice1, dice2Checked) { dice2Checked = !dice2Checked }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        DiceWithCheckbox(dice1, dice4Checked) { dice4Checked = !dice4Checked }
-                                    }
+                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice2Checked, { dice2Checked = !dice2Checked }, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice3Checked, { dice3Checked = !dice3Checked }, "left", 60.dp)
+                                    DiceWithCheckbox(dice1, dice4Checked, { dice4Checked = !dice4Checked }, "left", 60.dp)
                                 }
                             } else {
-                                // 2 zar (normal)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                // 2 zar (normal) - dikey alt alta, 2 katı büyük
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1Checked) { dice1Checked = !dice1Checked }
-                                    DiceWithCheckbox(dice2, dice2Checked) { dice2Checked = !dice2Checked }
+                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "left", 120.dp)
+                                    DiceWithCheckbox(dice2, dice2Checked, { dice2Checked = !dice2Checked }, "left", 120.dp)
                                 }
                             }
                         } else {
@@ -498,26 +538,6 @@ fun SimpleIntegratedScreen(
                         }
                     }
                 }
-            }
-            
-            // Alt: Rezerv süre
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                Text(
-                    text = "REZERV",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = formatTimeSimple(player1ReserveTime),
-                    color = Color.White,
-                    fontSize = 40.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
             }
         }
         
@@ -529,8 +549,8 @@ fun SimpleIntegratedScreen(
                 .background(Color.White)
         )
         
-        // === SAĞ YARIM EKRAN ===
-        Column(
+        // === SAĞ ZAR ALANI ===
+        Row(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
@@ -548,33 +568,13 @@ fun SimpleIntegratedScreen(
                     }
                 }
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Üst: Hamle süresi
+            // Zar alanı
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 16.dp)
-            ) {
-                Text(
-                    text = "HAMLE",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${player2MoveTime}s",
-                    color = Color(0xFFFFEB3B),
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-            }
-            
-            // Orta: Zarlar
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.weight(1f)
+                verticalArrangement = Arrangement.Center
             ) {
                 when (gamePhase) {
                     "opening_single" -> {
@@ -584,28 +584,24 @@ fun SimpleIntegratedScreen(
                     "playing" -> {
                         if (currentPlayer == 2) {
                             if (isDouble) {
-                                // 4 zar (çift)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                // 4 zar (çift) - dikey alt alta
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Column {
-                                        DiceWithCheckbox(dice1, dice1Checked) { dice1Checked = !dice1Checked }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        DiceWithCheckbox(dice1, dice3Checked) { dice3Checked = !dice3Checked }
-                                    }
-                                    Column {
-                                        DiceWithCheckbox(dice1, dice2Checked) { dice2Checked = !dice2Checked }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        DiceWithCheckbox(dice1, dice4Checked) { dice4Checked = !dice4Checked }
-                                    }
+                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice2Checked, { dice2Checked = !dice2Checked }, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice3Checked, { dice3Checked = !dice3Checked }, "right", 60.dp)
+                                    DiceWithCheckbox(dice1, dice4Checked, { dice4Checked = !dice4Checked }, "right", 60.dp)
                                 }
                             } else {
-                                // 2 zar (normal)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                // 2 zar (normal) - dikey alt alta, 2 katı büyük
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1Checked) { dice1Checked = !dice1Checked }
-                                    DiceWithCheckbox(dice2, dice2Checked) { dice2Checked = !dice2Checked }
+                                    DiceWithCheckbox(dice1, dice1Checked, { dice1Checked = !dice1Checked }, "right", 120.dp)
+                                    DiceWithCheckbox(dice2, dice2Checked, { dice2Checked = !dice2Checked }, "right", 120.dp)
                                 }
                             }
                         } else {
@@ -616,38 +612,46 @@ fun SimpleIntegratedScreen(
                 }
             }
             
-            // Alt: Rezerv süre
+            // Sağ oyuncu - süre göstergeleri zarların sağında
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 16.dp)
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(start = 16.dp)
             ) {
+                // Hamle süresi
                 Text(
-                    text = "REZERV",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "${player2MoveTime}s",
+                    color = Color(0xFFFFEB3B),
+                    fontSize = 48.sp, // 2 katı
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Rezerv süre
                 Text(
                     text = formatTimeSimple(player2ReserveTime),
                     color = Color.White,
-                    fontSize = 40.sp,
+                    fontSize = 50.sp, // 2.5 katı
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
             }
         }
         
+        
         // === SAĞ İSTATİSTİK BUTONU ===
         Box(
             modifier = Modifier
-                .width(80.dp)
+                .width(70.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
                 .clickable { if (gamePhase == "playing" && currentPlayer == 2) saveStats() },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTATİSTİK\nKAYDET",
+                text = "İSTAT\nKAYDET",
                 color = Color.White,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -797,20 +801,151 @@ fun SimpleIntegratedScreen(
 
 @Composable
 fun DiceWithCheckbox(
-    value: Int,
-    checked: Boolean,
-    onCheckedChange: () -> Unit
+    originalValue: Int,
+    playedValue: Int,
+    checkboxState: CheckboxState,
+    onCheckboxStateChange: (CheckboxState) -> Unit,
+    onValueChange: (Int) -> Unit,
+    checkboxPosition: String = "bottom", // "bottom", "left", "right"
+    diceSize: androidx.compose.ui.unit.Dp = 60.dp
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+    when (checkboxPosition) {
+        "left" -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AdvancedCheckbox(
+                    state = checkboxState,
+                    onStateChange = onCheckboxStateChange,
+                    modifier = Modifier.size(24.dp)
+                )
+                DraggableDice(
+                    value = playedValue,
+                    onValueChange = onValueChange,
+                    size = diceSize
+                )
+            }
+        }
+        "right" -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DraggableDice(
+                    value = playedValue,
+                    onValueChange = onValueChange,
+                    size = diceSize
+                )
+                AdvancedCheckbox(
+                    state = checkboxState,
+                    onStateChange = onCheckboxStateChange,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        else -> {
+            // bottom (default)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                DraggableDice(
+                    value = playedValue,
+                    onValueChange = onValueChange,
+                    size = diceSize
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                AdvancedCheckbox(
+                    state = checkboxState,
+                    onStateChange = onCheckboxStateChange,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable 
+fun AdvancedCheckbox(
+    state: CheckboxState,
+    onStateChange: (CheckboxState) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scope = rememberCoroutineScope()
+    
+    Box(
+        modifier = modifier
+            .clickable {
+                // Normal tıklama: CHECKED <-> UNCHECKED
+                val newState = when (state) {
+                    CheckboxState.CHECKED -> CheckboxState.UNCHECKED
+                    CheckboxState.UNCHECKED -> CheckboxState.CHECKED
+                    CheckboxState.SQUARE -> CheckboxState.CHECKED
+                }
+                onStateChange(newState)
+            }
+            .pointerInput(Unit) {
+                // Uzun basma: SQUARE durumuna geç
+                detectTapGestures(
+                    onLongPress = {
+                        onStateChange(CheckboxState.SQUARE)
+                    }
+                )
+            }
+            .background(
+                color = when (state) {
+                    CheckboxState.CHECKED -> Color(0xFF4CAF50)
+                    CheckboxState.UNCHECKED -> Color.Transparent
+                    CheckboxState.SQUARE -> Color(0xFF2196F3)
+                },
+                shape = RoundedCornerShape(4.dp)
+            )
+            .border(
+                width = 2.dp,
+                color = Color.Gray,
+                shape = RoundedCornerShape(4.dp)
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Enhanced3DDice(value = value, isRolling = false, size = 60.dp)
-        Spacer(modifier = Modifier.height(4.dp))
-        Checkbox(
-            checked = checked,
-            onCheckedChange = { onCheckedChange() },
-            modifier = Modifier.size(20.dp)
-        )
+        when (state) {
+            CheckboxState.CHECKED -> Text("✓", color = Color.White, fontSize = 14.sp)
+            CheckboxState.UNCHECKED -> {} // Boş
+            CheckboxState.SQUARE -> Text("■", color = Color.White, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+fun DraggableDice(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    size: androidx.compose.ui.unit.Dp = 60.dp
+) {
+    var dragAmount by remember { mutableFloatStateOf(0f) }
+    val sensitivity = 20f // Her 20px için 1 azalma
+    
+    Box(
+        modifier = Modifier
+            .size(size)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = {
+                        dragAmount = 0f
+                    }
+                ) { change, _ ->
+                    dragAmount += change.y
+                    val steps = (dragAmount / sensitivity).toInt()
+                    if (steps != 0) {
+                        val newValue = (value - steps).coerceIn(1, 6)
+                        if (newValue != value) {
+                            onValueChange(newValue)
+                        }
+                        dragAmount = 0f
+                    }
+                }
+            }
+    ) {
+        Enhanced3DDice(value = value, isRolling = false, size = size)
     }
 }
 
