@@ -270,21 +270,29 @@ fun SimpleIntegratedScreen(
     suspend fun rollDiceWithElimination(updateDiceValue: (Int) -> Unit): Int {
         val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
 
-        // 5 kez eleme yap (her elenen sayıyı göster)
-        repeat(5) {
+        // İlk random sayıyı belirle ve göster
+        val firstRandom = (1..6).random()
+        updateDiceValue(firstRandom)
+        delay(80) // İlk değeri göster
+        
+        // İlk seçilen sayıyı listeden çıkar
+        numbers.remove(firstRandom)
+
+        // Kalan 5 sayıdan 4'ünü teker teker eleme
+        repeat(4) {
             val randomIndex = numbers.indices.random()
             val eliminatedValue = numbers[randomIndex]
             numbers.removeAt(randomIndex)
 
             // Elenen sayıyı zarda göster
             updateDiceValue(eliminatedValue)
-            delay(100) // Her eleme 100ms göster
+            delay(80) // Her eleme 80ms göster
         }
 
-        // Son kalan sayıyı göster ve döndür
+        // Son kalan sayıyı göster ve döndür (final result)
         val finalValue = numbers.first()
         updateDiceValue(finalValue)
-        delay(200) // Final değeri biraz daha uzun göster
+        delay(120) // Final değeri biraz uzun göster
 
         return finalValue
     }
@@ -365,6 +373,15 @@ fun SimpleIntegratedScreen(
         CoroutineScope(Dispatchers.Main).launch {
             // Timer durdur
             timerRunning = false
+            
+            // Zar durumlarını sıfırla
+            isDouble = false
+            dice1 = 0
+            dice2 = 0
+            dice1State = CheckboxState.CHECKED
+            dice2State = CheckboxState.CHECKED
+            dice3State = CheckboxState.CHECKED
+            dice4State = CheckboxState.CHECKED
             
             // Sırayı değiştir
             currentPlayer = if (currentPlayer == 1) 2 else 1
@@ -473,7 +490,7 @@ fun SimpleIntegratedScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTATİSTİK KAYDET",
+                text = "İSTATİSTİKLERİ İŞLE",
                 color = Color.White,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -551,10 +568,10 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckbox(dice1, dice1, dice2State, { dice2State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckbox(dice1, dice1, dice3State, { dice3State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckbox(dice1, dice1, dice4State, { dice4State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice1State, { dice1State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice2State, { dice2State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice3State, { dice3State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice4State, { dice4State = it }, {}, "left", 60.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -623,10 +640,10 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckbox(dice1, dice1, dice2State, { dice2State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckbox(dice1, dice1, dice3State, { dice3State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckbox(dice1, dice1, dice4State, { dice4State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice1State, { dice1State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice2State, { dice2State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice3State, { dice3State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1, dice1, dice4State, { dice4State = it }, {}, "right", 60.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -687,7 +704,7 @@ fun SimpleIntegratedScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTATİSTİK KAYDET",
+                text = "İSTATİSTİKLERİ İŞLE",
                 color = Color.White,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
@@ -831,6 +848,72 @@ fun SimpleIntegratedScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun DiceWithCheckboxNoRoll(
+    originalValue: Int,
+    playedValue: Int,
+    checkboxState: CheckboxState,
+    onCheckboxStateChange: (CheckboxState) -> Unit,
+    onValueChange: (Int) -> Unit,
+    checkboxPosition: String = "bottom", // "bottom", "left", "right"
+    diceSize: androidx.compose.ui.unit.Dp = 60.dp
+) {
+    when (checkboxPosition) {
+        "left" -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AdvancedCheckbox(
+                    state = checkboxState,
+                    onStateChange = onCheckboxStateChange,
+                    modifier = Modifier.size(24.dp)
+                )
+                Enhanced3DDice(
+                    value = playedValue,
+                    isRolling = false, // Animasyon kapalı
+                    size = diceSize
+                )
+            }
+        }
+        "right" -> {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Enhanced3DDice(
+                    value = playedValue,
+                    isRolling = false, // Animasyon kapalı
+                    size = diceSize
+                )
+                AdvancedCheckbox(
+                    state = checkboxState,
+                    onStateChange = onCheckboxStateChange,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        else -> {
+            // bottom (default)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Enhanced3DDice(
+                    value = playedValue,
+                    isRolling = false, // Animasyon kapalı
+                    size = diceSize
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                AdvancedCheckbox(
+                    state = checkboxState,
+                    onStateChange = onCheckboxStateChange,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

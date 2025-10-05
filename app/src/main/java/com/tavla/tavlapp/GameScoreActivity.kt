@@ -2459,9 +2459,7 @@ fun GameScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Text("💾", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Bu Eli Kaydet", color = Color.White, fontSize = 12.sp)
+                            Text("💾 Bu Eli Kaydet", color = Color.White, fontSize = 12.sp, maxLines = 1)
                         }
                     }
                 } else {
