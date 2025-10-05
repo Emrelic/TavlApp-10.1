@@ -28,52 +28,25 @@ import android.util.Log
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        try {
-            Log.d("TavlApp", "MainActivity onCreate BAŞLADI")
-            super.onCreate(savedInstanceState)
-            Log.d("TavlApp", "super.onCreate TAMAM")
+        super.onCreate(savedInstanceState)
 
-            // Veritabanını başlat ve varsayılan oyuncuları kontrol et
-            Log.d("TavlApp", "DatabaseHelper oluşturuluyor...")
-            val dbHelper = DatabaseHelper(this)
-            Log.d("TavlApp", "DatabaseHelper TAMAM")
+        val dbHelper = DatabaseHelper(this)
+        val players = dbHelper.getAllPlayers()
 
-            Log.d("TavlApp", "getAllPlayers çağrılıyor...")
-            val players = dbHelper.getAllPlayers()
-            Log.d("TavlApp", "Players alındı: ${players.size}")
+        if (players.isEmpty()) {
+            dbHelper.addPlayer("Oyuncu 1")
+            dbHelper.addPlayer("Oyuncu 2")
+        }
 
-            // Eğer hiç oyuncu yoksa, iki varsayılan oyuncu ekle
-            if (players.isEmpty()) {
-                Log.d("TavlApp", "Varsayılan oyuncular ekleniyor...")
-                dbHelper.addPlayer("Oyuncu 1")
-                dbHelper.addPlayer("Oyuncu 2")
-                Log.d("TavlApp", "Varsayılan oyuncular EKLENDİ")
-            }
-
-            Log.d("TavlApp", "setContent başlıyor...")
-            // setContent ile Compose UI'ı başlatıyoruz
-            setContent {
-                Log.d("TavlApp", "TavlaAppTheme başlıyor...")
-                // Theme.kt'de tanımlanan temayı uyguluyoruz
-                TavlaAppTheme {
-                    Log.d("TavlApp", "Surface oluşturuluyor...")
-                    // Surface, arka plan rengini ve diğer özellikleri ayarlar
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        Log.d("TavlApp", "MainScreen çağrılıyor...")
-                        // Ana ekran içeriğimizi çağırıyoruz.
-                        MainScreen()
-                    }
+        setContent {
+            TavlaAppTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainScreen()
                 }
             }
-            Log.d("TavlApp", "MainActivity onCreate TAMAM!")
-
-        } catch (e: Exception) {
-            Log.e("TavlApp", "MainActivity onCreate HATA: ${e.message}", e)
-            e.printStackTrace()
-            throw e // Hatayı tekrar fırlat ki sistem görsün
         }
     }
 }

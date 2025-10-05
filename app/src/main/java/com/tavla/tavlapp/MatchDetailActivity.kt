@@ -52,14 +52,6 @@ fun MatchDetailScreen(matchId: Long, dbHelper: DatabaseHelper, onBack: () -> Uni
     val match = dbHelper.getMatchDetails(matchId)
     val rounds = dbHelper.getMatchRounds(matchId)
 
-    // ===== DEBUG KODU =====
-    rounds.forEach { round ->
-        println("ROUNDS DEBUG: winType=${round.winType}, isDouble=${round.isDouble}, doubleValue=${round.doubleValue}")
-        println("ROUNDS DEBUG: combinedWinType=${round.combinedWinType}")
-        println("ROUNDS DEBUG: ================")
-    }
-    // ===== DEBUG BİTİŞ =====
-
     // Oyuncu bilgilerini çek
     val players = dbHelper.getAllPlayers().associateBy { it.id }
 

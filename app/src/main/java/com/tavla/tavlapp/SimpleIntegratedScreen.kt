@@ -85,34 +85,28 @@ fun SimpleIntegratedScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    // === OYUN DURUMU ===
-    var gamePhase by remember { mutableStateOf("opening_single") } // opening_single, playing, finished
-    var currentPlayer by remember { mutableIntStateOf(0) } // 0 = hiçbiri, 1 = Player1, 2 = Player2
-    var winner by remember { mutableIntStateOf(0) } // Açılış turunu kazanan
     
-    // === TEK ZAR DURUMU (Açılış) ===
+    var gamePhase by remember { mutableStateOf("opening_single") }
+    var currentPlayer by remember { mutableIntStateOf(0) }
+    var winner by remember { mutableIntStateOf(0) }
+    
     var player1OpeningDice by remember { mutableIntStateOf(0) }
     var player2OpeningDice by remember { mutableIntStateOf(0) }
-    var isRollingOpening by remember { mutableStateOf(false) }
+    var isRollingOpening1 by remember { mutableStateOf(false) }
+    var isRollingOpening2 by remember { mutableStateOf(false) }
     
-    // === İKİ ZAR DURUMU (Oyun) ===
     var dice1 by remember { mutableIntStateOf(0) }
     var dice2 by remember { mutableIntStateOf(0) }
     var isRollingGame by remember { mutableStateOf(false) }
-    
-    // === ÇİFT ZAR DURUMU ===
     var isDouble by remember { mutableStateOf(false) }
     
-    // === GELIŞMIŞ ZAR DURUMU ===
-    var currentDiceRolls by remember { mutableStateOf(listOf<DiceRoll>()) }
     var dice1State by remember { mutableStateOf(CheckboxState.CHECKED) }
     var dice2State by remember { mutableStateOf(CheckboxState.CHECKED) }
     var dice3State by remember { mutableStateOf(CheckboxState.CHECKED) }
     var dice4State by remember { mutableStateOf(CheckboxState.CHECKED) }
     
-    // === SÜRE DURUMU ===
-    val reserveTimePerPlayer = matchLength * 2 * 60 // 2dk × maç uzunluğu
-    val moveTimeDelay = 12 // 12 saniye
+    val reserveTimePerPlayer = matchLength * 2 * 60
+    val moveTimeDelay = 12
     
     var player1ReserveTime by remember { mutableIntStateOf(reserveTimePerPlayer) }
     var player2ReserveTime by remember { mutableIntStateOf(reserveTimePerPlayer) }
@@ -120,12 +114,14 @@ fun SimpleIntegratedScreen(
     var player2MoveTime by remember { mutableIntStateOf(moveTimeDelay) }
     var timerRunning by remember { mutableStateOf(false) }
     
-    // === İSTATİSTİK DURUMU ===
     var player1Stats by remember { mutableStateOf(AdvancedDiceStats()) }
     var player2Stats by remember { mutableStateOf(AdvancedDiceStats()) }
     var showStatsDialog by remember { mutableStateOf(false) }
     
-    // === ANİMASYON DURUMU ===
+    var undoStack by remember { mutableStateOf(listOf<String>()) }
+    var showUndoNotification by remember { mutableStateOf(false) }
+    var undoMessage by remember { mutableStateOf("") }
+    
     var showDragAnimation by remember { mutableStateOf(false) }
     val dragOffset by animateFloatAsState(
         targetValue = if (showDragAnimation) 1f else 0f,
@@ -299,9 +295,16 @@ fun SimpleIntegratedScreen(
 
     // === TEK ZAR ATMA FONKSİYONU (Açılış) - ELEME SİSTEMİ ===
     fun rollOpeningDice(player: Int) {
-        if (!isRollingOpening) {
+        val isCurrentlyRolling = if (player == 1) isRollingOpening1 else isRollingOpening2
+        
+        if (!isCurrentlyRolling) {
             CoroutineScope(Dispatchers.Main).launch {
-                isRollingOpening = true
+                // Sadece atılan oyuncunun zarını rolling yap
+                if (player == 1) {
+                    isRollingOpening1 = true
+                } else {
+                    isRollingOpening2 = true
+                }
 
                 // Ses efekti
                 try {
@@ -319,10 +322,14 @@ fun SimpleIntegratedScreen(
                     }
                 }
 
-                // Final değer zaten rollDiceWithElimination içinde set edildi
-
                 delay(300)
-                isRollingOpening = false
+                
+                // Sadece atılan oyuncunun zarının rolling'ini bitir
+                if (player == 1) {
+                    isRollingOpening1 = false
+                } else {
+                    isRollingOpening2 = false
+                }
 
                 // Açılış kontrolü
                 checkOpeningResult()
@@ -429,6 +436,32 @@ fun SimpleIntegratedScreen(
         showStatsDialog = true
     }
     
+    // === GERİ AL FONKSİYONU ===
+    fun performUndo() {
+        if (undoStack.isNotEmpty()) {
+            val lastAction = undoStack.last()
+            undoStack = undoStack.dropLast(1)
+            
+            undoMessage = "Geri alındı: $lastAction"
+            showUndoNotification = true
+            
+            // 2 saniye sonra bildirimi gizle
+            CoroutineScope(Dispatchers.Main).launch {
+                delay(2000)
+                showUndoNotification = false
+            }
+        }
+    }
+    
+    // === GERİ AL AKSİYONU KAYDET ===
+    fun addUndoAction(action: String) {
+        undoStack = undoStack + action
+        // Maksimum 5 aksiyon tut
+        if (undoStack.size > 5) {
+            undoStack = undoStack.drop(1)
+        }
+    }
+    
     // === İSTATİSTİK KAYDET ===
     fun saveStats() {
         val stats = if (currentPlayer == 1) player1Stats else player2Stats
@@ -463,6 +496,11 @@ fun SimpleIntegratedScreen(
             stats.playedPower += totalPower
             stats.gelePower += (dice1 + dice2) - totalPower
         }
+
+        // Geri al aksiyonunu kaydet
+        val playerName = if (currentPlayer == 1) player1Name else player2Name
+        val diceInfo = if (isDouble) "${dice1}-${dice1} (çift)" else "${dice1}-${dice2}"
+        addUndoAction("$playerName: $diceInfo zar kaydı")
 
         // Sırayı değiştir
         switchTurn()
@@ -558,7 +596,7 @@ fun SimpleIntegratedScreen(
                 when (gamePhase) {
                     "opening_single" -> {
                         // Tek zar
-                        Enhanced3DDice(value = player1OpeningDice, isRolling = isRollingOpening, size = 120.dp)
+                        Enhanced3DDice(value = player1OpeningDice, isRolling = isRollingOpening1, size = 120.dp)
                     }
                     "playing" -> {
                         if (currentPlayer == 1) {
@@ -630,7 +668,7 @@ fun SimpleIntegratedScreen(
                 when (gamePhase) {
                     "opening_single" -> {
                         // Tek zar
-                        Enhanced3DDice(value = player2OpeningDice, isRolling = isRollingOpening, size = 120.dp)
+                        Enhanced3DDice(value = player2OpeningDice, isRolling = isRollingOpening2, size = 120.dp)
                     }
                     "playing" -> {
                         if (currentPlayer == 2) {
@@ -716,21 +754,36 @@ fun SimpleIntegratedScreen(
         }
         
         // === ALT BUTON ALANI ===
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF1A1A1A))
                 .padding(16.dp),
-            contentAlignment = Alignment.Center
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Geri Al Butonu
+            Button(
+                onClick = { performUndo() },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                enabled = undoStack.isNotEmpty()
+            ) {
+                Text(
+                    text = "↶ GERİ AL",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            // Maçı Bitir Butonu
             Button(
                 onClick = { finishGameWithStats() },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(2f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
             ) {
                 Text(
                     text = "📊 MAÇI BİTİR VE İSTATİSTİKLERİ GÖSTER",
-                    fontSize = 16.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -848,6 +901,30 @@ fun SimpleIntegratedScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    // === GERİ AL BİLDİRİM PENCERESİ ===
+    if (showUndoNotification) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Card(
+                modifier = Modifier
+                    .padding(top = 50.dp)
+                    .wrapContentSize(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = undoMessage,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(16.dp)
+                )
             }
         }
     }

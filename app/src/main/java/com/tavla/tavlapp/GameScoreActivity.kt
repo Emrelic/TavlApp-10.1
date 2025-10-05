@@ -2417,7 +2417,7 @@ fun GameScreen(
                     // Bu Eli Kaydet butonu - Yeşil renk
                     Button(
                         onClick = {
-                            println("DEBUG: Bu Eli Kaydet tıklandı, mevcut undoStack boyutu: ${undoStack.size}")
+                            
                             // Mevcut puanları kaydet
                             if (player1Score > player2Score) {
                                 // Oyuncu 1 kazandı
@@ -2446,7 +2446,7 @@ fun GameScreen(
                             // Skorları sıfırla
                             player1Score = 0
                             player2Score = 0
-                            println("DEBUG: Kaydetme tamamlandı, yeni undoStack boyutu: ${undoStack.size}")
+                            
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF2E7D32) // Yeşil renk

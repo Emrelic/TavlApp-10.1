@@ -363,7 +363,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val db = this.writableDatabase
 
         try {
-            println("DEBUG: deleteRound başlıyor - roundId: $roundId")
+            
 
             // 1. Round bilgilerini al (silmeden önce)
             val roundCursor = db.rawQuery("""
@@ -374,7 +374,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
             if (!roundCursor.moveToFirst()) {
                 roundCursor.close()
-                println("DEBUG: Round bulunamadı! roundId: $roundId")
+                
                 return 0 // Round bulunamadı
             }
 
@@ -383,26 +383,26 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             val score = roundCursor.getInt(2)
             roundCursor.close()
 
-            println("DEBUG: Round bulundu - matchId: $matchId, winnerId: $winnerId, score: $score")
+            
 
             // 2. Round'u sil
             val deleteResult = db.delete(TABLE_ROUNDS, "$COLUMN_ROUND_ID = ?", arrayOf(roundId.toString()))
 
-            println("DEBUG: Delete result: $deleteResult")
+            
 
             if (deleteResult > 0) {
-                println("DEBUG: recalculateMatchFromRounds çağrılıyor...")
+                
 
                 // 3. ✅ AAYNI DB ÖRNEĞİNİ KULLANARAK Maçı yeniden hesapla
                 recalculateMatchFromRoundsWithDb(matchId, db)
 
-                println("DEBUG: recalculateMatchFromRounds tamamlandı")
+                
             }
 
             return deleteResult
 
         } catch (e: Exception) {
-            println("DEBUG: deleteRound HATA: ${e.message}")
+            
             return 0
         } finally {
             db.close() // Artık güvenle kapatabiliriz
@@ -412,12 +412,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     private fun recalculateMatchFromRoundsWithDb(matchId: Long, db: SQLiteDatabase) {
         try {
-            println("DEBUG: recalculateMatchFromRounds başlıyor - matchId: $matchId")
+            
 
             // ✅ AYNI DB CONNECTION İLE round'ları al (getMatchRounds kullanma!)
             val rounds = getMatchRoundsWithDb(matchId, db)
 
-            println("DEBUG: Kalan round sayısı: ${rounds.size}")
+            
 
             // Maç bilgilerini al
             val matchCursor = db.rawQuery("""
@@ -430,7 +430,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 val player1Id = matchCursor.getLong(0)
                 val player2Id = matchCursor.getLong(1)
 
-                println("DEBUG: player1Id: $player1Id, player2Id: $player2Id")
+                
 
                 // Skorları sıfırdan hesapla
                 var player1Score = 0
@@ -439,7 +439,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 var player2RoundsWon = 0
 
                 rounds.forEach { round ->
-                    println("DEBUG: Round ${round.roundNumber} - winnerId: ${round.winnerId}, score: ${round.score}")
+                    
                     if (round.winnerId == player1Id) {
                         player1Score += round.score
                         player1RoundsWon++
@@ -449,8 +449,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     }
                 }
 
-                println("DEBUG: Hesaplanan skorlar - P1: $player1Score, P2: $player2Score")
-                println("DEBUG: Kazanılan eller - P1: $player1RoundsWon, P2: $player2RoundsWon")
+                
+                
 
                 // Maç tablosunu güncelle
                 val values = ContentValues().apply {
@@ -462,16 +462,16 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 }
 
                 val updateResult = db.update(TABLE_MATCHES, values, "$COLUMN_MATCH_ID = ?", arrayOf(matchId.toString()))
-                println("DEBUG: Update result: $updateResult")
+                
 
             } else {
-                println("DEBUG: Maç bulunamadı! matchId: $matchId")
+                
             }
 
             matchCursor.close()
 
         } catch (e: Exception) {
-            println("DEBUG: recalculateMatchFromRounds HATA: ${e.message}")
+            
         }
     }
     // ✅ YENİ YARDIMCI FONKSİYON: Mevcut DB connection ile round'ları al
@@ -515,12 +515,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val db = this.writableDatabase
 
         try {
-            println("DEBUG: recalculateMatchFromRounds başlıyor - matchId: $matchId")
+            
 
             // Tüm kalan round'ları al
             val rounds = getMatchRounds(matchId)
 
-            println("DEBUG: Kalan round sayısı: ${rounds.size}")
+            
 
             // Maç bilgilerini al
             val matchCursor = db.rawQuery("""
@@ -533,7 +533,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 val player1Id = matchCursor.getLong(0)
                 val player2Id = matchCursor.getLong(1)
 
-                println("DEBUG: player1Id: $player1Id, player2Id: $player2Id")
+                
 
                 // Skorları sıfırdan hesapla
                 var player1Score = 0
@@ -542,7 +542,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 var player2RoundsWon = 0
 
                 rounds.forEach { round ->
-                    println("DEBUG: Round ${round.roundNumber} - winnerId: ${round.winnerId}, score: ${round.score}")
+                    
                     if (round.winnerId == player1Id) {
                         player1Score += round.score
                         player1RoundsWon++
@@ -552,8 +552,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     }
                 }
 
-                println("DEBUG: Hesaplanan skorlar - P1: $player1Score, P2: $player2Score")
-                println("DEBUG: Kazanılan eller - P1: $player1RoundsWon, P2: $player2RoundsWon")
+                
+                
 
                 // Maç tablosunu güncelle
                 val values = ContentValues().apply {
@@ -565,16 +565,16 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 }
 
                 val updateResult = db.update(TABLE_MATCHES, values, "$COLUMN_MATCH_ID = ?", arrayOf(matchId.toString()))
-                println("DEBUG: Update result: $updateResult")
+                
 
             } else {
-                println("DEBUG: Maç bulunamadı! matchId: $matchId")
+                
             }
 
             matchCursor.close()
 
         } catch (e: Exception) {
-            println("DEBUG: recalculateMatchFromRounds HATA: ${e.message}")
+            
         }
     }
 
