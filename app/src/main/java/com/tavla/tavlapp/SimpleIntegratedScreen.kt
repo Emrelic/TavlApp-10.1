@@ -524,13 +524,18 @@ fun SimpleIntegratedScreen(
                 .width(50.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
-                .clickable { if (gamePhase == "playing" && currentPlayer == 1) saveStats() },
+                .clickable { 
+                    when (gamePhase) {
+                        "opening_single" -> rollOpeningDice(1)
+                        "playing" -> if (currentPlayer == 1) saveStats()
+                    }
+                },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTATİSTİKLERİ İŞLE",
+                text = "ZAR AT/SAAT ÇALIŞTIR/İSTATİSTİK KAYDET",
                 color = Color.White,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -551,12 +556,6 @@ fun SimpleIntegratedScreen(
                         else -> Color(0xFF808080)
                     }
                 )
-                .clickable {
-                    when (gamePhase) {
-                        "opening_single" -> rollOpeningDice(1)
-                        "playing" -> if (currentPlayer == 1) switchTurn()
-                    }
-                }
                 .padding(16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -650,12 +649,6 @@ fun SimpleIntegratedScreen(
                         else -> Color(0xFF808080)
                     }
                 )
-                .clickable {
-                    when (gamePhase) {
-                        "opening_single" -> rollOpeningDice(2)
-                        "playing" -> if (currentPlayer == 2) switchTurn()
-                    }
-                }
                 .padding(16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -738,13 +731,18 @@ fun SimpleIntegratedScreen(
                 .width(50.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
-                .clickable { if (gamePhase == "playing" && currentPlayer == 2) saveStats() },
+                .clickable { 
+                    when (gamePhase) {
+                        "opening_single" -> rollOpeningDice(2)
+                        "playing" -> if (currentPlayer == 2) saveStats()
+                    }
+                },
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "İSTATİSTİKLERİ İŞLE",
+                text = "ZAR AT/SAAT ÇALIŞTIR/İSTATİSTİK KAYDET",
                 color = Color.White,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -949,7 +947,7 @@ fun DiceWithCheckboxNoRoll(
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
                 Enhanced3DDice(
                     value = playedValue,
@@ -971,7 +969,7 @@ fun DiceWithCheckboxNoRoll(
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
@@ -989,7 +987,7 @@ fun DiceWithCheckboxNoRoll(
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
@@ -1015,7 +1013,7 @@ fun DiceWithCheckbox(
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
                 DraggableDice(
                     value = playedValue,
@@ -1037,7 +1035,7 @@ fun DiceWithCheckbox(
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
@@ -1055,7 +1053,7 @@ fun DiceWithCheckbox(
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
