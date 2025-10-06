@@ -27,6 +27,7 @@ class DiceActivity : ComponentActivity() {
         val player1Name = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
         val player2Name = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
         val matchLength = intent.getIntExtra("match_length", 11)
+        val keepStatistics = intent.getBooleanExtra("keep_statistics", false)
 
         setContent {
             MaterialTheme {
@@ -39,6 +40,7 @@ class DiceActivity : ComponentActivity() {
                         player1Name = player1Name,
                         player2Name = player2Name,
                         matchLength = matchLength,
+                        keepStatistics = keepStatistics,
                         onBack = { finish() }
                     )
                 }
@@ -53,6 +55,7 @@ fun DiceScreen(
     player1Name: String,
     player2Name: String,
     matchLength: Int,
+    keepStatistics: Boolean,
     onBack: () -> Unit
 ) {
     SimpleIntegratedScreen(
@@ -60,6 +63,7 @@ fun DiceScreen(
         player1Name = player1Name,
         player2Name = player2Name,
         matchLength = matchLength,
+        keepStatistics = keepStatistics,
         onBack = onBack
     )
 }

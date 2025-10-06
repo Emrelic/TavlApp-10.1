@@ -82,6 +82,7 @@ fun SimpleIntegratedScreen(
     player1Name: String,
     player2Name: String,
     matchLength: Int,
+    keepStatistics: Boolean = false,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -524,10 +525,18 @@ fun SimpleIntegratedScreen(
                 .width(50.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
-                .clickable { 
+                .clickable {
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(1)
-                        "playing" -> if (currentPlayer == 1) saveStats()
+                        "playing" -> {
+                            if (keepStatistics) {
+                                // İstatistik açıksa sadece currentPlayer istatistik kaydedebilir
+                                if (currentPlayer == 1) saveStats()
+                            } else {
+                                // İstatistik kapalıysa kendi yarısına tıklayarak zar atabilir
+                                if (currentPlayer == 1) rollGameDice()
+                            }
+                        }
                     }
                 },
             contentAlignment = Alignment.Center
@@ -581,7 +590,7 @@ fun SimpleIntegratedScreen(
                 Text(
                     text = formatTimeSimple(player1ReserveTime),
                     color = Color.White,
-                    fontSize = 50.sp, // 2.5 katı
+                    fontSize = 32.sp, // Küçültüldü (50sp → 32sp)
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
@@ -717,7 +726,7 @@ fun SimpleIntegratedScreen(
                 Text(
                     text = formatTimeSimple(player2ReserveTime),
                     color = Color.White,
-                    fontSize = 50.sp, // 2.5 katı
+                    fontSize = 32.sp, // Küçültüldü (50sp → 32sp)
                     fontWeight = FontWeight.Bold,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
@@ -731,10 +740,18 @@ fun SimpleIntegratedScreen(
                 .width(50.dp)
                 .fillMaxHeight()
                 .background(Color(0xFF2E7D32))
-                .clickable { 
+                .clickable {
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(2)
-                        "playing" -> if (currentPlayer == 2) saveStats()
+                        "playing" -> {
+                            if (keepStatistics) {
+                                // İstatistik açıksa sadece currentPlayer istatistik kaydedebilir
+                                if (currentPlayer == 2) saveStats()
+                            } else {
+                                // İstatistik kapalıysa kendi yarısına tıklayarak zar atabilir
+                                if (currentPlayer == 2) rollGameDice()
+                            }
+                        }
                     }
                 },
             contentAlignment = Alignment.Center
@@ -759,10 +776,10 @@ fun SimpleIntegratedScreen(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Geri Al Butonu
+            // Geri Al Butonu (yarı genişlik)
             Button(
                 onClick = { performUndo() },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(0.5f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 enabled = undoStack.isNotEmpty()
             ) {
@@ -772,11 +789,11 @@ fun SimpleIntegratedScreen(
                     fontWeight = FontWeight.Bold
                 )
             }
-            
-            // Maçı Bitir Butonu
+
+            // Maçı Bitir Butonu (2 katı genişlik)
             Button(
                 onClick = { finishGameWithStats() },
-                modifier = Modifier.weight(2f),
+                modifier = Modifier.weight(4f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
             ) {
                 Text(
@@ -1070,19 +1087,19 @@ fun AdvancedCheckbox(
     
     Box(
         modifier = modifier
-            .clickable {
-                // Normal tıklama: CHECKED <-> UNCHECKED
-                val newState = when (state) {
-                    CheckboxState.CHECKED -> CheckboxState.UNCHECKED
-                    CheckboxState.UNCHECKED -> CheckboxState.CHECKED
-                    CheckboxState.SQUARE -> CheckboxState.CHECKED
-                }
-                onStateChange(newState)
-            }
             .pointerInput(Unit) {
-                // Uzun basma: SQUARE durumuna geç
                 detectTapGestures(
+                    onTap = {
+                        // Normal tıklama: CHECKED <-> UNCHECKED
+                        val newState = when (state) {
+                            CheckboxState.CHECKED -> CheckboxState.UNCHECKED
+                            CheckboxState.UNCHECKED -> CheckboxState.CHECKED
+                            CheckboxState.SQUARE -> CheckboxState.CHECKED
+                        }
+                        onStateChange(newState)
+                    },
                     onLongPress = {
+                        // Uzun basma: SQUARE durumuna geç
                         onStateChange(CheckboxState.SQUARE)
                     }
                 )
