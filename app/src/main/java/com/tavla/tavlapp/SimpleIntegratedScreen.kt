@@ -3,6 +3,7 @@ package com.tavla.tavlapp
 import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -32,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,33 +48,142 @@ data class DiceRoll(
 )
 
 data class AdvancedDiceStats(
-    // Atılan zar istatistikleri
-    var thrownDice: MutableList<String> = mutableListOf(), // "6-5", "4-4" vb.
-    var thrownPower: Int = 0,
-    var thrownParts: Int = 0,
-    var thrownDoubles: Int = 0,
-    
-    // Oynanan zar istatistikleri  
-    var playedDice: MutableList<String> = mutableListOf(), // "6-1-1-X", "0-5" vb.
-    var playedPower: Int = 0,
+    val combinationCounts: MutableMap<String, Int> = mutableMapOf(),
+    var doubleCount: Int = 0,
+    var totalRolls: Int = 0,
+    var playedRolls: Int = 0,
+    var partialRolls: Int = 0,
+    var geleRolls: Int = 0,
+    var totalPip: Int = 0,
+    var totalParts: Int = 0,
+    var playedPip: Int = 0,
     var playedParts: Int = 0,
-    
-    // Kısmi oynanan zar istatistikleri
-    var partialPower: Int = 0, // Boşa giden kuvvet
-    var partialParts: Int = 0, // Boşa giden pare sayısı
-    
-    // Gele istatistikleri
-    var gelePower: Int = 0,
+    var gelePip: Int = 0,
     var geleParts: Int = 0,
-    
-    // Bitiş artığı istatistikleri
-    var endRemainPower: Int = 0,
-    var endRemainParts: Int = 0,
-    
-    // Çift zar istatistikleri
-    var doublesFullPlayed: Int = 0, // Tam oynanan çiftler
-    var doublesPartialPlayed: Int = 0 // Kısmi oynanan çiftler
+    var wastedPip: Int = 0,
+    var wastedParts: Int = 0,
+    var partialPlayedPip: Int = 0,
+    var partialPlayedParts: Int = 0,
+    val history: MutableList<String> = mutableListOf()
 )
+
+private fun AdvancedDiceStats.recordRoll(
+    combination: String,
+    originalValues: List<Int>,
+    playedValues: List<Int>,
+    states: List<CheckboxState>
+) {
+    combinationCounts[combination] = (combinationCounts[combination] ?: 0) + 1
+
+    if (originalValues.size >= 2 && originalValues.distinct().size == 1) {
+        doubleCount += 1
+    }
+
+    val rollTotalPip = originalValues.sum()
+    totalPip += rollTotalPip
+    totalParts += originalValues.size
+
+    totalRolls += 1
+
+    var playedPipForRoll = 0
+    var playedPartsForRoll = 0
+    var gelePipForRoll = 0
+    var gelePartsForRoll = 0
+    var wastedPipForRoll = 0
+    var wastedPartsForRoll = 0
+    var partialPipForRoll = 0
+    var partialPartsForRoll = 0
+
+    originalValues.indices.forEach { index ->
+        val original = originalValues[index]
+        val state = states[index]
+        val rawPlayed = playedValues[index].coerceIn(0, original)
+
+        when (state) {
+            CheckboxState.CHECKED -> {
+                playedPipForRoll += rawPlayed
+                playedPartsForRoll += 1
+
+                val diff = original - rawPlayed
+                if (diff > 0) {
+                    partialPipForRoll += diff
+                    partialPartsForRoll += 1
+                }
+            }
+            CheckboxState.UNCHECKED -> {
+                gelePipForRoll += original
+                gelePartsForRoll += 1
+            }
+            CheckboxState.SQUARE -> {
+                wastedPipForRoll += original
+                wastedPartsForRoll += 1
+            }
+        }
+    }
+
+    playedPip += playedPipForRoll
+    playedParts += playedPartsForRoll
+    gelePip += gelePipForRoll
+    geleParts += gelePartsForRoll
+    wastedPip += wastedPipForRoll
+    wastedParts += wastedPartsForRoll
+
+    if (partialPipForRoll > 0) {
+        partialRolls += 1
+        partialPlayedPip += partialPipForRoll
+        partialPlayedParts += partialPartsForRoll
+    } else if (states.all { it == CheckboxState.CHECKED }) {
+        playedRolls += 1
+    } else if (states.all { it == CheckboxState.UNCHECKED }) {
+        geleRolls += 1
+    }
+
+    val entry = buildString {
+        append("Asıl: ")
+        append(originalValues.joinToString("-"))
+        append(" | Oynanan: ")
+        append(originalValues.indices.joinToString("-") { idx ->
+            val state = states[idx]
+            val original = originalValues[idx]
+            val played = playedValues[idx].coerceIn(0, original)
+            when (state) {
+                CheckboxState.CHECKED -> if (played == original) {
+                    played.toString()
+                } else {
+                    "${played}/${original}"
+                }
+                CheckboxState.UNCHECKED -> "○${original}"
+                CheckboxState.SQUARE -> "☐${original}"
+            }
+        })
+        if (partialPipForRoll > 0) {
+            append(" | Kısmi kayıp: ")
+            append(partialPipForRoll)
+            append(" pip")
+        }
+        if (gelePipForRoll > 0) {
+            append(" | Gele: ")
+            append(gelePipForRoll)
+            append(" pip")
+        }
+        if (wastedPipForRoll > 0) {
+            append(" | Bitiş artığı: ")
+            append(wastedPipForRoll)
+            append(" pip")
+        }
+    }
+
+    history.add(entry)
+}
+
+private fun AdvancedDiceStats.sortedCombinations(): List<Pair<String, Int>> {
+    return combinationCounts
+        .map { it.key to it.value }
+        .sortedWith(
+            compareByDescending<Pair<String, Int>> { it.second }
+                .thenBy { it.first }
+        )
+}
 
 @Composable
 fun SimpleIntegratedScreen(
@@ -100,6 +209,16 @@ fun SimpleIntegratedScreen(
     var dice2 by remember { mutableIntStateOf(0) }
     var isRollingGame by remember { mutableStateOf(false) }
     var isDouble by remember { mutableStateOf(false) }
+
+    var dice1Original by remember { mutableIntStateOf(0) }
+    var dice2Original by remember { mutableIntStateOf(0) }
+    var dice3Original by remember { mutableIntStateOf(0) }
+    var dice4Original by remember { mutableIntStateOf(0) }
+
+    var dice1Played by remember { mutableIntStateOf(0) }
+    var dice2Played by remember { mutableIntStateOf(0) }
+    var dice3Played by remember { mutableIntStateOf(0) }
+    var dice4Played by remember { mutableIntStateOf(0) }
     
     var dice1State by remember { mutableStateOf(CheckboxState.CHECKED) }
     var dice2State by remember { mutableStateOf(CheckboxState.CHECKED) }
@@ -156,7 +275,7 @@ fun SimpleIntegratedScreen(
             }
         }
     }
-    
+
     // === AÇILIŞI SIFIRLA ===
     fun resetOpening() {
         player1OpeningDice = 0
@@ -370,6 +489,23 @@ fun SimpleIntegratedScreen(
                 dice3State = CheckboxState.CHECKED
                 dice4State = CheckboxState.CHECKED
 
+                dice1Original = dice1
+                dice1Played = dice1
+                dice2Original = dice2
+                dice2Played = dice2
+
+                if (isDouble) {
+                    dice3Original = dice1
+                    dice4Original = dice1
+                    dice3Played = dice1
+                    dice4Played = dice1
+                } else {
+                    dice3Original = 0
+                    dice4Original = 0
+                    dice3Played = 0
+                    dice4Played = 0
+                }
+
                 delay(300)
                 isRollingGame = false
             }
@@ -390,6 +526,14 @@ fun SimpleIntegratedScreen(
             dice2State = CheckboxState.CHECKED
             dice3State = CheckboxState.CHECKED
             dice4State = CheckboxState.CHECKED
+            dice1Original = 0
+            dice2Original = 0
+            dice3Original = 0
+            dice4Original = 0
+            dice1Played = 0
+            dice2Played = 0
+            dice3Played = 0
+            dice4Played = 0
             
             // Sırayı değiştir
             currentPlayer = if (currentPlayer == 1) 2 else 1
@@ -415,14 +559,18 @@ fun SimpleIntegratedScreen(
             val editor = sharedPrefs.edit()
             
             // Player1 istatistiklerini kaydet
-            editor.putInt("${player1Name}_power", player1Stats.playedPower)
-            editor.putInt("${player1Name}_gele", player1Stats.gelePower)
-            editor.putInt("${player1Name}_doubles", player1Stats.thrownDoubles)
+            editor.putInt("${player1Name}_total_pip", player1Stats.totalPip)
+            editor.putInt("${player1Name}_played_pip", player1Stats.playedPip)
+            editor.putInt("${player1Name}_gele_pip", player1Stats.gelePip)
+            editor.putInt("${player1Name}_wasted_pip", player1Stats.wastedPip)
+            editor.putInt("${player1Name}_doubles", player1Stats.doubleCount)
 
             // Player2 istatistiklerini kaydet
-            editor.putInt("${player2Name}_power", player2Stats.playedPower)
-            editor.putInt("${player2Name}_gele", player2Stats.gelePower)
-            editor.putInt("${player2Name}_doubles", player2Stats.thrownDoubles)
+            editor.putInt("${player2Name}_total_pip", player2Stats.totalPip)
+            editor.putInt("${player2Name}_played_pip", player2Stats.playedPip)
+            editor.putInt("${player2Name}_gele_pip", player2Stats.gelePip)
+            editor.putInt("${player2Name}_wasted_pip", player2Stats.wastedPip)
+            editor.putInt("${player2Name}_doubles", player2Stats.doubleCount)
             
             editor.apply()
             
@@ -467,43 +615,63 @@ fun SimpleIntegratedScreen(
     fun saveStats() {
         val stats = if (currentPlayer == 1) player1Stats else player2Stats
 
-        if (isDouble) {
-            // Çift zar istatistiği
-            val combination = "${dice1}-${dice1}"
-            stats.thrownDice.add(combination)
-            stats.thrownDoubles++
+        val originalValues = mutableListOf<Int>()
+        val playedValues = mutableListOf<Int>()
+        val stateList = mutableListOf<CheckboxState>()
 
-            // Güç hesabı ve gele hesabı
-            var playedDiceCount = 0
-            var totalPower = 0
-            if (dice1State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
-            if (dice2State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
-            if (dice3State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
-            if (dice4State == CheckboxState.CHECKED) { playedDiceCount++; totalPower += dice1 }
-
-            stats.playedPower += totalPower
-            stats.gelePower += (dice1 * 4) - totalPower
-
-        } else {
-            // Normal zar istatistiği
-            val combination = if (dice1 <= dice2) "${dice1}-${dice2}" else "${dice2}-${dice1}"
-            stats.thrownDice.add(combination)
-
-            // Güç hesabı ve gele hesabı
-            var totalPower = 0
-            if (dice1State == CheckboxState.CHECKED) totalPower += dice1
-            if (dice2State == CheckboxState.CHECKED) totalPower += dice2
-
-            stats.playedPower += totalPower
-            stats.gelePower += (dice1 + dice2) - totalPower
+        fun addDie(original: Int, played: Int, state: CheckboxState) {
+            if (original <= 0) return
+            val clampedPlayed = played.coerceIn(0, original)
+            originalValues += original
+            playedValues += when (state) {
+                CheckboxState.CHECKED -> clampedPlayed
+                else -> 0
+            }
+            stateList += state
         }
 
-        // Geri al aksiyonunu kaydet
-        val playerName = if (currentPlayer == 1) player1Name else player2Name
-        val diceInfo = if (isDouble) "${dice1}-${dice1} (çift)" else "${dice1}-${dice2}"
-        addUndoAction("$playerName: $diceInfo zar kaydı")
+        if (isDouble) {
+            if (dice1Original == 0) {
+                Toast.makeText(context, "Önce zar atmalısınız.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            addDie(dice1Original, dice1Played, dice1State)
+            addDie(dice2Original, dice2Played, dice2State)
+            addDie(dice3Original, dice3Played, dice3State)
+            addDie(dice4Original, dice4Played, dice4State)
+        } else {
+            if (dice1Original == 0 && dice2Original == 0) {
+                Toast.makeText(context, "Önce zar atmalısınız.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            addDie(dice1Original, dice1Played, dice1State)
+            addDie(dice2Original, dice2Played, dice2State)
+        }
 
-        // Sırayı değiştir
+        if (originalValues.isEmpty()) {
+            Toast.makeText(context, "Kayıt edilecek zar bulunamadı.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val combination = buildCombinationString(originalValues)
+        stats.recordRoll(combination, originalValues, playedValues, stateList)
+
+        val playerName = if (currentPlayer == 1) player1Name else player2Name
+        val rollSummary = originalValues.indices.joinToString(", ") { idx ->
+            val original = originalValues[idx]
+            val played = playedValues[idx].coerceIn(0, original)
+            when (stateList[idx]) {
+                CheckboxState.CHECKED -> if (played == original) {
+                    "✓$original"
+                } else {
+                    "✓${played}/${original}"
+                }
+                CheckboxState.UNCHECKED -> "○$original"
+                CheckboxState.SQUARE -> "☐$original"
+            }
+        }
+        addUndoAction("$playerName: $combination → $rollSummary")
+
         switchTurn()
     }
     
@@ -529,12 +697,18 @@ fun SimpleIntegratedScreen(
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(1)
                         "playing" -> {
-                            if (keepStatistics) {
-                                // İstatistik açıksa sadece currentPlayer istatistik kaydedebilir
-                                if (currentPlayer == 1) saveStats()
-                            } else {
-                                // İstatistik kapalıysa kendi yarısına tıklayarak zar atabilir
-                                if (currentPlayer == 1) rollGameDice()
+                            if (currentPlayer == 1) {
+                                if (keepStatistics) {
+                                    // İstatistik modunda turu kapatıp sırayı değiştir
+                                    saveStats()
+                                } else {
+                                    // Bas-çek akışı: önce zar yoksa at, varsa sırayı değiştir
+                                    if (dice1 == 0 && dice2 == 0) {
+                                        rollGameDice()
+                                    } else {
+                                        saveStats()
+                                    }
+                                }
                             }
                         }
                     }
@@ -614,10 +788,10 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice1State, { dice1State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice2State, { dice2State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice3State, { dice3State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice4State, { dice4State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1Original, dice1Played, dice1State, { dice1State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice2Original, dice2Played, dice2State, { dice2State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice3Original, dice3Played, dice3State, { dice3State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice4Original, dice4Played, dice4State, { dice4State = it }, {}, "left", 60.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -625,8 +799,28 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "left", 120.dp)
-                                    DiceWithCheckbox(dice2, dice2, dice2State, { dice2State = it }, {}, "left", 120.dp)
+                                    DiceWithCheckbox(
+                                        originalValue = dice1Original,
+                                        playedValue = dice1Played,
+                                        checkboxState = dice1State,
+                                        onCheckboxStateChange = { dice1State = it },
+                                        onValueChange = { newValue ->
+                                            dice1Played = newValue.coerceIn(0, maxOf(dice1Original, 0))
+                                        },
+                                        checkboxPosition = "left",
+                                        diceSize = 120.dp
+                                    )
+                                    DiceWithCheckbox(
+                                        originalValue = dice2Original,
+                                        playedValue = dice2Played,
+                                        checkboxState = dice2State,
+                                        onCheckboxStateChange = { dice2State = it },
+                                        onValueChange = { newValue ->
+                                            dice2Played = newValue.coerceIn(0, maxOf(dice2Original, 0))
+                                        },
+                                        checkboxPosition = "left",
+                                        diceSize = 120.dp
+                                    )
                                 }
                             }
                         } else {
@@ -680,10 +874,10 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice1State, { dice1State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice2State, { dice2State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice3State, { dice3State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice1, dice1, dice4State, { dice4State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1Original, dice1Played, dice1State, { dice1State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice2Original, dice2Played, dice2State, { dice2State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice3Original, dice3Played, dice3State, { dice3State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice4Original, dice4Played, dice4State, { dice4State = it }, {}, "right", 60.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -691,8 +885,28 @@ fun SimpleIntegratedScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    DiceWithCheckbox(dice1, dice1, dice1State, { dice1State = it }, {}, "right", 120.dp)
-                                    DiceWithCheckbox(dice2, dice2, dice2State, { dice2State = it }, {}, "right", 120.dp)
+                                    DiceWithCheckbox(
+                                        originalValue = dice1Original,
+                                        playedValue = dice1Played,
+                                        checkboxState = dice1State,
+                                        onCheckboxStateChange = { dice1State = it },
+                                        onValueChange = { newValue ->
+                                            dice1Played = newValue.coerceIn(0, maxOf(dice1Original, 0))
+                                        },
+                                        checkboxPosition = "right",
+                                        diceSize = 120.dp
+                                    )
+                                    DiceWithCheckbox(
+                                        originalValue = dice2Original,
+                                        playedValue = dice2Played,
+                                        checkboxState = dice2State,
+                                        onCheckboxStateChange = { dice2State = it },
+                                        onValueChange = { newValue ->
+                                            dice2Played = newValue.coerceIn(0, maxOf(dice2Original, 0))
+                                        },
+                                        checkboxPosition = "right",
+                                        diceSize = 120.dp
+                                    )
                                 }
                             }
                         } else {
@@ -744,12 +958,17 @@ fun SimpleIntegratedScreen(
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(2)
                         "playing" -> {
-                            if (keepStatistics) {
-                                // İstatistik açıksa sadece currentPlayer istatistik kaydedebilir
-                                if (currentPlayer == 2) saveStats()
-                            } else {
-                                // İstatistik kapalıysa kendi yarısına tıklayarak zar atabilir
-                                if (currentPlayer == 2) rollGameDice()
+                            if (currentPlayer == 2) {
+                                if (keepStatistics) {
+                                    // İstatistik modunda turu kapatıp sırayı değiştir
+                                    saveStats()
+                                } else {
+                                    if (dice1 == 0 && dice2 == 0) {
+                                        rollGameDice()
+                                    } else {
+                                        saveStats()
+                                    }
+                                }
                             }
                         }
                     }
@@ -805,115 +1024,76 @@ fun SimpleIntegratedScreen(
         }
     }
     
-    // === İSTATİSTİK DİALOGU ===
+    // === İSTATİSTİK EKRANI ===
     if (showStatsDialog) {
-        Dialog(onDismissRequest = { showStatsDialog = false }) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(16.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .padding(16.dp)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(20.dp),
+                tonalElevation = 6.dp
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxSize()
+                        .padding(24.dp)
                 ) {
-                    Text(
-                        text = "🎲 ZAR İSTATİSTİKLERİ",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 20.dp)
-                    )
-                    
-                    // Player1 İstatistikleri
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "👤 $player1Name",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1976D2)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Text("📊 Toplam Güç: ${player1Stats.playedPower}")
-                            Text("❌ Gele Sayısı: ${player1Stats.gelePower}")
-                            Text("🎯 Çift Sayısı: ${player1Stats.thrownDoubles}")
-
-                            if (player1Stats.thrownDice.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("🎲 Atılan Zarlar:", fontWeight = FontWeight.Bold)
-                                player1Stats.thrownDice.forEach { dice ->
-                                    Text("  $dice", fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Player2 İstatistikleri
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "👤 $player2Name",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFD32F2F)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Text("📊 Toplam Güç: ${player2Stats.playedPower}")
-                            Text("❌ Gele Sayısı: ${player2Stats.gelePower}")
-                            Text("🎯 Çift Sayısı: ${player2Stats.thrownDoubles}")
-
-                            if (player2Stats.thrownDice.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("🎲 Atılan Zarlar:", fontWeight = FontWeight.Bold)
-                                player2Stats.thrownDice.forEach { dice ->
-                                    Text("  $dice", fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
-                    // Butonlar
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = { showStatsDialog = false },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                        ) {
-                            Text("KAPAT")
+                        Text(
+                            text = "🎲 Zar İstatistikleri",
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = { showStatsDialog = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                            ) {
+                                Text("Kapat")
+                            }
+                            Button(
+                                onClick = {
+                                    showStatsDialog = false
+                                    onBack()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                            ) {
+                                Text("Ana Menü")
+                            }
                         }
-                        
-                        Button(
-                            onClick = { 
-                                showStatsDialog = false
-                                onBack()
-                            },
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        DiceStatsSection(
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-                        ) {
-                            Text("ANA MENÜ")
-                        }
+                            playerLabel = player1Name,
+                            stats = player1Stats,
+                            accentColor = Color(0xFF1976D2),
+                            backgroundColor = Color(0xFFE3F2FD)
+                        )
+
+                        DiceStatsSection(
+                            modifier = Modifier.weight(1f),
+                            playerLabel = player2Name,
+                            stats = player2Stats,
+                            accentColor = Color(0xFFD32F2F),
+                            backgroundColor = Color(0xFFFFEBEE)
+                        )
                     }
                 }
             }
@@ -946,6 +1126,80 @@ fun SimpleIntegratedScreen(
 }
 
 @Composable
+private fun DiceStatsSection(
+    modifier: Modifier = Modifier,
+    playerLabel: String,
+    stats: AdvancedDiceStats,
+    accentColor: Color,
+    backgroundColor: Color
+) {
+    Card(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "👤 $playerLabel",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = accentColor
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("🔢 Toplam Zar Sayısı: ${stats.totalRolls}")
+            Text("✓ Tam Oynanan Zar Sayısı: ${stats.playedRolls}")
+            Text("⚠️ Kısmi Oynanan Zar Sayısı: ${stats.partialRolls}")
+            Text("○ Tamamen Gele Zar Sayısı: ${stats.geleRolls}")
+            Text("🎲 Toplam: ${formatPipParts(stats.totalPip, stats.totalParts)}")
+            Text("✓ Oynanan: ${formatPipParts(stats.playedPip, stats.playedParts)}")
+            Text("○ Gele: ${formatPipParts(stats.gelePip, stats.geleParts)}")
+            Text("☐ Boşa: ${formatPipParts(stats.wastedPip, stats.wastedParts)}")
+            if (stats.partialRolls > 0) {
+                Text("⚠️ Kısmi Oynanan Kuvvet: ${stats.partialPlayedPip} pip")
+                Text("⚠️ Kısmi Oynanan Paresi: ${stats.partialPlayedParts}")
+            }
+            Text("🎯 Çift Sayısı: ${stats.doubleCount}")
+
+            val combinations = stats.sortedCombinations()
+            if (combinations.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("🎲 Atılan Kombinasyonlar:", fontWeight = FontWeight.Bold)
+                combinations.forEach { (combo, count) ->
+                    Text("  $combo × $count", fontSize = 14.sp)
+                }
+            }
+
+            if (stats.history.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("📝 Atış Geçmişi:", fontWeight = FontWeight.Bold)
+                stats.history.forEach { entry ->
+                    Text("  $entry", fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+private fun buildCombinationString(values: List<Int>): String {
+    if (values.isEmpty()) return "-"
+    val filtered = values.filter { it > 0 }
+    if (filtered.isEmpty()) return "-"
+    return if (filtered.size == 4 && filtered.toSet().size == 1) {
+        val value = filtered.first()
+        "$value-$value"
+    } else {
+        filtered.sorted().joinToString("-")
+    }
+}
+
+private fun formatPipParts(pip: Int, parts: Int): String {
+    return "${pip} pip / ${parts} parça"
+}
+
+
+@Composable
 fun DiceWithCheckboxNoRoll(
     originalValue: Int,
     playedValue: Int,
@@ -966,11 +1220,23 @@ fun DiceWithCheckboxNoRoll(
                     onStateChange = onCheckboxStateChange,
                     modifier = Modifier.size(32.dp)
                 )
-                Enhanced3DDice(
-                    value = playedValue,
-                    isRolling = false, // Animasyon kapalı
-                    size = diceSize
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Enhanced3DDice(
+                        value = playedValue,
+                        isRolling = false, // Animasyon kapalı
+                        size = diceSize
+                    )
+                    val labelText = when (checkboxState) {
+                        CheckboxState.CHECKED -> if (originalValue > 0) "${playedValue}/${originalValue}" else ""
+                        CheckboxState.UNCHECKED -> if (originalValue > 0) "○ $originalValue" else "○"
+                        CheckboxState.SQUARE -> if (originalValue > 0) "☐ $originalValue" else "☐"
+                    }
+                    if (labelText.isNotEmpty()) {
+                        Text(labelText, color = Color.White, fontSize = 12.sp)
+                    }
+                }
             }
         }
         "right" -> {
@@ -978,11 +1244,23 @@ fun DiceWithCheckboxNoRoll(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Enhanced3DDice(
-                    value = playedValue,
-                    isRolling = false, // Animasyon kapalı
-                    size = diceSize
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Enhanced3DDice(
+                        value = playedValue,
+                        isRolling = false, // Animasyon kapalı
+                        size = diceSize
+                    )
+                    val labelText = when (checkboxState) {
+                        CheckboxState.CHECKED -> if (originalValue > 0) "${playedValue}/${originalValue}" else ""
+                        CheckboxState.UNCHECKED -> if (originalValue > 0) "○ $originalValue" else "○"
+                        CheckboxState.SQUARE -> if (originalValue > 0) "☐ $originalValue" else "☐"
+                    }
+                    if (labelText.isNotEmpty()) {
+                        Text(labelText, color = Color.White, fontSize = 12.sp)
+                    }
+                }
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
@@ -1000,6 +1278,14 @@ fun DiceWithCheckboxNoRoll(
                     isRolling = false, // Animasyon kapalı
                     size = diceSize
                 )
+                val labelText = when (checkboxState) {
+                    CheckboxState.CHECKED -> if (originalValue > 0) "${playedValue}/${originalValue}" else ""
+                    CheckboxState.UNCHECKED -> if (originalValue > 0) "○ $originalValue" else "○"
+                    CheckboxState.SQUARE -> if (originalValue > 0) "☐ $originalValue" else "☐"
+                }
+                if (labelText.isNotEmpty()) {
+                    Text(labelText, color = Color.White, fontSize = 12.sp)
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 AdvancedCheckbox(
                     state = checkboxState,
@@ -1032,11 +1318,24 @@ fun DiceWithCheckbox(
                     onStateChange = onCheckboxStateChange,
                     modifier = Modifier.size(32.dp)
                 )
-                DraggableDice(
-                    value = playedValue,
-                    onValueChange = onValueChange,
-                    size = diceSize
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    DraggableDice(
+                        originalValue = originalValue,
+                        playedValue = playedValue,
+                        onValueChange = onValueChange,
+                        size = diceSize
+                    )
+                    val labelText = when (checkboxState) {
+                        CheckboxState.CHECKED -> if (originalValue > 0) "${playedValue}/${originalValue}" else ""
+                        CheckboxState.UNCHECKED -> if (originalValue > 0) "○ $originalValue" else "○"
+                        CheckboxState.SQUARE -> if (originalValue > 0) "☐ $originalValue" else "☐"
+                    }
+                    if (labelText.isNotEmpty()) {
+                        Text(labelText, color = Color.White, fontSize = 12.sp)
+                    }
+                }
             }
         }
         "right" -> {
@@ -1044,11 +1343,24 @@ fun DiceWithCheckbox(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                DraggableDice(
-                    value = playedValue,
-                    onValueChange = onValueChange,
-                    size = diceSize
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    DraggableDice(
+                        originalValue = originalValue,
+                        playedValue = playedValue,
+                        onValueChange = onValueChange,
+                        size = diceSize
+                    )
+                    val labelText = when (checkboxState) {
+                        CheckboxState.CHECKED -> if (originalValue > 0) "${playedValue}/${originalValue}" else ""
+                        CheckboxState.UNCHECKED -> if (originalValue > 0) "○ $originalValue" else "○"
+                        CheckboxState.SQUARE -> if (originalValue > 0) "☐ $originalValue" else "☐"
+                    }
+                    if (labelText.isNotEmpty()) {
+                        Text(labelText, color = Color.White, fontSize = 12.sp)
+                    }
+                }
                 AdvancedCheckbox(
                     state = checkboxState,
                     onStateChange = onCheckboxStateChange,
@@ -1062,10 +1374,19 @@ fun DiceWithCheckbox(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 DraggableDice(
-                    value = playedValue,
+                    originalValue = originalValue,
+                    playedValue = playedValue,
                     onValueChange = onValueChange,
                     size = diceSize
                 )
+                val labelText = when (checkboxState) {
+                    CheckboxState.CHECKED -> if (originalValue > 0) "${playedValue}/${originalValue}" else ""
+                    CheckboxState.UNCHECKED -> if (originalValue > 0) "○ $originalValue" else "○"
+                    CheckboxState.SQUARE -> if (originalValue > 0) "☐ $originalValue" else "☐"
+                }
+                if (labelText.isNotEmpty()) {
+                    Text(labelText, color = Color.White, fontSize = 12.sp)
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 AdvancedCheckbox(
                     state = checkboxState,
@@ -1090,17 +1411,12 @@ fun AdvancedCheckbox(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
-                        // Normal tıklama: CHECKED <-> UNCHECKED
                         val newState = when (state) {
                             CheckboxState.CHECKED -> CheckboxState.UNCHECKED
-                            CheckboxState.UNCHECKED -> CheckboxState.CHECKED
+                            CheckboxState.UNCHECKED -> CheckboxState.SQUARE
                             CheckboxState.SQUARE -> CheckboxState.CHECKED
                         }
                         onStateChange(newState)
-                    },
-                    onLongPress = {
-                        // Uzun basma: SQUARE durumuna geç
-                        onStateChange(CheckboxState.SQUARE)
                     }
                 )
             }
@@ -1108,7 +1424,7 @@ fun AdvancedCheckbox(
                 color = when (state) {
                     CheckboxState.CHECKED -> Color(0xFF4CAF50)
                     CheckboxState.UNCHECKED -> Color.Transparent
-                    CheckboxState.SQUARE -> Color(0xFF2196F3)
+                    CheckboxState.SQUARE -> Color(0xFFD32F2F)
                 },
                 shape = RoundedCornerShape(4.dp)
             )
@@ -1121,20 +1437,23 @@ fun AdvancedCheckbox(
     ) {
         when (state) {
             CheckboxState.CHECKED -> Text("✓", color = Color.White, fontSize = 14.sp)
-            CheckboxState.UNCHECKED -> {} // Boş
-            CheckboxState.SQUARE -> Text("■", color = Color.White, fontSize = 12.sp)
+            CheckboxState.UNCHECKED -> {} // Boş: gele
+            CheckboxState.SQUARE -> Text("☐", color = Color.White, fontSize = 12.sp)
         }
     }
 }
 
 @Composable
 fun DraggableDice(
-    value: Int,
+    originalValue: Int,
+    playedValue: Int,
     onValueChange: (Int) -> Unit,
     size: androidx.compose.ui.unit.Dp = 60.dp
 ) {
     var dragAmount by remember { mutableFloatStateOf(0f) }
     val sensitivity = 20f // Her 20px için 1 azalma
+    val maxValue = originalValue.coerceAtLeast(1)
+    val minValue = if (originalValue > 0) 1 else 0
     
     Box(
         modifier = Modifier
@@ -1148,16 +1467,16 @@ fun DraggableDice(
                     dragAmount += dragAmountChange.y
                     val steps = (dragAmount / sensitivity).toInt()
                     if (steps != 0) {
-                        val newValue = (value - steps).coerceIn(1, 6)
-                        if (newValue != value) {
+                        val newValue = (playedValue - steps).coerceIn(minValue, maxValue)
+                        if (newValue != playedValue) {
                             onValueChange(newValue)
                         }
                         dragAmount = 0f
                     }
                 }
             }
-    ) {
-        Enhanced3DDice(value = value, isRolling = false, size = size)
+   ) {
+        Enhanced3DDice(value = playedValue, isRolling = false, size = size)
     }
 }
 
