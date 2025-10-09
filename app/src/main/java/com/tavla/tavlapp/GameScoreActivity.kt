@@ -95,9 +95,16 @@ class GameScoreActivity : ComponentActivity() {
         val isScoreAutomatic = intent.getBooleanExtra("is_score_automatic", true)
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
+        val keepStatistics = intent.getBooleanExtra("keep_statistics", false)
 
         // Yeni maç başlat ve ID'sini al
         matchId = dbHelper.startNewMatch(player1Id, player2Id, gameType, targetRounds)
+
+        // Zar istatistikleri tutuluyorsa, initialize et
+        if (keepStatistics) {
+            dbHelper.initializeDiceStats(matchId, player1Id)
+            dbHelper.initializeDiceStats(matchId, player2Id)
+        }
 
         setContent {
             MaterialTheme {
@@ -115,6 +122,7 @@ class GameScoreActivity : ComponentActivity() {
                         isScoreAutomatic = isScoreAutomatic,
                         useDiceRoller = useDiceRoller,
                         useTimer = useTimer,
+                        keepStatistics = keepStatistics,
                         matchId = matchId,
                         dbHelper = dbHelper,
                         onFinish = { this.finish() }
@@ -137,6 +145,7 @@ fun GameScreen(
     isScoreAutomatic: Boolean,
     useDiceRoller: Boolean,
     useTimer: Boolean,
+    keepStatistics: Boolean,
     matchId: Long,
     dbHelper: DatabaseHelper,
     onFinish: () -> Unit
@@ -2499,6 +2508,30 @@ fun GameScreen(
                     }
                 }
 
+                // Zar İstatistikleri butonu - Sadece keepStatistics true ise göster
+                if (keepStatistics) {
+                    Button(
+                        onClick = {
+                            val intent = Intent(context, DiceStatisticsActivity::class.java).apply {
+                                putExtra("match_id", matchId)
+                                putExtra("player1_id", player1Id)
+                                putExtra("player2_id", player2Id)
+                                putExtra("player1_name", player1Name)
+                                putExtra("player2_name", player2Name)
+                            }
+                            context.startActivity(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1976D2) // Mavi renk
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                    ) {
+                        Text("📊 Zar İst.", color = Color.White, fontSize = 12.sp)
+                    }
+                }
+
                 // Maçı sonlandırma butonu - Koyu kırmızı
                 Button(
                     onClick = { showEndMatchConfirmation = true },
@@ -2578,18 +2611,22 @@ fun GameScreen(
                     putExtra("player1_name", player1Name)
                     putExtra("player2_name", player2Name)
                     putExtra("match_length", targetRounds)
+                    putExtra("match_id", matchId)
+                    putExtra("player1_id", player1Id)
+                    putExtra("player2_id", player2Id)
+                    putExtra("keep_statistics", keepStatistics)
                 }
                 context.startActivity(intent)
                 Toast.makeText(context, "Zar ekranı açılıyor...", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "Zar ekranı açılamadı: ${e.message}", Toast.LENGTH_LONG).show()
             }
-            
+
             onDispose {
                 // Activity açıldığında state'i sıfırla
             }
         }
-        
+
         // State'i hemen sıfırla
         showDiceScreen = false
     }

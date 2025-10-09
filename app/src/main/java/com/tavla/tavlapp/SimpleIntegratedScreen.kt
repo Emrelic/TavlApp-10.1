@@ -365,6 +365,12 @@ fun SimpleIntegratedScreen(
                                 currentPlayer = 1
                                 dice1 = player1OpeningDice
                                 dice2 = player2OpeningDice
+                                dice1Original = player1OpeningDice
+                                dice2Original = player2OpeningDice
+                                dice1Played = player1OpeningDice
+                                dice2Played = player2OpeningDice
+                                dice1State = CheckboxState.CHECKED
+                                dice2State = CheckboxState.CHECKED
                                 startPlaying()
                             }
                             else -> {
@@ -373,6 +379,12 @@ fun SimpleIntegratedScreen(
                                 currentPlayer = 2
                                 dice1 = player1OpeningDice
                                 dice2 = player2OpeningDice
+                                dice1Original = player1OpeningDice
+                                dice2Original = player2OpeningDice
+                                dice1Played = player1OpeningDice
+                                dice2Played = player2OpeningDice
+                                dice1State = CheckboxState.CHECKED
+                                dice2State = CheckboxState.CHECKED
                                 startPlaying()
                             }
                         }
@@ -698,16 +710,11 @@ fun SimpleIntegratedScreen(
                         "opening_single" -> rollOpeningDice(1)
                         "playing" -> {
                             if (currentPlayer == 1) {
-                                if (keepStatistics) {
-                                    // İstatistik modunda turu kapatıp sırayı değiştir
-                                    saveStats()
+                                // Önce zar yoksa at, varsa istatistik kaydet/sırayı değiştir
+                                if (dice1Original == 0 && dice2Original == 0) {
+                                    rollGameDice()
                                 } else {
-                                    // Bas-çek akışı: önce zar yoksa at, varsa sırayı değiştir
-                                    if (dice1 == 0 && dice2 == 0) {
-                                        rollGameDice()
-                                    } else {
-                                        saveStats()
-                                    }
+                                    saveStats()
                                 }
                             }
                         }
@@ -786,12 +793,12 @@ fun SimpleIntegratedScreen(
                                 // 4 zar (çift) - dikey alt alta
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    DiceWithCheckboxNoRoll(dice1Original, dice1Played, dice1State, { dice1State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice2Original, dice2Played, dice2State, { dice2State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice3Original, dice3Played, dice3State, { dice3State = it }, {}, "left", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice4Original, dice4Played, dice4State, { dice4State = it }, {}, "left", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1Original, dice1Played, dice1State, { dice1State = it }, {}, "left", 55.dp)
+                                    DiceWithCheckboxNoRoll(dice2Original, dice2Played, dice2State, { dice2State = it }, {}, "left", 55.dp)
+                                    DiceWithCheckboxNoRoll(dice3Original, dice3Played, dice3State, { dice3State = it }, {}, "left", 55.dp)
+                                    DiceWithCheckboxNoRoll(dice4Original, dice4Played, dice4State, { dice4State = it }, {}, "left", 55.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -872,12 +879,12 @@ fun SimpleIntegratedScreen(
                                 // 4 zar (çift) - dikey alt alta
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    DiceWithCheckboxNoRoll(dice1Original, dice1Played, dice1State, { dice1State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice2Original, dice2Played, dice2State, { dice2State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice3Original, dice3Played, dice3State, { dice3State = it }, {}, "right", 60.dp)
-                                    DiceWithCheckboxNoRoll(dice4Original, dice4Played, dice4State, { dice4State = it }, {}, "right", 60.dp)
+                                    DiceWithCheckboxNoRoll(dice1Original, dice1Played, dice1State, { dice1State = it }, {}, "right", 55.dp)
+                                    DiceWithCheckboxNoRoll(dice2Original, dice2Played, dice2State, { dice2State = it }, {}, "right", 55.dp)
+                                    DiceWithCheckboxNoRoll(dice3Original, dice3Played, dice3State, { dice3State = it }, {}, "right", 55.dp)
+                                    DiceWithCheckboxNoRoll(dice4Original, dice4Played, dice4State, { dice4State = it }, {}, "right", 55.dp)
                                 }
                             } else {
                                 // 2 zar (normal) - dikey alt alta, 2 katı büyük
@@ -959,15 +966,11 @@ fun SimpleIntegratedScreen(
                         "opening_single" -> rollOpeningDice(2)
                         "playing" -> {
                             if (currentPlayer == 2) {
-                                if (keepStatistics) {
-                                    // İstatistik modunda turu kapatıp sırayı değiştir
-                                    saveStats()
+                                // Önce zar yoksa at, varsa istatistik kaydet/sırayı değiştir
+                                if (dice1Original == 0 && dice2Original == 0) {
+                                    rollGameDice()
                                 } else {
-                                    if (dice1 == 0 && dice2 == 0) {
-                                        rollGameDice()
-                                    } else {
-                                        saveStats()
-                                    }
+                                    saveStats()
                                 }
                             }
                         }
@@ -992,32 +995,48 @@ fun SimpleIntegratedScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF1A1A1A))
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Geri Al Butonu (yarı genişlik)
+            // Geri Al Butonu (dikdörtgen)
             Button(
                 onClick = { performUndo() },
-                modifier = Modifier.weight(0.5f),
+                modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
-                enabled = undoStack.isNotEmpty()
+                enabled = undoStack.isNotEmpty(),
+                shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
                     text = "↶ GERİ AL",
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // Maçı Bitir Butonu (2 katı genişlik)
+            // İstatistikleri Göster Butonu
             Button(
-                onClick = { finishGameWithStats() },
-                modifier = Modifier.weight(4f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                onClick = { showStatsDialog = true },
+                modifier = Modifier.weight(1.5f).height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "📊 MAÇI BİTİR VE İSTATİSTİKLERİ GÖSTER",
-                    fontSize = 14.sp,
+                    text = "📊 İSTATİSTİKLER",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Maçı Bitir Butonu
+            Button(
+                onClick = { finishGameWithStats() },
+                modifier = Modifier.weight(1.5f).height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = "🏁 MAÇI BİTİR",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

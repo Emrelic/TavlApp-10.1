@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -19,6 +19,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val TABLE_MATCHES = "matches"
         private const val TABLE_ROUNDS = "rounds"
         private const val TABLE_PLAYER_STATS = "player_stats"
+        private const val TABLE_DICE_STATS = "dice_statistics"
 
         // Players Tablo Sütunları
         private const val COLUMN_PLAYER_ID = "id"
@@ -59,6 +60,56 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_DOUBLE_SINGLE_WINS = "double_single_wins"
         private const val COLUMN_DOUBLE_MARS_WINS = "double_mars_wins"
         private const val COLUMN_DOUBLE_BACKGAMMON_WINS = "double_backgammon_wins"
+
+        // Dice Statistics Tablo Sütunları
+        private const val COLUMN_DICE_STATS_ID = "id"
+        private const val COLUMN_DICE_MATCH_ID = "match_id"
+        private const val COLUMN_DICE_PLAYER_ID = "player_id"
+
+        // Atılan zar istatistikleri (21 kombinasyon: 1-1, 1-2, ..., 6-6)
+        private const val COLUMN_DICE_1_1 = "dice_1_1"
+        private const val COLUMN_DICE_1_2 = "dice_1_2"
+        private const val COLUMN_DICE_1_3 = "dice_1_3"
+        private const val COLUMN_DICE_1_4 = "dice_1_4"
+        private const val COLUMN_DICE_1_5 = "dice_1_5"
+        private const val COLUMN_DICE_1_6 = "dice_1_6"
+        private const val COLUMN_DICE_2_2 = "dice_2_2"
+        private const val COLUMN_DICE_2_3 = "dice_2_3"
+        private const val COLUMN_DICE_2_4 = "dice_2_4"
+        private const val COLUMN_DICE_2_5 = "dice_2_5"
+        private const val COLUMN_DICE_2_6 = "dice_2_6"
+        private const val COLUMN_DICE_3_3 = "dice_3_3"
+        private const val COLUMN_DICE_3_4 = "dice_3_4"
+        private const val COLUMN_DICE_3_5 = "dice_3_5"
+        private const val COLUMN_DICE_3_6 = "dice_3_6"
+        private const val COLUMN_DICE_4_4 = "dice_4_4"
+        private const val COLUMN_DICE_4_5 = "dice_4_5"
+        private const val COLUMN_DICE_4_6 = "dice_4_6"
+        private const val COLUMN_DICE_5_5 = "dice_5_5"
+        private const val COLUMN_DICE_5_6 = "dice_5_6"
+        private const val COLUMN_DICE_6_6 = "dice_6_6"
+
+        // Genel istatistikler
+        private const val COLUMN_TOTAL_DICE_POWER = "total_dice_power"
+        private const val COLUMN_TOTAL_DICE_PIECES = "total_dice_pieces"
+        private const val COLUMN_DOUBLE_COUNT = "double_count"
+        private const val COLUMN_DOUBLE_POWER = "double_power"
+
+        // Oynanan
+        private const val COLUMN_PLAYED_POWER = "played_power"
+        private const val COLUMN_PLAYED_PIECES = "played_pieces"
+
+        // Gele
+        private const val COLUMN_WASTED_POWER = "wasted_power"
+        private const val COLUMN_WASTED_PIECES = "wasted_pieces"
+
+        // Kısmen boşa
+        private const val COLUMN_PARTIAL_WASTED_POWER = "partial_wasted_power"
+        private const val COLUMN_PARTIAL_WASTED_PIECES = "partial_wasted_pieces"
+
+        // Bitiş artığı
+        private const val COLUMN_END_WASTE_POWER = "end_waste_power"
+        private const val COLUMN_END_WASTE_PIECES = "end_waste_pieces"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -123,9 +174,54 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             )
         """.trimIndent()
         db.execSQL(createPlayerStatsTable)
+
+        val createDiceStatsTable = """
+            CREATE TABLE $TABLE_DICE_STATS (
+                $COLUMN_DICE_STATS_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_DICE_MATCH_ID INTEGER,
+                $COLUMN_DICE_PLAYER_ID INTEGER,
+                $COLUMN_DICE_1_1 INTEGER DEFAULT 0,
+                $COLUMN_DICE_1_2 INTEGER DEFAULT 0,
+                $COLUMN_DICE_1_3 INTEGER DEFAULT 0,
+                $COLUMN_DICE_1_4 INTEGER DEFAULT 0,
+                $COLUMN_DICE_1_5 INTEGER DEFAULT 0,
+                $COLUMN_DICE_1_6 INTEGER DEFAULT 0,
+                $COLUMN_DICE_2_2 INTEGER DEFAULT 0,
+                $COLUMN_DICE_2_3 INTEGER DEFAULT 0,
+                $COLUMN_DICE_2_4 INTEGER DEFAULT 0,
+                $COLUMN_DICE_2_5 INTEGER DEFAULT 0,
+                $COLUMN_DICE_2_6 INTEGER DEFAULT 0,
+                $COLUMN_DICE_3_3 INTEGER DEFAULT 0,
+                $COLUMN_DICE_3_4 INTEGER DEFAULT 0,
+                $COLUMN_DICE_3_5 INTEGER DEFAULT 0,
+                $COLUMN_DICE_3_6 INTEGER DEFAULT 0,
+                $COLUMN_DICE_4_4 INTEGER DEFAULT 0,
+                $COLUMN_DICE_4_5 INTEGER DEFAULT 0,
+                $COLUMN_DICE_4_6 INTEGER DEFAULT 0,
+                $COLUMN_DICE_5_5 INTEGER DEFAULT 0,
+                $COLUMN_DICE_5_6 INTEGER DEFAULT 0,
+                $COLUMN_DICE_6_6 INTEGER DEFAULT 0,
+                $COLUMN_TOTAL_DICE_POWER INTEGER DEFAULT 0,
+                $COLUMN_TOTAL_DICE_PIECES INTEGER DEFAULT 0,
+                $COLUMN_DOUBLE_COUNT INTEGER DEFAULT 0,
+                $COLUMN_DOUBLE_POWER INTEGER DEFAULT 0,
+                $COLUMN_PLAYED_POWER INTEGER DEFAULT 0,
+                $COLUMN_PLAYED_PIECES INTEGER DEFAULT 0,
+                $COLUMN_WASTED_POWER INTEGER DEFAULT 0,
+                $COLUMN_WASTED_PIECES INTEGER DEFAULT 0,
+                $COLUMN_PARTIAL_WASTED_POWER INTEGER DEFAULT 0,
+                $COLUMN_PARTIAL_WASTED_PIECES INTEGER DEFAULT 0,
+                $COLUMN_END_WASTE_POWER INTEGER DEFAULT 0,
+                $COLUMN_END_WASTE_PIECES INTEGER DEFAULT 0,
+                FOREIGN KEY($COLUMN_DICE_MATCH_ID) REFERENCES $TABLE_MATCHES($COLUMN_MATCH_ID),
+                FOREIGN KEY($COLUMN_DICE_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
+            )
+        """.trimIndent()
+        db.execSQL(createDiceStatsTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        db.execSQL("DROP TABLE IF EXISTS $TABLE_DICE_STATS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_ROUNDS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_PLAYER_STATS")
         db.execSQL("DROP TABLE IF EXISTS $TABLE_MATCHES")
@@ -1146,9 +1242,10 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     fun resetAllData(): Int {
         val db = this.writableDatabase
         db.delete(TABLE_ROUNDS, null, null)
+        db.delete(TABLE_DICE_STATS, null, null)
         val deletedMatches = db.delete(TABLE_MATCHES, null, null)
         val resetPlayerStatsSQL = """
-        UPDATE $TABLE_PLAYER_STATS 
+        UPDATE $TABLE_PLAYER_STATS
         SET $COLUMN_TOTAL_MATCHES = 0,
             $COLUMN_MATCHES_WON = 0,
             $COLUMN_STATS_TOTAL_ROUNDS = 0,
@@ -1163,5 +1260,114 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.execSQL(resetPlayerStatsSQL)
         db.close()
         return deletedMatches
+    }
+
+    // ============== ZAR İSTATİSTİKLERİ FONKSİYONLARI ==============
+
+    /**
+     * Maç için oyuncu zar istatistiklerini başlat
+     */
+    fun initializeDiceStats(matchId: Long, playerId: Long): Long {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_DICE_MATCH_ID, matchId)
+        values.put(COLUMN_DICE_PLAYER_ID, playerId)
+        val id = db.insert(TABLE_DICE_STATS, null, values)
+        db.close()
+        return id
+    }
+
+    /**
+     * Zar atışı sonucunu kaydet
+     */
+    fun saveDiceRoll(matchId: Long, playerId: Long, rollResult: DiceRollResult) {
+        val db = this.writableDatabase
+
+        // İstatistikleri hesapla
+        val stats = DiceHelper.calculateStatisticsFromRoll(rollResult)
+
+        // Zar kombinasyonu column adı
+        val diceColumn = DiceHelper.getDiceColumnName(rollResult.dice1, rollResult.dice2)
+
+        // Güncelleme SQL'i
+        val updateSQL = """
+            UPDATE $TABLE_DICE_STATS
+            SET $diceColumn = $diceColumn + 1,
+                $COLUMN_TOTAL_DICE_POWER = $COLUMN_TOTAL_DICE_POWER + ${stats["totalPower"]},
+                $COLUMN_TOTAL_DICE_PIECES = $COLUMN_TOTAL_DICE_PIECES + ${stats["totalPieces"]},
+                $COLUMN_DOUBLE_COUNT = $COLUMN_DOUBLE_COUNT + ${stats["doubleCount"]},
+                $COLUMN_DOUBLE_POWER = $COLUMN_DOUBLE_POWER + ${stats["doublePower"]},
+                $COLUMN_PLAYED_POWER = $COLUMN_PLAYED_POWER + ${stats["playedPower"]},
+                $COLUMN_PLAYED_PIECES = $COLUMN_PLAYED_PIECES + ${stats["playedPieces"]},
+                $COLUMN_WASTED_POWER = $COLUMN_WASTED_POWER + ${stats["wastedPower"]},
+                $COLUMN_WASTED_PIECES = $COLUMN_WASTED_PIECES + ${stats["wastedPieces"]},
+                $COLUMN_PARTIAL_WASTED_POWER = $COLUMN_PARTIAL_WASTED_POWER + ${stats["partialWastedPower"]},
+                $COLUMN_PARTIAL_WASTED_PIECES = $COLUMN_PARTIAL_WASTED_PIECES + ${stats["partialWastedPieces"]},
+                $COLUMN_END_WASTE_POWER = $COLUMN_END_WASTE_POWER + ${stats["endWastePower"]},
+                $COLUMN_END_WASTE_PIECES = $COLUMN_END_WASTE_PIECES + ${stats["endWastePieces"]}
+            WHERE $COLUMN_DICE_MATCH_ID = $matchId AND $COLUMN_DICE_PLAYER_ID = $playerId
+        """.trimIndent()
+
+        db.execSQL(updateSQL)
+        db.close()
+    }
+
+    /**
+     * Maç için oyuncu zar istatistiklerini al
+     */
+    fun getDiceStats(matchId: Long, playerId: Long): DiceStatistics? {
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT * FROM $TABLE_DICE_STATS
+            WHERE $COLUMN_DICE_MATCH_ID = ? AND $COLUMN_DICE_PLAYER_ID = ?
+        """, arrayOf(matchId.toString(), playerId.toString()))
+
+        if (cursor.moveToFirst()) {
+            val stats = DiceStatistics(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DICE_STATS_ID)),
+                matchId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DICE_MATCH_ID)),
+                playerId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DICE_PLAYER_ID)),
+                dice_1_1 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_1_1)),
+                dice_1_2 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_1_2)),
+                dice_1_3 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_1_3)),
+                dice_1_4 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_1_4)),
+                dice_1_5 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_1_5)),
+                dice_1_6 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_1_6)),
+                dice_2_2 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_2_2)),
+                dice_2_3 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_2_3)),
+                dice_2_4 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_2_4)),
+                dice_2_5 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_2_5)),
+                dice_2_6 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_2_6)),
+                dice_3_3 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_3_3)),
+                dice_3_4 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_3_4)),
+                dice_3_5 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_3_5)),
+                dice_3_6 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_3_6)),
+                dice_4_4 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_4_4)),
+                dice_4_5 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_4_5)),
+                dice_4_6 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_4_6)),
+                dice_5_5 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_5_5)),
+                dice_5_6 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_5_6)),
+                dice_6_6 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_6_6)),
+                totalDicePower = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_TOTAL_DICE_POWER)),
+                totalDicePieces = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_TOTAL_DICE_PIECES)),
+                doubleCount = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DOUBLE_COUNT)),
+                doublePower = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DOUBLE_POWER)),
+                playedPower = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PLAYED_POWER)),
+                playedPieces = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PLAYED_PIECES)),
+                wastedPower = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_WASTED_POWER)),
+                wastedPieces = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_WASTED_PIECES)),
+                partialWastedPower = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTIAL_WASTED_POWER)),
+                partialWastedPieces = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTIAL_WASTED_PIECES)),
+                endWastePower = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_END_WASTE_POWER)),
+                endWastePieces = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_END_WASTE_PIECES))
+            )
+            cursor.close()
+            db.close()
+            return stats
+        }
+
+        cursor.close()
+        db.close()
+        return null
     }
 }
