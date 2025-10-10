@@ -845,23 +845,29 @@ fun SimpleIntegratedScreen(
                 .background(
                     when {
                         gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
+                        gamePhase == "playing" && useDiceRoller -> Color(0xFF2E7D32) // Zar atıcı açıksa her zaman yeşil
                         gamePhase == "playing" && currentPlayer == 1 -> Color(0xFF2E7D32) // Player1 sırasında yeşil
                         else -> Color(0xFF616161) // Pasif gri
                     }
                 )
-                .clickable(enabled = gamePhase == "opening_single" || currentPlayer == 1) {
+                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && (useDiceRoller || currentPlayer == 1))) {
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(1)
                         "playing" -> {
-                            if (currentPlayer == 1) {
+                            // useDiceRoller=true ise herkes kendi zarını atabilir
+                            if (useDiceRoller || currentPlayer == 1) {
                                 when (player1DiceState) {
                                     "WAIT_DICE" -> {
-                                        // Zar at
-                                        rollGameDice()
+                                        // Sadece Player 1 sırasında zar at
+                                        if (currentPlayer == 1) {
+                                            rollGameDice()
+                                        }
                                     }
                                     "WAIT_MOVE" -> {
                                         // Hamle yapıldı, sırayı değiştir
-                                        switchTurn()
+                                        if (currentPlayer == 1) {
+                                            switchTurn()
+                                        }
                                     }
                                 }
                             }
@@ -1144,23 +1150,29 @@ fun SimpleIntegratedScreen(
                 .background(
                     when {
                         gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
+                        gamePhase == "playing" && useDiceRoller -> Color(0xFF2E7D32) // Zar atıcı açıksa her zaman yeşil
                         gamePhase == "playing" && currentPlayer == 2 -> Color(0xFF2E7D32) // Player2 sırasında yeşil
                         else -> Color(0xFF616161) // Pasif gri
                     }
                 )
-                .clickable(enabled = gamePhase == "opening_single" || currentPlayer == 2) {
+                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && (useDiceRoller || currentPlayer == 2))) {
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(2)
                         "playing" -> {
-                            if (currentPlayer == 2) {
+                            // useDiceRoller=true ise herkes kendi zarını atabilir
+                            if (useDiceRoller || currentPlayer == 2) {
                                 when (player2DiceState) {
                                     "WAIT_DICE" -> {
-                                        // Zar at
-                                        rollGameDice()
+                                        // Sadece Player 2 sırasında zar at
+                                        if (currentPlayer == 2) {
+                                            rollGameDice()
+                                        }
                                     }
                                     "WAIT_MOVE" -> {
                                         // Hamle yapıldı, sırayı değiştir
-                                        switchTurn()
+                                        if (currentPlayer == 2) {
+                                            switchTurn()
+                                        }
                                     }
                                 }
                             }
