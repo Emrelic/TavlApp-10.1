@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
 
 class DiceStatisticsActivity : ComponentActivity() {
     private lateinit var dbHelper: DatabaseHelper
@@ -118,7 +120,7 @@ fun DiceStatisticsScreen(
                         .verticalScroll(scrollState)
                 ) {
                     StatHeaderCell("İSTATİSTİK")
-                    Divider(color = Color.Gray, thickness = 2.dp)
+                    HorizontalDivider(color = Color.Gray, thickness = 2.dp)
 
                     // Atılan zar çeşitleri
                     StatSubHeaderCell("Atılan Zar Çeşidi")
@@ -129,13 +131,11 @@ fun DiceStatisticsScreen(
                     StatHeaderCell("Atılan Zar Kuvveti")
                     StatHeaderCell("Atılan Zar Paresi")
                     StatHeaderCell("Çift Atış Sayısı")
-                    StatHeaderCell("Çift Zarlar Kuvveti")
+                    StatHeaderCell("Çift Atış Kuvveti")
                     StatHeaderCell("Oynanan Zar Kuvveti")
                     StatHeaderCell("Oynanan Zar Paresi")
-                    StatHeaderCell("Gele Zar Kuvveti")
-                    StatHeaderCell("Gele Zar Paresi")
-                    StatHeaderCell("Kısmen Boşa Kuvveti")
-                    StatHeaderCell("Kısmen Boşa Paresi")
+                    StatHeaderCell("Kısmen Boşa Giden Zar Kuvveti")
+                    StatHeaderCell("Kısmen Boşa Giden Zar Paresi")
                     StatHeaderCell("Bitiş Artığı Kuvveti")
                     StatHeaderCell("Bitiş Artığı Paresi")
                     StatHeaderCell("VERİMLİLİK %")
@@ -150,7 +150,7 @@ fun DiceStatisticsScreen(
                         .verticalScroll(scrollState)
                 ) {
                     StatPlayerHeaderCell(player1Name)
-                    Divider(color = Color.Gray, thickness = 2.dp)
+                    HorizontalDivider(color = Color.Gray, thickness = 2.dp)
 
                     // Atılan zar çeşitleri - Alt başlık cell'i ekle (A sütunuyla aynı yükseklikte)
                     StatSubHeaderCellValue("")
@@ -164,8 +164,6 @@ fun DiceStatisticsScreen(
                     StatValueCellHeader(player1Stats?.doublePower ?: 0)
                     StatValueCellHeader(player1Stats?.playedPower ?: 0)
                     StatValueCellHeader(player1Stats?.playedPieces ?: 0)
-                    StatValueCellHeader(player1Stats?.wastedPower ?: 0)
-                    StatValueCellHeader(player1Stats?.wastedPieces ?: 0)
                     StatValueCellHeader(player1Stats?.partialWastedPower ?: 0)
                     StatValueCellHeader(player1Stats?.partialWastedPieces ?: 0)
                     StatValueCellHeader(player1Stats?.endWastePower ?: 0)
@@ -182,7 +180,7 @@ fun DiceStatisticsScreen(
                         .verticalScroll(scrollState)
                 ) {
                     StatPlayerHeaderCell(player2Name)
-                    Divider(color = Color.Gray, thickness = 2.dp)
+                    HorizontalDivider(color = Color.Gray, thickness = 2.dp)
 
                     // Atılan zar çeşitleri - Alt başlık cell'i ekle (A sütunuyla aynı yükseklikte)
                     StatSubHeaderCellValue("")
@@ -196,8 +194,6 @@ fun DiceStatisticsScreen(
                     StatValueCellHeader(player2Stats?.doublePower ?: 0)
                     StatValueCellHeader(player2Stats?.playedPower ?: 0)
                     StatValueCellHeader(player2Stats?.playedPieces ?: 0)
-                    StatValueCellHeader(player2Stats?.wastedPower ?: 0)
-                    StatValueCellHeader(player2Stats?.wastedPieces ?: 0)
                     StatValueCellHeader(player2Stats?.partialWastedPower ?: 0)
                     StatValueCellHeader(player2Stats?.partialWastedPieces ?: 0)
                     StatValueCellHeader(player2Stats?.endWastePower ?: 0)
@@ -209,14 +205,39 @@ fun DiceStatisticsScreen(
     }
 }
 
+
+
 @Composable
 fun StatHeaderCell(text: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    val explanation = when (text) {
+        "Atılan Zar Kuvveti" -> "Oyuncu tarafından atılan tüm zar değerlerinin toplamı (pip sayısı)"
+        "Atılan Zar Paresi" -> "Oyuncu tarafından atılan toplam zar parça sayısı"
+        "Çift Atış Sayısı" -> "Oyuncunun attığı çift zarların sayısı (1-1, 2-2, 3-3, vs.)"
+        "Çift Atış Kuvveti" -> "Çift zarlarda elde edilen toplam kuvvet (pip sayısı)"
+        "Oynanan Zar Kuvveti" -> "Gerçekten oyunda kullanılan zar değerlerinin toplamı"
+        "Oynanan Zar Paresi" -> "Gerçekten oyunda kullanılan zar parçalarının sayısı"
+        "Kısmen Boşa Giden Zar Kuvveti" -> "Kısmen oynanan zarlardan boşa giden kısım (kısmi kayp)"
+        "Kısmen Boşa Giden Zar Paresi" -> "Kısmen oynanan zar parçalarının sayısı"
+        "Bitiş Artığı Kuvveti" -> "Oyun sonunda kalan ve kullanılamayan zar değerleri"
+        "Bitiş Artığı Paresi" -> "Oyun sonunda kalan ve kullanılamayan zar parçaları"
+        "VERİMLİLİK %" -> "Oynanan zar kuvvetinin toplam zar kuvvetine oranı (yüzde olarak)"
+        "Atılan Zar Çeşidi" -> "Oyuncunun attığı farklı zar kombinasyonlarının dağılımı"
+        else -> ""
+    }
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
             .background(Color(0xFF424242))
-            .border(1.dp, Color.Gray),
+            .border(1.dp, Color.Gray)
+            .clickable {
+                if (explanation.isNotEmpty()) {
+                    android.widget.Toast.makeText(context, explanation, android.widget.Toast.LENGTH_LONG).show()
+                }
+            },
         contentAlignment = Alignment.CenterStart
     ) {
         Text(

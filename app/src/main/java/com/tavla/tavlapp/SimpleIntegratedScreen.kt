@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Gelişmiş İstatistik veri sınıfları
 enum class CheckboxState { CHECKED, UNCHECKED, SQUARE }
@@ -50,6 +51,7 @@ data class DiceRoll(
 data class AdvancedDiceStats(
     val combinationCounts: MutableMap<String, Int> = mutableMapOf(),
     var doubleCount: Int = 0,
+    var doublePip: Int = 0, // Çift atış kuvveti
     var totalRolls: Int = 0,
     var playedRolls: Int = 0,
     var partialRolls: Int = 0,
@@ -75,8 +77,11 @@ private fun AdvancedDiceStats.recordRoll(
 ) {
     combinationCounts[combination] = (combinationCounts[combination] ?: 0) + 1
 
-    if (originalValues.size >= 2 && originalValues.distinct().size == 1) {
+    // Çift zar kontrolü - sadece 2 zar varsa ve aynı değerdeyse
+    if (originalValues.size == 2 && originalValues.distinct().size == 1) {
         doubleCount += 1
+        // Çift atış kuvveti = zar değeri × 4 (örn: 6-6 = 24, 2-2 = 8)
+        doublePip += originalValues.first() * 4
     }
 
     val rollTotalPip = originalValues.sum()
@@ -176,7 +181,7 @@ private fun AdvancedDiceStats.recordRoll(
     history.add(entry)
 }
 
-private fun AdvancedDiceStats.sortedCombinations(): List<Pair<String, Int>> {
+fun AdvancedDiceStats.sortedCombinations(): List<Pair<String, Int>> {
     return combinationCounts
         .map { it.key to it.value }
         .sortedWith(
@@ -209,6 +214,7 @@ fun SimpleIntegratedScreen(
     var dice2 by remember { mutableIntStateOf(0) }
     var isRollingGame by remember { mutableStateOf(false) }
     var isDouble by remember { mutableStateOf(false) }
+    var eliminatedNumbers by remember { mutableStateOf("") }
 
     var dice1Original by remember { mutableIntStateOf(0) }
     var dice2Original by remember { mutableIntStateOf(0) }
@@ -234,8 +240,15 @@ fun SimpleIntegratedScreen(
     var player2MoveTime by remember { mutableIntStateOf(moveTimeDelay) }
     var timerRunning by remember { mutableStateOf(false) }
     
+    // SharedPreferences'tan yüklenecek istatistikler
     var player1Stats by remember { mutableStateOf(AdvancedDiceStats()) }
     var player2Stats by remember { mutableStateOf(AdvancedDiceStats()) }
+    
+    // İstatistikleri yükle
+    LaunchedEffect(player1Name, player2Name) {
+        player1Stats = loadPlayerStatsFromPrefs(context, player1Name)
+        player2Stats = loadPlayerStatsFromPrefs(context, player2Name)
+    }
     var showStatsDialog by remember { mutableStateOf(false) }
     
     var undoStack by remember { mutableStateOf(listOf<String>()) }
@@ -395,34 +408,49 @@ fun SimpleIntegratedScreen(
     }
     
     // === ELEME SİSTEMİ İLE ZAR ATMA ===
-    suspend fun rollDiceWithElimination(updateDiceValue: (Int) -> Unit): Int {
-        val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
+    suspend fun rollDiceWithElimination(
+        updateDiceValue: (Int) -> Unit,
+        onEliminationComplete: (String) -> Unit
+    ): Int {
+        return withContext(Dispatchers.Main) {
+            try {
+                val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
+                val eliminated = mutableListOf<Int>()
 
-        // İlk random sayıyı belirle ve göster
-        val firstRandom = (1..6).random()
-        updateDiceValue(firstRandom)
-        delay(80) // İlk değeri göster
-        
-        // İlk seçilen sayıyı listeden çıkar
-        numbers.remove(firstRandom)
+                // İlk random sayıyı belirle ve göster
+                val firstRandom = (1..6).random()
+                updateDiceValue(firstRandom)
+                delay(120) // İlk değeri göster
+                
+                // İlk seçilen sayıyı listeden çıkar
+                numbers.remove(firstRandom)
 
-        // Kalan 5 sayıdan 4'ünü teker teker eleme
-        repeat(4) {
-            val randomIndex = numbers.indices.random()
-            val eliminatedValue = numbers[randomIndex]
-            numbers.removeAt(randomIndex)
+                // Kalan 5 sayıdan 4'ünü teker teker eleme (toplam 1 saniye içinde)
+                repeat(4) {
+                    val randomIndex = numbers.indices.random()
+                    val eliminatedValue = numbers[randomIndex]
+                    numbers.removeAt(randomIndex)
+                    eliminated.add(eliminatedValue)
 
-            // Elenen sayıyı zarda göster
-            updateDiceValue(eliminatedValue)
-            delay(80) // Her eleme 80ms göster
+                    // Elenen sayıyı zarda göster
+                    updateDiceValue(eliminatedValue)
+                    delay(120) // Her eleme 120ms göster (4x120 = 480ms)
+                }
+
+                // Son kalan sayıyı göster ve döndür (final result)
+                val finalValue = numbers.first()
+                updateDiceValue(finalValue)
+                delay(280) // Final değeri göster (120+480+280 = 880ms ~ 1 saniye)
+                
+                // Elenen sayıları callback ile güncelle
+                onEliminationComplete("Elenen: ${eliminated.joinToString(", ")}")
+
+                finalValue
+            } catch (e: Exception) {
+                // Hata durumunda random değer döndür
+                (1..6).random()
+            }
         }
-
-        // Son kalan sayıyı göster ve döndür (final result)
-        val finalValue = numbers.first()
-        updateDiceValue(finalValue)
-        delay(120) // Final değeri biraz uzun göster
-
-        return finalValue
     }
 
     // === TEK ZAR ATMA FONKSİYONU (Açılış) - ELEME SİSTEMİ ===
@@ -446,13 +474,19 @@ fun SimpleIntegratedScreen(
                 } catch (e: Exception) { }
 
                 // Eleme sistemi ile zar atma (her elenen sayı görünecek)
-                val diceValue = rollDiceWithElimination { value ->
-                    if (player == 1) {
-                        player1OpeningDice = value
-                    } else {
-                        player2OpeningDice = value
+                val diceValue = rollDiceWithElimination(
+                    updateDiceValue = { value ->
+                        if (player == 1) {
+                            player1OpeningDice = value
+                        } else {
+                            player2OpeningDice = value
+                        }
+                    },
+                    onEliminationComplete = { eliminationText ->
+                        // Tek zar atımında elenen sayıları gösterme
+                        eliminatedNumbers = ""
                     }
-                }
+                )
 
                 delay(300)
                 
@@ -471,57 +505,37 @@ fun SimpleIntegratedScreen(
     
     // === İKİ ZAR ATMA FONKSİYONU - ELEME SİSTEMİ ===
     fun rollGameDice() {
-        if (!isRollingGame) {
-            CoroutineScope(Dispatchers.Main).launch {
-                isRollingGame = true
-
-                // Ses efekti
-                try {
-                    val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
-                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
-                    toneGenerator.release()
-                } catch (e: Exception) { }
-
-                // İki zar paralel olarak eleme sistemi ile at
-                val job1 = launch {
-                    dice1 = rollDiceWithElimination { value -> dice1 = value }
-                }
-                val job2 = launch {
-                    dice2 = rollDiceWithElimination { value -> dice2 = value }
-                }
-
-                // Her iki zarın da tamamlanmasını bekle
-                job1.join()
-                job2.join()
-
-                // Çift kontrolü
-                isDouble = (dice1 == dice2)
-                dice1State = CheckboxState.CHECKED
-                dice2State = CheckboxState.CHECKED
-                dice3State = CheckboxState.CHECKED
-                dice4State = CheckboxState.CHECKED
-
-                dice1Original = dice1
-                dice1Played = dice1
-                dice2Original = dice2
-                dice2Played = dice2
-
-                if (isDouble) {
-                    dice3Original = dice1
-                    dice4Original = dice1
-                    dice3Played = dice1
-                    dice4Played = dice1
-                } else {
-                    dice3Original = 0
-                    dice4Original = 0
-                    dice3Played = 0
-                    dice4Played = 0
-                }
-
-                delay(300)
-                isRollingGame = false
-            }
+        // Random zar atma - crash yapan saveStats() olmadan
+        dice1 = (1..6).random()
+        dice2 = (1..6).random()
+        eliminatedNumbers = "Atılan: ${dice1}, ${dice2}"
+        isDouble = (dice1 == dice2)
+        
+        dice1State = CheckboxState.CHECKED
+        dice2State = CheckboxState.CHECKED
+        dice3State = CheckboxState.CHECKED
+        dice4State = CheckboxState.CHECKED
+        
+        dice1Original = dice1
+        dice1Played = dice1
+        dice2Original = dice2
+        dice2Played = dice2
+        
+        if (isDouble) {
+            dice3Original = dice1
+            dice4Original = dice1
+            dice3Played = dice1
+            dice4Played = dice1
+        } else {
+            dice3Original = 0
+            dice4Original = 0
+            dice3Played = 0
+            dice4Played = 0
         }
+        
+        // Zarları sıfırlamaya zorla - böylece tekrar basılabilir
+        // dice1Original = 0
+        // dice2Original = 0
     }
     
     // === SIRAYI DEĞİŞTİR ===
@@ -572,17 +586,31 @@ fun SimpleIntegratedScreen(
             
             // Player1 istatistiklerini kaydet
             editor.putInt("${player1Name}_total_pip", player1Stats.totalPip)
+            editor.putInt("${player1Name}_total_parts", player1Stats.totalParts)
             editor.putInt("${player1Name}_played_pip", player1Stats.playedPip)
+            editor.putInt("${player1Name}_played_parts", player1Stats.playedParts)
             editor.putInt("${player1Name}_gele_pip", player1Stats.gelePip)
+            editor.putInt("${player1Name}_gele_parts", player1Stats.geleParts)
+            editor.putInt("${player1Name}_partial_played_pip", player1Stats.partialPlayedPip)
+            editor.putInt("${player1Name}_partial_played_parts", player1Stats.partialPlayedParts)
             editor.putInt("${player1Name}_wasted_pip", player1Stats.wastedPip)
+            editor.putInt("${player1Name}_wasted_parts", player1Stats.wastedParts)
             editor.putInt("${player1Name}_doubles", player1Stats.doubleCount)
+            editor.putInt("${player1Name}_double_pip", player1Stats.doublePip)
 
             // Player2 istatistiklerini kaydet
             editor.putInt("${player2Name}_total_pip", player2Stats.totalPip)
+            editor.putInt("${player2Name}_total_parts", player2Stats.totalParts)
             editor.putInt("${player2Name}_played_pip", player2Stats.playedPip)
+            editor.putInt("${player2Name}_played_parts", player2Stats.playedParts)
             editor.putInt("${player2Name}_gele_pip", player2Stats.gelePip)
+            editor.putInt("${player2Name}_gele_parts", player2Stats.geleParts)
+            editor.putInt("${player2Name}_partial_played_pip", player2Stats.partialPlayedPip)
+            editor.putInt("${player2Name}_partial_played_parts", player2Stats.partialPlayedParts)
             editor.putInt("${player2Name}_wasted_pip", player2Stats.wastedPip)
+            editor.putInt("${player2Name}_wasted_parts", player2Stats.wastedParts)
             editor.putInt("${player2Name}_doubles", player2Stats.doubleCount)
+            editor.putInt("${player2Name}_double_pip", player2Stats.doublePip)
             
             editor.apply()
             
@@ -667,6 +695,9 @@ fun SimpleIntegratedScreen(
 
         val combination = buildCombinationString(originalValues)
         stats.recordRoll(combination, originalValues, playedValues, stateList)
+        
+        // İstatistikleri otomatik kaydet
+        saveStats()
 
         val playerName = if (currentPlayer == 1) player1Name else player2Name
         val rollSummary = originalValues.indices.joinToString(", ") { idx ->
@@ -709,14 +740,8 @@ fun SimpleIntegratedScreen(
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(1)
                         "playing" -> {
-                            if (currentPlayer == 1) {
-                                // Önce zar yoksa at, varsa istatistik kaydet/sırayı değiştir
-                                if (dice1Original == 0 && dice2Original == 0) {
-                                    rollGameDice()
-                                } else {
-                                    saveStats()
-                                }
-                            }
+                            // Her zaman zar at - şart yok
+                            rollGameDice()
                         }
                     }
                 },
@@ -835,6 +860,20 @@ fun SimpleIntegratedScreen(
                             Enhanced3DDice(value = 0, isRolling = false, size = 120.dp)
                         }
                     }
+                }
+                
+                // Elenen sayıları göster (sadece çift zar atımında)
+                if (eliminatedNumbers.isNotEmpty() && gamePhase == "playing") {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = eliminatedNumbers,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -965,14 +1004,8 @@ fun SimpleIntegratedScreen(
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(2)
                         "playing" -> {
-                            if (currentPlayer == 2) {
-                                // Önce zar yoksa at, varsa istatistik kaydet/sırayı değiştir
-                                if (dice1Original == 0 && dice2Original == 0) {
-                                    rollGameDice()
-                                } else {
-                                    saveStats()
-                                }
-                            }
+                            // Her zaman zar at - şart yok
+                            rollGameDice()
                         }
                     }
                 },
@@ -996,19 +1029,33 @@ fun SimpleIntegratedScreen(
                 .fillMaxWidth()
                 .background(Color(0xFF1A1A1A))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Geri Al Butonu (dikdörtgen)
+            // Geri Butonu (Skorboard'a dön)
+            Button(
+                onClick = { onBack() },
+                modifier = Modifier.weight(1f).height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = "← GERİ",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Son Hamleyi Geri Al Butonu
             Button(
                 onClick = { performUndo() },
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.weight(1.5f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 enabled = undoStack.isNotEmpty(),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "↶ GERİ AL",
-                    fontSize = 12.sp,
+                    text = "↶ SON HAMLEYİ GERİ AL",
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1016,13 +1063,13 @@ fun SimpleIntegratedScreen(
             // İstatistikleri Göster Butonu
             Button(
                 onClick = { showStatsDialog = true },
-                modifier = Modifier.weight(1.5f).height(48.dp),
+                modifier = Modifier.weight(1.3f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "📊 İSTATİSTİKLER",
-                    fontSize = 12.sp,
+                    text = "📊 İSTATİSTİK",
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1030,13 +1077,13 @@ fun SimpleIntegratedScreen(
             // Maçı Bitir Butonu
             Button(
                 onClick = { finishGameWithStats() },
-                modifier = Modifier.weight(1.5f).height(48.dp),
+                modifier = Modifier.weight(1.2f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "🏁 MAÇI BİTİR",
-                    fontSize = 12.sp,
+                    text = "🏁 MAÇ BİTİR",
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1045,74 +1092,142 @@ fun SimpleIntegratedScreen(
     
     // === İSTATİSTİK EKRANI ===
     if (showStatsDialog) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.4f))
-                .padding(16.dp)
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFF1E1E1E)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 6.dp
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp)
+                // Başlık + Kapat butonları
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🎲 Zar İstatistikleri",
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(
-                                onClick = { showStatsDialog = false },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                            ) {
-                                Text("Kapat")
-                            }
-                            Button(
-                                onClick = {
-                                    showStatsDialog = false
-                                    onBack()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-                            ) {
-                                Text("Ana Menü")
-                            }
+                    Text(
+                        text = "ZAR İSTATİSTİKLERİ",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { showStatsDialog = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
+                        ) {
+                            Text("KAPAT", fontSize = 14.sp)
+                        }
+                        Button(
+                            onClick = {
+                                showStatsDialog = false
+                                onBack()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) {
+                            Text("ANA MENÜ", fontSize = 14.sp)
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(
+                // Tablo - tek scroll state ile
+                val scrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Sol sütun: İstatistik başlıkları
+                    Column(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            .verticalScroll(scrollState)
                     ) {
-                        DiceStatsSection(
-                            modifier = Modifier.weight(1f),
-                            playerLabel = player1Name,
-                            stats = player1Stats,
-                            accentColor = Color(0xFF1976D2),
-                            backgroundColor = Color(0xFFE3F2FD)
-                        )
+                        DiceStatHeaderCell("İSTATİSTİK")
+                        HorizontalDivider(color = Color.Gray, thickness = 2.dp)
 
-                        DiceStatsSection(
-                            modifier = Modifier.weight(1f),
-                            playerLabel = player2Name,
-                            stats = player2Stats,
-                            accentColor = Color(0xFFD32F2F),
-                            backgroundColor = Color(0xFFFFEBEE)
-                        )
+                        // Atılan zar çeşitleri
+                        DiceStatSubHeaderCell("Atılan Zar Çeşidi")
+                        getAllDiceCombinations().forEach { combo ->
+                            DiceStatLabelCell(combo)
+                        }
+
+                        DiceStatHeaderCell("Atılan Zar Kuvveti")
+                        DiceStatHeaderCell("Atılan Zar Paresi")
+                        DiceStatHeaderCell("Çift Atış Sayısı")
+                        DiceStatHeaderCell("Çift Atış Kuvveti")
+                        DiceStatHeaderCell("Oynanan Zar Kuvveti")
+                        DiceStatHeaderCell("Oynanan Zar Paresi")
+                        DiceStatHeaderCell("Gele Atılan Zar Kuvveti")
+                        DiceStatHeaderCell("Gele Atılan Zar Paresi")
+                        DiceStatHeaderCell("Kısmen Boşa Giden Zar Kuvveti")
+                        DiceStatHeaderCell("Kısmen Boşa Giden Zar Paresi")
+                        DiceStatHeaderCell("Bitiş Artığı Kuvveti")
+                        DiceStatHeaderCell("Bitiş Artığı Paresi")
+                    }
+
+                    Spacer(modifier = Modifier.width(2.dp).fillMaxHeight().background(Color.Gray))
+
+                    // Orta sütun: Oyuncu 1
+                    Column(
+                        modifier = Modifier
+                            .weight(0.7f)
+                            .verticalScroll(scrollState)
+                    ) {
+                        DiceStatPlayerHeaderCell(player1Name)
+                        HorizontalDivider(color = Color.Gray, thickness = 2.dp)
+
+                        // Atılan zar çeşitleri - Alt başlık cell'i ekle
+                        DiceStatSubHeaderCellValue("")
+                        getAllDiceCombinations().forEach { combo ->
+                            DiceStatValueCell(getDiceComboCountFromAdvanced(player1Stats, combo))
+                        }
+
+                        DiceStatValueCellHeader(player1Stats.totalPip)
+                        DiceStatValueCellHeader(player1Stats.totalParts)
+                        DiceStatValueCellHeader(player1Stats.doubleCount)
+                        DiceStatValueCellHeader(player1Stats.doublePip)
+                        DiceStatValueCellHeader(player1Stats.playedPip)
+                        DiceStatValueCellHeader(player1Stats.playedParts)
+                        DiceStatValueCellHeader(player1Stats.gelePip)
+                        DiceStatValueCellHeader(player1Stats.geleParts)
+                        DiceStatValueCellHeader(player1Stats.partialPlayedPip)
+                        DiceStatValueCellHeader(player1Stats.partialPlayedParts)
+                        DiceStatValueCellHeader(player1Stats.wastedPip)
+                        DiceStatValueCellHeader(player1Stats.wastedParts)
+                    }
+
+                    Spacer(modifier = Modifier.width(2.dp).fillMaxHeight().background(Color.Gray))
+
+                    // Sağ sütun: Oyuncu 2
+                    Column(
+                        modifier = Modifier
+                            .weight(0.7f)
+                            .verticalScroll(scrollState)
+                    ) {
+                        DiceStatPlayerHeaderCell(player2Name)
+                        HorizontalDivider(color = Color.Gray, thickness = 2.dp)
+
+                        // Atılan zar çeşitleri - Alt başlık cell'i ekle
+                        DiceStatSubHeaderCellValue("")
+                        getAllDiceCombinations().forEach { combo ->
+                            DiceStatValueCell(getDiceComboCountFromAdvanced(player2Stats, combo))
+                        }
+
+                        DiceStatValueCellHeader(player2Stats.totalPip)
+                        DiceStatValueCellHeader(player2Stats.totalParts)
+                        DiceStatValueCellHeader(player2Stats.doubleCount)
+                        DiceStatValueCellHeader(player2Stats.doublePip)
+                        DiceStatValueCellHeader(player2Stats.playedPip)
+                        DiceStatValueCellHeader(player2Stats.playedParts)
+                        DiceStatValueCellHeader(player2Stats.gelePip)
+                        DiceStatValueCellHeader(player2Stats.geleParts)
+                        DiceStatValueCellHeader(player2Stats.partialPlayedPip)
+                        DiceStatValueCellHeader(player2Stats.partialPlayedParts)
+                        DiceStatValueCellHeader(player2Stats.wastedPip)
+                        DiceStatValueCellHeader(player2Stats.wastedParts)
                     }
                 }
             }
@@ -1470,7 +1585,7 @@ fun DraggableDice(
     size: androidx.compose.ui.unit.Dp = 60.dp
 ) {
     var dragAmount by remember { mutableFloatStateOf(0f) }
-    val sensitivity = 20f // Her 20px için 1 azalma
+    val sensitivity = size.value / 4f // Çeyrek zar boyutu kadar sürüklemede 1 sayı azalacak
     val maxValue = originalValue.coerceAtLeast(1)
     val minValue = if (originalValue > 0) 1 else 0
     
@@ -1648,4 +1763,217 @@ private fun formatTimeSimple(seconds: Int): String {
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
     return String.format("%02d:%02d", minutes, remainingSeconds)
+}
+
+// Skorboard tablosu için gerekli fonksiyonlar
+fun getAllDiceCombinations(): List<String> {
+    return listOf(
+        "1-1", "1-2", "1-3", "1-4", "1-5", "1-6",
+        "2-2", "2-3", "2-4", "2-5", "2-6",
+        "3-3", "3-4", "3-5", "3-6",
+        "4-4", "4-5", "4-6",
+        "5-5", "5-6",
+        "6-6"
+    )
+}
+
+fun getDiceComboCountFromAdvanced(stats: AdvancedDiceStats, combo: String): Int {
+    return stats.combinationCounts[combo] ?: 0
+}
+
+fun calculateEfficiencyFromAdvanced(stats: AdvancedDiceStats): Int {
+    if (stats.totalPip == 0) return 0
+    return (stats.playedPip.toDouble() / stats.totalPip.toDouble() * 1000).toInt()
+}
+
+/**
+ * SharedPreferences'tan oyuncu istatistiklerini yükle
+ */
+fun loadPlayerStatsFromPrefs(context: Context, playerName: String): AdvancedDiceStats {
+    return try {
+        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+        AdvancedDiceStats(
+            totalPip = sharedPrefs.getInt("${playerName}_total_pip", 0),
+            totalParts = sharedPrefs.getInt("${playerName}_total_parts", 0),
+            playedPip = sharedPrefs.getInt("${playerName}_played_pip", 0),
+            playedParts = sharedPrefs.getInt("${playerName}_played_parts", 0),
+            gelePip = sharedPrefs.getInt("${playerName}_gele_pip", 0),
+            geleParts = sharedPrefs.getInt("${playerName}_gele_parts", 0),
+            partialPlayedPip = sharedPrefs.getInt("${playerName}_partial_played_pip", 0),
+            partialPlayedParts = sharedPrefs.getInt("${playerName}_partial_played_parts", 0),
+            wastedPip = sharedPrefs.getInt("${playerName}_wasted_pip", 0),
+            wastedParts = sharedPrefs.getInt("${playerName}_wasted_parts", 0),
+            doubleCount = sharedPrefs.getInt("${playerName}_doubles", 0),
+            doublePip = sharedPrefs.getInt("${playerName}_double_pip", 0)
+        )
+    } catch (e: Exception) {
+        AdvancedDiceStats()
+    }
+}
+
+@Composable
+fun DiceStatHeaderCell(text: String) {
+    val context = LocalContext.current
+    
+    val explanation = when (text) {
+        "Atılan Zar Kuvveti" -> "Oyuncu tarafından atılan tüm zar değerlerinin toplamı (pip sayısı)"
+        "Atılan Zar Paresi" -> "Oyuncu tarafından atılan toplam zar parça sayısı"
+        "Çift Atış Sayısı" -> "Oyuncunun attığı çift zarların sayısı (1-1, 2-2, 3-3, vs.)"
+        "Çift Atış Kuvveti" -> "Çift zarlarda elde edilen toplam kuvvet - sadece gerçek çiftlerde sayının 4 katı (6-6=24, 2-2=8)"
+        "Oynanan Zar Kuvveti" -> "Gerçekten oyunda kullanılan zar değerlerinin toplamı"
+        "Oynanan Zar Paresi" -> "Gerçekten oyunda kullanılan zar parçalarının sayısı"
+        "Gele Atılan Zar Kuvveti" -> "Zorla oynanmak zorunda kalınan zar değerlerinin toplamı (optimal olmayan hamlelerde)"
+        "Gele Atılan Zar Paresi" -> "Zorla oynanmak zorunda kalınan zar parçalarının sayısı"
+        "Kısmen Boşa Giden Zar Kuvveti" -> "Kısmen oynanan zarlardan boşa giden kısım (kısmi kayp)"
+        "Kısmen Boşa Giden Zar Paresi" -> "Kısmen oynanan zar parçalarının sayısı"
+        "Bitiş Artığı Kuvveti" -> "Oyun sonunda kalan ve kullanılamayan zar değerleri"
+        "Bitiş Artığı Paresi" -> "Oyun sonunda kalan ve kullanılamayan zar parçaları"
+        "VERİMLİLİK %" -> "Oynanan zar kuvvetinin toplam zar kuvvetine oranı (yüzde olarak)"
+        "Atılan Zar Çeşidi" -> "Oyuncunun attığı farklı zar kombinasyonlarının dağılımı"
+        else -> ""
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Color(0xFF424242))
+            .border(1.dp, Color.Gray)
+            .clickable {
+                if (explanation.isNotEmpty()) {
+                    android.widget.Toast.makeText(context, explanation, android.widget.Toast.LENGTH_LONG).show()
+                }
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    }
+}
+
+@Composable
+fun DiceStatSubHeaderCell(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .background(Color(0xFF616161))
+            .border(1.dp, Color.Gray),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    }
+}
+
+@Composable
+fun DiceStatLabelCell(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .background(Color(0xFF303030))
+            .border(0.5.dp, Color.Gray),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = "  $text",
+            fontSize = 12.sp,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    }
+}
+
+@Composable
+fun DiceStatPlayerHeaderCell(name: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Color(0xFF1976D2))
+            .border(1.dp, Color.Gray),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = name.uppercase(),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun DiceStatValueCell(value: Int, isPercentage: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (isPercentage) 48.dp else 36.dp)
+            .background(Color(0xFF212121))
+            .border(0.5.dp, Color.Gray),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = if (isPercentage && value > 0) {
+                "%.1f%%".format(value / 10.0)
+            } else {
+                value.toString()
+            },
+            fontSize = if (isPercentage) 16.sp else 14.sp,
+            fontWeight = if (isPercentage) FontWeight.Bold else FontWeight.Normal,
+            color = if (isPercentage) Color(0xFF4CAF50) else Color.White,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun DiceStatSubHeaderCellValue(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .background(Color(0xFF212121))
+            .border(0.5.dp, Color.Gray),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+fun DiceStatValueCellHeader(value: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Color(0xFF212121))
+            .border(0.5.dp, Color.Gray),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = value.toString(),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+    }
 }
