@@ -200,10 +200,14 @@ fun SimpleIntegratedScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     var gamePhase by remember { mutableStateOf("opening_single") }
     var currentPlayer by remember { mutableIntStateOf(0) }
     var winner by remember { mutableIntStateOf(0) }
+
+    // Zar atma state'leri: WAIT_DICE (zar atmayı bekle), WAIT_MOVE (hamle yapmayı bekle)
+    var player1DiceState by remember { mutableStateOf("WAIT_DICE") }
+    var player2DiceState by remember { mutableStateOf("WAIT_DICE") }
     
     var player1OpeningDice by remember { mutableIntStateOf(0) }
     var player2OpeningDice by remember { mutableIntStateOf(0) }
@@ -302,13 +306,22 @@ fun SimpleIntegratedScreen(
             showDragAnimation = true
             delay(1000) // Sürükleme animasyonu bekle
             showDragAnimation = false
-            
-            // Timer başlat
-            if (currentPlayer == 1) {
-                player1MoveTime = moveTimeDelay
-            } else {
-                player2MoveTime = moveTimeDelay
+
+            // SADECE GELENEKSEL TAVLADA state'leri sıfırla
+            // Modern tavlada açılış zarları zaten atılmış durumda
+            if (gameType == "Geleneksel") {
+                if (currentPlayer == 1) {
+                    player1DiceState = "WAIT_DICE"
+                    player2DiceState = "WAIT_DICE"
+                    player1MoveTime = moveTimeDelay
+                } else {
+                    player1DiceState = "WAIT_DICE"
+                    player2DiceState = "WAIT_DICE"
+                    player2MoveTime = moveTimeDelay
+                }
             }
+            // Modern tavlada state zaten checkOpeningResult() içinde ayarlanmış
+
             timerRunning = true
         }
     }
@@ -376,6 +389,8 @@ fun SimpleIntegratedScreen(
                                 // Player1 büyük attı, açılış zarlarıyla başlar
                                 winner = 1
                                 currentPlayer = 1
+
+                                // Açılış zarları kombinasyon olarak ayarla
                                 dice1 = player1OpeningDice
                                 dice2 = player2OpeningDice
                                 dice1Original = player1OpeningDice
@@ -384,12 +399,39 @@ fun SimpleIntegratedScreen(
                                 dice2Played = player2OpeningDice
                                 dice1State = CheckboxState.CHECKED
                                 dice2State = CheckboxState.CHECKED
+                                isDouble = false
+
+                                // State'i direkt WAIT_MOVE yap (zar zaten atılmış)
+                                player1DiceState = "WAIT_MOVE"
+                                player2DiceState = "WAIT_DICE"
+
+                                // İstatistik kaydı - açılış zarı Player1'in ilk zarı olarak kaydedilecek
+                                if (keepStatistics) {
+                                    val combination = buildCombinationString(listOf(player1OpeningDice, player2OpeningDice))
+                                    player1Stats.recordRoll(
+                                        combination,
+                                        listOf(player1OpeningDice, player2OpeningDice),
+                                        listOf(player1OpeningDice, player2OpeningDice),
+                                        listOf(CheckboxState.CHECKED, CheckboxState.CHECKED)
+                                    )
+                                    // İstatistikleri kaydet
+                                    try {
+                                        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+                                        val editor = sharedPrefs.edit()
+                                        editor.putInt("${player1Name}_total_pip", player1Stats.totalPip)
+                                        editor.putInt("${player1Name}_total_parts", player1Stats.totalParts)
+                                        editor.apply()
+                                    } catch (e: Exception) { }
+                                }
+
                                 startPlaying()
                             }
                             else -> {
                                 // Player2 büyük attı, açılış zarlarıyla başlar
                                 winner = 2
                                 currentPlayer = 2
+
+                                // Açılış zarları kombinasyon olarak ayarla
                                 dice1 = player1OpeningDice
                                 dice2 = player2OpeningDice
                                 dice1Original = player1OpeningDice
@@ -398,6 +440,31 @@ fun SimpleIntegratedScreen(
                                 dice2Played = player2OpeningDice
                                 dice1State = CheckboxState.CHECKED
                                 dice2State = CheckboxState.CHECKED
+                                isDouble = false
+
+                                // State'i direkt WAIT_MOVE yap (zar zaten atılmış)
+                                player1DiceState = "WAIT_DICE"
+                                player2DiceState = "WAIT_MOVE"
+
+                                // İstatistik kaydı - açılış zarı Player2'nin ilk zarı olarak kaydedilecek
+                                if (keepStatistics) {
+                                    val combination = buildCombinationString(listOf(player1OpeningDice, player2OpeningDice))
+                                    player2Stats.recordRoll(
+                                        combination,
+                                        listOf(player1OpeningDice, player2OpeningDice),
+                                        listOf(player1OpeningDice, player2OpeningDice),
+                                        listOf(CheckboxState.CHECKED, CheckboxState.CHECKED)
+                                    )
+                                    // İstatistikleri kaydet
+                                    try {
+                                        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+                                        val editor = sharedPrefs.edit()
+                                        editor.putInt("${player2Name}_total_pip", player2Stats.totalPip)
+                                        editor.putInt("${player2Name}_total_parts", player2Stats.totalParts)
+                                        editor.apply()
+                                    } catch (e: Exception) { }
+                                }
+
                                 startPlaying()
                             }
                         }
@@ -505,37 +572,66 @@ fun SimpleIntegratedScreen(
     
     // === İKİ ZAR ATMA FONKSİYONU - ELEME SİSTEMİ ===
     fun rollGameDice() {
-        // Random zar atma - crash yapan saveStats() olmadan
-        dice1 = (1..6).random()
-        dice2 = (1..6).random()
-        eliminatedNumbers = "Atılan: ${dice1}, ${dice2}"
-        isDouble = (dice1 == dice2)
-        
-        dice1State = CheckboxState.CHECKED
-        dice2State = CheckboxState.CHECKED
-        dice3State = CheckboxState.CHECKED
-        dice4State = CheckboxState.CHECKED
-        
-        dice1Original = dice1
-        dice1Played = dice1
-        dice2Original = dice2
-        dice2Played = dice2
-        
-        if (isDouble) {
-            dice3Original = dice1
-            dice4Original = dice1
-            dice3Played = dice1
-            dice4Played = dice1
-        } else {
-            dice3Original = 0
-            dice4Original = 0
-            dice3Played = 0
-            dice4Played = 0
+        // Eleme sistemi ile zar atma başlat
+        CoroutineScope(Dispatchers.Main).launch {
+            isRollingGame = true
+
+            // Ses efekti
+            try {
+                val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                toneGenerator.release()
+            } catch (e: Exception) { }
+
+            // İlk zarı eleme sistemi ile at
+            val finalDice1 = rollDiceWithElimination(
+                updateDiceValue = { value -> dice1 = value },
+                onEliminationComplete = { }
+            )
+
+            // İkinci zarı eleme sistemi ile at
+            val finalDice2 = rollDiceWithElimination(
+                updateDiceValue = { value -> dice2 = value },
+                onEliminationComplete = { }
+            )
+
+            // Zarları ayarla ve elenen sayıları göster
+            dice1 = finalDice1
+            dice2 = finalDice2
+            eliminatedNumbers = "Atılan: ${finalDice1}, ${finalDice2}"
+            isDouble = (dice1 == dice2)
+
+            dice1State = CheckboxState.CHECKED
+            dice2State = CheckboxState.CHECKED
+            dice3State = CheckboxState.CHECKED
+            dice4State = CheckboxState.CHECKED
+
+            dice1Original = dice1
+            dice1Played = dice1
+            dice2Original = dice2
+            dice2Played = dice2
+
+            if (isDouble) {
+                dice3Original = dice1
+                dice4Original = dice1
+                dice3Played = dice1
+                dice4Played = dice1
+            } else {
+                dice3Original = 0
+                dice4Original = 0
+                dice3Played = 0
+                dice4Played = 0
+            }
+
+            isRollingGame = false
+
+            // State'i WAIT_MOVE'a çevir (hamle yapma bekleniyor)
+            if (currentPlayer == 1) {
+                player1DiceState = "WAIT_MOVE"
+            } else {
+                player2DiceState = "WAIT_MOVE"
+            }
         }
-        
-        // Zarları sıfırlamaya zorla - böylece tekrar basılabilir
-        // dice1Original = 0
-        // dice2Original = 0
     }
     
     // === SIRAYI DEĞİŞTİR ===
@@ -543,7 +639,14 @@ fun SimpleIntegratedScreen(
         CoroutineScope(Dispatchers.Main).launch {
             // Timer durdur
             timerRunning = false
-            
+
+            // Mevcut oyuncunun state'ini sıfırla
+            if (currentPlayer == 1) {
+                player1DiceState = "WAIT_DICE"
+            } else {
+                player2DiceState = "WAIT_DICE"
+            }
+
             // Zar durumlarını sıfırla
             isDouble = false
             dice1 = 0
@@ -560,20 +663,21 @@ fun SimpleIntegratedScreen(
             dice2Played = 0
             dice3Played = 0
             dice4Played = 0
-            
+
             // Sırayı değiştir
             currentPlayer = if (currentPlayer == 1) 2 else 1
-            
-            // Yeni hamle süresi ayarla
+
+            // Yeni oyuncunun state'ini WAIT_DICE yap
             if (currentPlayer == 1) {
+                player1DiceState = "WAIT_DICE"
                 player1MoveTime = moveTimeDelay
             } else {
+                player2DiceState = "WAIT_DICE"
                 player2MoveTime = moveTimeDelay
             }
-            
-            // Zar at ve timer başlat
-            rollGameDice()
-            delay(600)
+
+            // Timer başlat (zar atılınca otomatik duracak)
+            delay(300)
             timerRunning = true
         }
     }
@@ -730,27 +834,58 @@ fun SimpleIntegratedScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-        // === SOL İSTATİSTİK BUTONU ===
+        // === SOL YEŞİL BUTON (Player 1) ===
         Box(
             modifier = Modifier
                 .width(50.dp)
                 .fillMaxHeight()
-                .background(Color(0xFF2E7D32))
-                .clickable {
+                .background(
+                    when {
+                        gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
+                        gamePhase == "playing" && currentPlayer == 1 -> Color(0xFF2E7D32) // Player1 sırasında yeşil
+                        else -> Color(0xFF616161) // Pasif gri
+                    }
+                )
+                .clickable(enabled = gamePhase == "opening_single" || currentPlayer == 1) {
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(1)
                         "playing" -> {
-                            // Her zaman zar at - şart yok
-                            rollGameDice()
+                            if (currentPlayer == 1) {
+                                when (player1DiceState) {
+                                    "WAIT_DICE" -> {
+                                        // Zar at
+                                        rollGameDice()
+                                    }
+                                    "WAIT_MOVE" -> {
+                                        // Hamle yapıldı, sırayı değiştir
+                                        switchTurn()
+                                    }
+                                }
+                            }
                         }
                     }
                 },
             contentAlignment = Alignment.Center
         ) {
+            val buttonText = when (gamePhase) {
+                "opening_single" -> "ZAR AT"
+                "playing" -> {
+                    if (currentPlayer == 1) {
+                        when (player1DiceState) {
+                            "WAIT_DICE" -> "ZAR AT"
+                            "WAIT_MOVE" -> "SÜRE"
+                            else -> "-"
+                        }
+                    } else {
+                        "BEKLİYOR"
+                    }
+                }
+                else -> "-"
+            }
             Text(
-                text = "ZAR AT/SAAT ÇALIŞTIR/İSTATİSTİK KAYDET",
+                text = buttonText,
                 color = Color.White,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -993,28 +1128,59 @@ fun SimpleIntegratedScreen(
             }
         }
         
-        
-        // === SAĞ İSTATİSTİK BUTONU ===
+
+        // === SAĞ YEŞİL BUTON (Player 2) ===
         Box(
             modifier = Modifier
                 .width(50.dp)
                 .fillMaxHeight()
-                .background(Color(0xFF2E7D32))
-                .clickable {
+                .background(
+                    when {
+                        gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
+                        gamePhase == "playing" && currentPlayer == 2 -> Color(0xFF2E7D32) // Player2 sırasında yeşil
+                        else -> Color(0xFF616161) // Pasif gri
+                    }
+                )
+                .clickable(enabled = gamePhase == "opening_single" || currentPlayer == 2) {
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(2)
                         "playing" -> {
-                            // Her zaman zar at - şart yok
-                            rollGameDice()
+                            if (currentPlayer == 2) {
+                                when (player2DiceState) {
+                                    "WAIT_DICE" -> {
+                                        // Zar at
+                                        rollGameDice()
+                                    }
+                                    "WAIT_MOVE" -> {
+                                        // Hamle yapıldı, sırayı değiştir
+                                        switchTurn()
+                                    }
+                                }
+                            }
                         }
                     }
                 },
             contentAlignment = Alignment.Center
         ) {
+            val buttonText = when (gamePhase) {
+                "opening_single" -> "ZAR AT"
+                "playing" -> {
+                    if (currentPlayer == 2) {
+                        when (player2DiceState) {
+                            "WAIT_DICE" -> "ZAR AT"
+                            "WAIT_MOVE" -> "SÜRE"
+                            else -> "-"
+                        }
+                    } else {
+                        "BEKLİYOR"
+                    }
+                }
+                else -> "-"
+            }
             Text(
-                text = "ZAR AT/SAAT ÇALIŞTIR/İSTATİSTİK KAYDET",
+                text = buttonText,
                 color = Color.White,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
