@@ -197,6 +197,9 @@ fun SimpleIntegratedScreen(
     player2Name: String,
     matchLength: Int,
     keepStatistics: Boolean = false,
+    useTimer: Boolean = false,
+    useDiceRoller: Boolean = false,
+    markDiceEvaluation: Boolean = false,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -487,12 +490,12 @@ fun SimpleIntegratedScreen(
                 // İlk random sayıyı belirle ve göster
                 val firstRandom = (1..6).random()
                 updateDiceValue(firstRandom)
-                delay(120) // İlk değeri göster
-                
+                delay(60) // İlk değeri göster (hızlandırıldı)
+
                 // İlk seçilen sayıyı listeden çıkar
                 numbers.remove(firstRandom)
 
-                // Kalan 5 sayıdan 4'ünü teker teker eleme (toplam 1 saniye içinde)
+                // Kalan 5 sayıdan 4'ünü teker teker eleme
                 repeat(4) {
                     val randomIndex = numbers.indices.random()
                     val eliminatedValue = numbers[randomIndex]
@@ -501,13 +504,13 @@ fun SimpleIntegratedScreen(
 
                     // Elenen sayıyı zarda göster
                     updateDiceValue(eliminatedValue)
-                    delay(120) // Her eleme 120ms göster (4x120 = 480ms)
+                    delay(60) // Her eleme 60ms göster (hızlandırıldı)
                 }
 
                 // Son kalan sayıyı göster ve döndür (final result)
                 val finalValue = numbers.first()
                 updateDiceValue(finalValue)
-                delay(280) // Final değeri göster (120+480+280 = 880ms ~ 1 saniye)
+                delay(140) // Final değeri göster (hızlandırıldı)
                 
                 // Elenen sayıları callback ile güncelle
                 onEliminationComplete("Elenen: ${eliminated.joinToString(", ")}")
@@ -873,7 +876,7 @@ fun SimpleIntegratedScreen(
                     if (currentPlayer == 1) {
                         when (player1DiceState) {
                             "WAIT_DICE" -> "ZAR AT"
-                            "WAIT_MOVE" -> "SÜRE"
+                            "WAIT_MOVE" -> if (useTimer) "SÜRE" else "HAMLEYİ TAMAMLA"
                             else -> "-"
                         }
                     } else {
@@ -910,31 +913,33 @@ fun SimpleIntegratedScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Sol oyuncu - süre göstergeleri zarların solunda
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(end = 16.dp)
-            ) {
-                // Hamle süresi
-                Text(
-                    text = "${player1MoveTime}s",
-                    color = Color(0xFFFFEB3B),
-                    fontSize = 48.sp, // 2 katı
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Rezerv süre
-                Text(
-                    text = formatTimeSimple(player1ReserveTime),
-                    color = Color.White,
-                    fontSize = 32.sp, // Küçültüldü (50sp → 32sp)
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
+            // Sol oyuncu - süre göstergeleri zarların solunda (sadece useTimer=true iken)
+            if (useTimer) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(end = 16.dp)
+                ) {
+                    // Hamle süresi
+                    Text(
+                        text = "${player1MoveTime}s",
+                        color = Color(0xFFFFEB3B),
+                        fontSize = 48.sp, // 2 katı
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Rezerv süre
+                    Text(
+                        text = formatTimeSimple(player1ReserveTime),
+                        color = Color.White,
+                        fontSize = 32.sp, // Küçültüldü (50sp → 32sp)
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
             }
             
             // Zar alanı
@@ -1098,33 +1103,35 @@ fun SimpleIntegratedScreen(
                 }
             }
             
-            // Sağ oyuncu - süre göstergeleri zarların sağında
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(start = 16.dp)
-            ) {
-                // Hamle süresi
-                Text(
-                    text = "${player2MoveTime}s",
-                    color = Color(0xFFFFEB3B),
-                    fontSize = 48.sp, // 2 katı
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
+            // Sağ oyuncu - süre göstergeleri zarların sağında (sadece useTimer=true iken)
+            if (useTimer) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(start = 16.dp)
+                ) {
+                    // Hamle süresi
+                    Text(
+                        text = "${player2MoveTime}s",
+                        color = Color(0xFFFFEB3B),
+                        fontSize = 48.sp, // 2 katı
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                // Rezerv süre
-                Text(
-                    text = formatTimeSimple(player2ReserveTime),
-                    color = Color.White,
-                    fontSize = 32.sp, // Küçültüldü (50sp → 32sp)
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Rezerv süre
+                    Text(
+                        text = formatTimeSimple(player2ReserveTime),
+                        color = Color.White,
+                        fontSize = 32.sp, // Küçültüldü (50sp → 32sp)
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
             }
         }
         
@@ -1168,7 +1175,7 @@ fun SimpleIntegratedScreen(
                     if (currentPlayer == 2) {
                         when (player2DiceState) {
                             "WAIT_DICE" -> "ZAR AT"
-                            "WAIT_MOVE" -> "SÜRE"
+                            "WAIT_MOVE" -> if (useTimer) "SÜRE" else "HAMLEYİ TAMAMLA"
                             else -> "-"
                         }
                     } else {
