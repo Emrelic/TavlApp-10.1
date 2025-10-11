@@ -262,6 +262,9 @@ fun SimpleIntegratedScreen(
     var showUndoNotification by remember { mutableStateOf(false) }
     var undoMessage by remember { mutableStateOf("") }
     
+    // Yeni özellik: Saat çalıştır ve karşı zarı at
+    var autoRollOpponent by remember { mutableStateOf(false) }
+    
     var showDragAnimation by remember { mutableStateOf(false) }
     val dragOffset by animateFloatAsState(
         targetValue = if (showDragAnimation) 1f else 0f,
@@ -490,7 +493,7 @@ fun SimpleIntegratedScreen(
                 // İlk random sayıyı belirle ve göster
                 val firstRandom = (1..6).random()
                 updateDiceValue(firstRandom)
-                delay(60) // İlk değeri göster (hızlandırıldı)
+                delay(250) // İlk değeri şeyrek saniye göster
 
                 // İlk seçilen sayıyı listeden çıkar
                 numbers.remove(firstRandom)
@@ -504,13 +507,13 @@ fun SimpleIntegratedScreen(
 
                     // Elenen sayıyı zarda göster
                     updateDiceValue(eliminatedValue)
-                    delay(60) // Her eleme 60ms göster (hızlandırıldı)
+                    delay(250) // Her eleme şeyrek saniye göster
                 }
 
                 // Son kalan sayıyı göster ve döndür (final result)
                 val finalValue = numbers.first()
                 updateDiceValue(finalValue)
-                delay(140) // Final değeri göster (hızlandırıldı)
+                delay(250) // Final değeri şeyrek saniye göster
                 
                 // Elenen sayıları callback ile güncelle
                 onEliminationComplete("Elenen: ${eliminated.joinToString(", ")}")
@@ -867,6 +870,15 @@ fun SimpleIntegratedScreen(
                                         // Hamle yapıldı, sırayı değiştir
                                         if (currentPlayer == 1) {
                                             switchTurn()
+                                            // Eğer autoRollOpponent aktifse karşı tarafın zarını at
+                                            if (autoRollOpponent && useTimer) {
+                                                CoroutineScope(Dispatchers.Main).launch {
+                                                    delay(500) // Kısa bir gecikme
+                                                    if (currentPlayer == 2 && player2DiceState == "WAIT_DICE") {
+                                                        rollGameDice()
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1172,6 +1184,15 @@ fun SimpleIntegratedScreen(
                                         // Hamle yapıldı, sırayı değiştir
                                         if (currentPlayer == 2) {
                                             switchTurn()
+                                            // Eğer autoRollOpponent aktifse karşı tarafın zarını at
+                                            if (autoRollOpponent && useTimer) {
+                                                CoroutineScope(Dispatchers.Main).launch {
+                                                    delay(500) // Kısa bir gecikme
+                                                    if (currentPlayer == 1 && player1DiceState == "WAIT_DICE") {
+                                                        rollGameDice()
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1233,27 +1254,46 @@ fun SimpleIntegratedScreen(
             // Son Hamleyi Geri Al Butonu
             Button(
                 onClick = { performUndo() },
-                modifier = Modifier.weight(1.5f).height(48.dp),
+                modifier = Modifier.weight(1.2f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 enabled = undoStack.isNotEmpty(),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "↶ SON HAMLEYİ GERİ AL",
+                    text = "↶ GERİ AL",
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
+            // Otomatik Zar Atma Checkbox Butonu (sadece useTimer=true iken göster)
+            if (useTimer) {
+                Button(
+                    onClick = { autoRollOpponent = !autoRollOpponent },
+                    modifier = Modifier.weight(1.1f).height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (autoRollOpponent) Color(0xFF8BC34A) else Color(0xFF424242)
+                    ),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = if (autoRollOpponent) "✓ OTO ZAR" else "○ OTO ZAR",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+
             // İstatistikleri Göster Butonu
             Button(
                 onClick = { showStatsDialog = true },
-                modifier = Modifier.weight(1.3f).height(48.dp),
+                modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "📊 İSTATİSTİK",
+                    text = "📊 İSTAT",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -1262,12 +1302,12 @@ fun SimpleIntegratedScreen(
             // Maçı Bitir Butonu
             Button(
                 onClick = { finishGameWithStats() },
-                modifier = Modifier.weight(1.2f).height(48.dp),
+                modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "🏁 MAÇ BİTİR",
+                    text = "🏁 BİTİR",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
