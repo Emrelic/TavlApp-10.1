@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Color
 
 class DiceActivity : ComponentActivity() {
+    private lateinit var dbHelper: DatabaseHelper
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -23,10 +25,15 @@ class DiceActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         )
 
+        dbHelper = DatabaseHelper(this)
+
         val gameType = intent.getStringExtra("game_type") ?: "Modern"
         val player1Name = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
         val player2Name = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
         val matchLength = intent.getIntExtra("match_length", 11)
+        val matchId = intent.getLongExtra("match_id", -1)
+        val player1Id = intent.getLongExtra("player1_id", -1)
+        val player2Id = intent.getLongExtra("player2_id", -1)
         val keepStatistics = intent.getBooleanExtra("keep_statistics", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
@@ -47,6 +54,10 @@ class DiceActivity : ComponentActivity() {
                         useTimer = useTimer,
                         useDiceRoller = useDiceRoller,
                         markDiceEvaluation = markDiceEvaluation,
+                        dbHelper = dbHelper,
+                        matchId = matchId,
+                        player1Id = player1Id,
+                        player2Id = player2Id,
                         onBack = { finish() }
                     )
                 }
@@ -65,6 +76,10 @@ fun DiceScreen(
     useTimer: Boolean,
     useDiceRoller: Boolean,
     markDiceEvaluation: Boolean,
+    dbHelper: DatabaseHelper,
+    matchId: Long,
+    player1Id: Long,
+    player2Id: Long,
     onBack: () -> Unit
 ) {
     SimpleIntegratedScreen(
@@ -76,6 +91,10 @@ fun DiceScreen(
         useTimer = useTimer,
         useDiceRoller = useDiceRoller,
         markDiceEvaluation = markDiceEvaluation,
+        dbHelper = dbHelper,
+        matchId = matchId,
+        player1Id = player1Id,
+        player2Id = player2Id,
         onBack = onBack
     )
 }

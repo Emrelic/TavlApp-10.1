@@ -200,6 +200,10 @@ fun SimpleIntegratedScreen(
     useTimer: Boolean = false,
     useDiceRoller: Boolean = false,
     markDiceEvaluation: Boolean = false,
+    dbHelper: DatabaseHelper? = null,
+    matchId: Long = -1,
+    player1Id: Long = -1,
+    player2Id: Long = -1,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
