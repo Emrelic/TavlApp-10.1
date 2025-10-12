@@ -487,36 +487,21 @@ fun SimpleIntegratedScreen(
     ): Int {
         return withContext(Dispatchers.Main) {
             try {
-                val numbers = mutableListOf(1, 2, 3, 4, 5, 6)
-                val eliminated = mutableListOf<Int>()
+                // Final sonucu önceden belirle
+                val finalValue = (1..6).random()
 
-                // İlk random sayıyı belirle ve göster
-                val firstRandom = (1..6).random()
-                updateDiceValue(firstRandom)
-                delay(250) // İlk değeri şeyrek saniye göster
-
-                // İlk seçilen sayıyı listeden çıkar
-                numbers.remove(firstRandom)
-
-                // Kalan 5 sayıdan 4'ünü teker teker eleme
-                repeat(4) {
-                    val randomIndex = numbers.indices.random()
-                    val eliminatedValue = numbers[randomIndex]
-                    numbers.removeAt(randomIndex)
-                    eliminated.add(eliminatedValue)
-
-                    // Elenen sayıyı zarda göster
-                    updateDiceValue(eliminatedValue)
-                    delay(250) // Her eleme şeyrek saniye göster
+                // 5 random sayı göster (her biri 100ms)
+                repeat(5) {
+                    val randomValue = (1..6).random()
+                    updateDiceValue(randomValue)
+                    delay(100)
                 }
 
-                // Son kalan sayıyı göster ve döndür (final result)
-                val finalValue = numbers.first()
+                // 6. sayı olarak final sonucu göster
                 updateDiceValue(finalValue)
-                delay(250) // Final değeri şeyrek saniye göster
-                
-                // Elenen sayıları callback ile güncelle
-                onEliminationComplete("Elenen: ${eliminated.joinToString(", ")}")
+
+                // Eleme tamamlandı bildirimi (boş tutulabilir)
+                onEliminationComplete("")
 
                 finalValue
             } catch (e: Exception) {
@@ -1849,7 +1834,7 @@ fun Enhanced3DDice(
         targetValue = if (isRolling) 720f else 0f,
         animationSpec = if (isRolling) {
             infiniteRepeatable(
-                animation = tween(600, easing = FastOutSlowInEasing),
+                animation = tween(500, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             )
         } else {
