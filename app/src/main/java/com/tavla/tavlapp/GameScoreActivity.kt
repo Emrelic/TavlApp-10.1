@@ -606,8 +606,10 @@ fun GameScreen(
                 // Oyuncu 1 bilgileri
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top,
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxHeight()
                         .padding(16.dp)
                 ) {
                     // Oyuncu adı - 1.5x büyük font
@@ -625,8 +627,10 @@ fun GameScreen(
                         text = player1Score.toString(),
                         color = Color.White,
                         fontSize = if (isTraditionalGame) 120.sp else 60.sp,
-                        lineHeight = if (isTraditionalGame) 110.sp else 70.sp,
-                        fontWeight = FontWeight.Bold
+                        lineHeight = if (isTraditionalGame) 120.sp else 70.sp,
+                        fontWeight = FontWeight.Bold,
+                        overflow = TextOverflow.Visible,
+                        maxLines = 1
                     )
 
                     // Butonlar için yeterli alan - Üst kısımda konumlandır
@@ -895,8 +899,10 @@ fun GameScreen(
                 // Oyuncu 2 bilgileri
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top,
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxHeight()
                         .padding(16.dp)
                 ) {
                     // Oyuncu adı - 1.5x büyük font
@@ -914,8 +920,10 @@ fun GameScreen(
                         text = player2Score.toString(),
                         color = Color.White,
                         fontSize = if (isTraditionalGame) 120.sp else 60.sp,
-                        lineHeight = if (isTraditionalGame) 110.sp else 70.sp,
-                        fontWeight = FontWeight.Bold
+                        lineHeight = if (isTraditionalGame) 120.sp else 70.sp,
+                        fontWeight = FontWeight.Bold,
+                        overflow = TextOverflow.Visible,
+                        maxLines = 1
                     )
 
                     // Butonlar için yeterli alan - Üst kısımda konumlandır
