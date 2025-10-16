@@ -335,17 +335,9 @@ fun GameScreen(
         handleCrawfordGameEnd()
         checkCrawfordStatus()
 
-        // Hedef puana/ele ulaşıldıysa maçı bitir
-        if (isTraditionalGame) {
-            // Geleneksel modda el sayısına göre kontrol et
-            if (player1RoundsWon >= targetRounds || player2RoundsWon >= targetRounds) {
-                endMatch()
-            }
-        } else {
-            // Modern modda puana göre kontrol et
-            if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
-                endMatch()
-            }
+        // Hedef puana ulaşıldıysa maçı bitir
+        if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
+            endMatch()
         }
     }
 
@@ -2285,8 +2277,8 @@ fun GameScreen(
                         // Skoru manuel olarak artır
                         player1Score++
                         
-                        // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
-                        if (isTraditionalGame && player1Score >= targetRounds) {
+                        // Hedef puana ulaşıldığında maçı bitir
+                        if (player1Score >= matchTargetScore) {
                             endMatch()
                         }
                     },
@@ -2379,8 +2371,8 @@ fun GameScreen(
                         // Skoru manuel olarak artır
                         player2Score++
                         
-                        // Geleneksel tavla: Hedef puana ulaşıldığında maçı bitir
-                        if (isTraditionalGame && player2Score >= targetRounds) {
+                        // Hedef puana ulaşıldığında maçı bitir
+                        if (player2Score >= matchTargetScore) {
                             endMatch()
                         }
                     },
