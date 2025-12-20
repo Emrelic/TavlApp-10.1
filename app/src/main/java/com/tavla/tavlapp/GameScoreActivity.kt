@@ -201,6 +201,15 @@ fun GameScreen(
 
     var showEndMatchConfirmation by remember { mutableStateOf(false) }
 
+    // ✅ Maç bitirici skor onay sistemi
+    var showMatchWinConfirmation by remember { mutableStateOf(false) }
+    var pendingWinnerId by remember { mutableStateOf(-1L) }
+    var pendingWinnerName by remember { mutableStateOf("") }
+    var pendingWinType by remember { mutableStateOf("") }
+    var pendingScore by remember { mutableStateOf(0) }
+    var pendingFinalPlayer1Score by remember { mutableStateOf(0) }
+    var pendingFinalPlayer2Score by remember { mutableStateOf(0) }
+
     // Zar atma ekranı state'i
     var showDiceScreen by remember { mutableStateOf(false) }
 
@@ -288,14 +297,14 @@ fun GameScreen(
         label = "yOffset"
     )
 
-    // ✅ GÜNCELLENMİŞ: El ekle ve skoru güncelle
-    fun addRound(playerId: Long, playerName: String, winType: String, score: Int) {
+    // ✅ Gerçek round ekleme işlemi (onay sonrası veya maç bitmeyecekse direkt çağrılır)
+    fun executeAddRound(playerId: Long, playerName: String, winType: String, score: Int) {
         currentRound++
 
         // Küp değeri ile çarparak gerçek skoru hesapla
         val finalScore = score * doublingCubeValue
 
-        // ✅ El bilgisini veritabanına ekle ve ID'sini al
+        // El bilgisini veritabanına ekle ve ID'sini al
         val roundId = dbHelper.addRound(
             matchId = matchId,
             roundNumber = currentRound,
@@ -305,7 +314,7 @@ fun GameScreen(
             score = finalScore
         )
 
-        // ✅ UNDO STACK'e ekle
+        // UNDO STACK'e ekle
         if (roundId != -1L) {
             undoStack = undoStack + roundId
         }
@@ -341,18 +350,37 @@ fun GameScreen(
         }
     }
 
-    /// ✅ DEBUG VERSİYONU: Son hamleyi geri al
+    // ✅ GÜNCELLENMİŞ: El ekle ve skoru güncelle (onay sistemi ile)
+    fun addRound(playerId: Long, playerName: String, winType: String, score: Int) {
+        // Küp değeri ile çarparak gerçek skoru hesapla
+        val finalScore = score * doublingCubeValue
+
+        // Bu işlem sonrası skorları hesapla
+        val newPlayer1Score = if (playerId == player1Id) player1Score + finalScore else player1Score
+        val newPlayer2Score = if (playerId == player2Id) player2Score + finalScore else player2Score
+
+        // Bu işlem maçı bitirecek mi? Öyleyse önce onay al
+        if (newPlayer1Score >= matchTargetScore || newPlayer2Score >= matchTargetScore) {
+            // Bekleyen işlem bilgilerini kaydet
+            pendingWinnerId = playerId
+            pendingWinnerName = playerName
+            pendingWinType = winType
+            pendingScore = score
+            pendingFinalPlayer1Score = newPlayer1Score
+            pendingFinalPlayer2Score = newPlayer2Score
+            // Onay dialog'unu göster
+            showMatchWinConfirmation = true
+        } else {
+            // Maçı bitirmeyecek, direkt işlemi yap
+            executeAddRound(playerId, playerName, winType, score)
+        }
+    }
+
+    // ✅ Son hamleyi geri al
     fun undoLastRound() {
         if (undoStack.isNotEmpty()) {
             try {
                 val lastRoundId = undoStack.last()
-
-                // ESKI DEĞERLER
-                val oldPlayer1Score = player1Score
-                val oldPlayer2Score = player2Score
-                val oldRecomposeKey = recomposeKey
-
-                Toast.makeText(context, "BAŞLA: P1=$oldPlayer1Score, P2=$oldPlayer2Score, Key=$oldRecomposeKey", Toast.LENGTH_LONG).show()
 
                 // 1. Round'u veritabanından sil
                 val deleteResult = dbHelper.deleteRound(lastRoundId)
@@ -364,9 +392,6 @@ fun GameScreen(
                     // 3. Maç durumunu veritabanından yeniden yükle
                     val updatedMatch = dbHelper.getMatchDetails(matchId)
                     if (updatedMatch != null) {
-
-                        Toast.makeText(context, "VERİTABANI: P1=${updatedMatch.player1Score}, P2=${updatedMatch.player2Score}", Toast.LENGTH_LONG).show()
-
                         // State'leri güncelle
                         player1Score = updatedMatch.player1Score
                         player2Score = updatedMatch.player2Score
@@ -376,9 +401,6 @@ fun GameScreen(
 
                         // Force recompose
                         recomposeKey++
-
-                        Toast.makeText(context, "SON: P1=$player1Score, P2=$player2Score, Key=$recomposeKey", Toast.LENGTH_LONG).show()
-
                     }
 
                     // Katlama zarını sıfırla
@@ -388,6 +410,9 @@ fun GameScreen(
                     player2CanDouble = true
                     showPlayer1DoublingMenu = false
                     showPlayer2DoublingMenu = false
+
+                    // Crawford durumunu kontrol et
+                    checkCrawfordStatus()
 
                     Toast.makeText(context, "Son hamle geri alındı", Toast.LENGTH_SHORT).show()
                 } else {
@@ -449,35 +474,37 @@ fun GameScreen(
     }
 
     fun player1Resign() {
-        // Zarın değerinin yarısı kadar puan oyuncu 2'ye verilir
-        val score = doublingCubeValue / 2
-        player2Score += score
-        Toast.makeText(context, "$player1Name pes etti. $player2Name'e $score puan eklendi.", Toast.LENGTH_SHORT).show()
+        // ✅ Oyuncu 1 pes etti, Oyuncu 2 bu oyunu kazandı
+        // Teklif öncesi küp değeri kullanılır (mevcut değerin yarısı)
+        val previousCubeValue = doublingCubeValue / 2
+        // Küp değerini teklif öncesine çevir (addRound bu değerle çarpacak)
+        doublingCubeValue = if (previousCubeValue > 0) previousCubeValue else 1
 
-        // Zarı sıfırla
-        previousDoublingCubeValue = 1
-        previousDoublingCubePosition = DoublingCubePosition.CENTER
-        doublingCubeValue = 1
-        doublingCubePosition = DoublingCubePosition.CENTER
-        player1CanDouble = true
-        player2CanDouble = true
+        // Menüyü kapat (addRound'dan önce, çünkü addRound da kapatıyor)
         showPlayer1DoublingMenu = false
+
+        // Oyuncu 2 tek oyun (RESIGN) kazandı - addRound ile kaydet
+        // Bu sayede: roundsWon artacak, veritabanına kaydedilecek, geri alınabilecek
+        addRound(player2Id, player2Name, "RESIGN", 1)
+
+        Toast.makeText(context, "$player1Name pes etti. $player2Name oyunu kazandı.", Toast.LENGTH_SHORT).show()
     }
 
     fun player2Resign() {
-        // Zarın değerinin yarısı kadar puan oyuncu 1'e verilir
-        val score = doublingCubeValue / 2
-        player1Score += score
-        Toast.makeText(context, "$player2Name pes etti. $player1Name'e $score puan eklendi.", Toast.LENGTH_SHORT).show()
+        // ✅ Oyuncu 2 pes etti, Oyuncu 1 bu oyunu kazandı
+        // Teklif öncesi küp değeri kullanılır (mevcut değerin yarısı)
+        val previousCubeValue = doublingCubeValue / 2
+        // Küp değerini teklif öncesine çevir (addRound bu değerle çarpacak)
+        doublingCubeValue = if (previousCubeValue > 0) previousCubeValue else 1
 
-        // Zarı sıfırla
-        previousDoublingCubeValue = 1
-        previousDoublingCubePosition = DoublingCubePosition.CENTER
-        doublingCubeValue = 1
-        doublingCubePosition = DoublingCubePosition.CENTER
-        player1CanDouble = true
-        player2CanDouble = true
+        // Menüyü kapat (addRound'dan önce, çünkü addRound da kapatıyor)
         showPlayer2DoublingMenu = false
+
+        // Oyuncu 1 tek oyun (RESIGN) kazandı - addRound ile kaydet
+        // Bu sayede: roundsWon artacak, veritabanına kaydedilecek, geri alınabilecek
+        addRound(player1Id, player1Name, "RESIGN", 1)
+
+        Toast.makeText(context, "$player2Name pes etti. $player1Name oyunu kazandı.", Toast.LENGTH_SHORT).show()
     }
 
     fun resetDoublingCube() {
@@ -566,6 +593,59 @@ fun GameScreen(
             dismissButton = {
                 TextButton(onClick = { showEndMatchConfirmation = false }) {
                     Text("Hayır, Devam Et")
+                }
+            }
+        )
+    }
+
+    // ✅ Maç kazanma onay diyaloğu (skor ekleme maçı bitiriyorsa)
+    if (showMatchWinConfirmation) {
+        val winnerDisplayName = if (pendingFinalPlayer1Score > pendingFinalPlayer2Score) player1Name else player2Name
+        val winnerDisplayScore = maxOf(pendingFinalPlayer1Score, pendingFinalPlayer2Score)
+        val loserDisplayScore = minOf(pendingFinalPlayer1Score, pendingFinalPlayer2Score)
+
+        AlertDialog(
+            onDismissRequest = {
+                // Dialog dışına tıklayınca iptal et
+                showMatchWinConfirmation = false
+            },
+            title = { Text("Maç Sonu Onayı") },
+            text = {
+                Column {
+                    Text(
+                        text = "$winnerDisplayName maçı kazandı!",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Skor: $winnerDisplayScore - $loserDisplayScore")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("$player1Name: $pendingFinalPlayer1Score puan")
+                    Text("$player2Name: $pendingFinalPlayer2Score puan")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Bu sonucu onaylıyor musunuz?")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showMatchWinConfirmation = false
+                        // Onaylandı, işlemi gerçekleştir
+                        executeAddRound(pendingWinnerId, pendingWinnerName, pendingWinType, pendingScore)
+                    }
+                ) {
+                    Text("Evet, Onayla", color = Color(0xFF4CAF50))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showMatchWinConfirmation = false
+                        // İptal edildi, bekleyen işlemi temizle
+                        Toast.makeText(context, "İşlem iptal edildi", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("Hayır, İptal", color = Color.Red)
                 }
             }
         )
@@ -877,13 +957,13 @@ fun GameScreen(
                         )
                     }
 
-                    // Metin (arka planın üzerinde) - Geleneksel modda 10dp aşağıya
+                    // Metin (arka planın üzerinde) - Her modda 15dp aşağıya
                     Text(
                         text = "$targetRounds",
                         color = Color.White,
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold,
-                        modifier = if (isTraditionalGame) Modifier.offset(y = 10.dp) else Modifier
+                        modifier = Modifier.offset(y = 15.dp)
                     )
                     }
                 }
@@ -2401,26 +2481,24 @@ fun GameScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Geri al butonu - Her modda göster
-                if (true) {
-                    Button(
-                        onClick = { undoLastRound() },
-                        enabled = undoStack.size > 0,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0D47A1), // Koyu mavi
-                            disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
+                Button(
+                    onClick = { undoLastRound() },
+                    enabled = undoStack.size > 0,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF0D47A1), // Koyu mavi
+                        disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text("↶", fontSize = 20.sp, color = Color.White)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Geri Al", color = Color.White, fontSize = 12.sp)
-                        }
+                        Text("↶", fontSize = 20.sp, color = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Geri Al", color = Color.White, fontSize = 12.sp)
                     }
                 }
 

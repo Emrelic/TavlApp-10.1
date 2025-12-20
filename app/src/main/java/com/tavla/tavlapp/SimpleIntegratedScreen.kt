@@ -794,9 +794,9 @@ fun SimpleIntegratedScreen(
 
         val combination = buildCombinationString(originalValues)
         stats.recordRoll(combination, originalValues, playedValues, stateList)
-        
-        // İstatistikleri otomatik kaydet
-        saveStats()
+
+        // İstatistikleri otomatik kaydet (DÜZELTME: sonsuz döngü hatası giderildi)
+        saveStatsToStorage()
 
         val playerName = if (currentPlayer == 1) player1Name else player2Name
         val rollSummary = originalValues.indices.joinToString(", ") { idx ->

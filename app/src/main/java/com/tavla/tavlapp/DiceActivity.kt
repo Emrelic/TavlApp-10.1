@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Color
 
 class DiceActivity : ComponentActivity() {
-    private lateinit var dbHelper: DatabaseHelper
+    private lateinit var dbHelper: DatabaseHel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
