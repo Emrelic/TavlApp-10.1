@@ -899,7 +899,7 @@ fun GameScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         // Katla butonu - Oyuncu 1 için (sadece Modern tavla)
-                        if (!isTraditionalGame && 
+                        if (!isTraditionalGame &&
                             !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
@@ -910,7 +910,7 @@ fun GameScreen(
                                 onClick = { player1OfferDouble() },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
+                                    containerColor = Color(0xFF00BCD4) // Turkuaz (Cyan 500)
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth(0.9f)
@@ -1192,7 +1192,7 @@ fun GameScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         // Katla butonu - Oyuncu 2 için (sadece Modern tavla)
-                        if (!isTraditionalGame && 
+                        if (!isTraditionalGame &&
                             !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
@@ -1203,7 +1203,7 @@ fun GameScreen(
                                 onClick = { player2OfferDouble() },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
+                                    containerColor = Color(0xFF00BCD4) // Turkuaz (Cyan 500)
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth(0.9f)
@@ -1390,226 +1390,81 @@ fun GameScreen(
             if (isScoreAutomatic) {
                 if (isTraditionalGame) {
                     // Geleneksel Tavla için T/M Butonları (Backgammon ve Küp olmadan)
+                    // Buton renkleri: Sol koyu mavi, sağ koyu kırmızı
+                    val leftButtonColor = Color(0xFF1565C0) // Blue 800 - iki ton koyu mavi
+                    val rightButtonColor = Color(0xFFAD1457) // Pink 800 - iki ton koyu kırmızı
+
                     if (isLandscape) {
-                        // Yatay mod için özel büyük buton tasarımı - Geleneksel Tavla için
+                        // Yatay mod için - Geleneksel Tavla (4 buton: T M | T M)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(4.dp)
-                                .height(70.dp), // Yükseklik daha basık
+                                .height(70.dp),
+                            horizontalArrangement = Arrangement.spacedBy(1.dp), // Kılcal boşluk
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // SOL TARAF (MAVİ BÖLGE) BUTONLARI - Tek bir Row içinde
-                            Row(
+                            // SOL TARAF - Oyuncu 1 T butonu
+                            Button(
+                                onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
+                                contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .padding(end = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                // T butonu - ağırlık 1 ile tam alanı kaplasın
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Tek Oyun",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "T",
-                                                fontSize = 28.sp, // Çok büyük font
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "1P",
-                                                fontSize = 16.sp, // Diğer butonlarla eşit
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // M butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Mars",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player1Id, player1Name, "MARS", 2) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "M",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "2P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("T", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("1P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
 
-                            // SAĞ TARAF (KIRMIZI BÖLGE) BUTONLARI
-                            Row(
+                            // SOL TARAF - Oyuncu 1 M butonu
+                            Button(
+                                onClick = { addRound(player1Id, player1Name, "MARS", 2) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
+                                contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .padding(start = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                // Oyuncu 2 için T butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Tek Oyun",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "T",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "1P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("M", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("2P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
+                            }
 
-                                // Oyuncu 2 için M butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Mars",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player2Id, player2Name, "MARS", 2) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "M",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "2P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                            // SAĞ TARAF - Oyuncu 2 T butonu
+                            Button(
+                                onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("T", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("1P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+
+                            // SAĞ TARAF - Oyuncu 2 M butonu
+                            Button(
+                                onClick = { addRound(player2Id, player2Name, "MARS", 2) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("M", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("2P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
                         }
@@ -1847,329 +1702,109 @@ fun GameScreen(
                                 .height(70.dp), // Yükseklik daha basık
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // SOL TARAF (MAVİ BÖLGE) BUTONLARI - Tek bir Row içinde
-                            Row(
+                            // Buton renkleri: Sol koyu mavi, sağ koyu kırmızı
+                            val leftButtonColor = Color(0xFF1565C0) // Blue 800 - iki ton koyu mavi
+                            val rightButtonColor = Color(0xFFAD1457) // Pink 800 - iki ton koyu kırmızı
+
+                            // SOL TARAF (MAVİ BÖLGE) - T butonu
+                            Button(
+                                onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
+                                contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .padding(end = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                    .padding(end = 1.dp) // Kılcal boşluk
                             ) {
-                                // T butonu - ağırlık 1 ile tam alanı kaplasın
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Tek Oyun",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "T",
-                                                fontSize = 28.sp, // Çok büyük font
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "1P",
-                                                fontSize = 16.sp, // Diğer butonlarla eşit
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // M butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Mars",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player1Id, player1Name, "MARS", 2) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "M",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "2P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // B butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Backgammon",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            addRound(
-                                                player1Id,
-                                                player1Name,
-                                                "BACKGAMMON",
-                                                3
-                                            )
-                                        },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "B",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "3P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("T", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("1P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
 
-                            // SAĞ TARAF (KIRMIZI BÖLGE) BUTONLARI
-                            Row(
+                            // SOL TARAF - M butonu
+                            Button(
+                                onClick = { addRound(player1Id, player1Name, "MARS", 2) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
+                                contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .padding(start = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
+                                    .padding(horizontal = 1.dp) // Kılcal boşluk
                             ) {
-                                // Oyuncu 2 için T butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Tek Oyun",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "T",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "1P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("M", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("2P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
+                            }
 
-                                // Oyuncu 2 için M butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Mars",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = { addRound(player2Id, player2Name, "MARS", 2) },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "M",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "2P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                            // SOL TARAF - B butonu
+                            Button(
+                                onClick = { addRound(player1Id, player1Name, "BACKGAMMON", 3) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("B", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("3P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
+                            }
 
-                                // Oyuncu 2 için B butonu
-                                TooltipBox(
-                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                                    tooltip = {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.8f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "Backgammon",
-                                                color = Color.White,
-                                                modifier = Modifier.padding(8.dp)
-                                            )
-                                        }
-                                    },
-                                    state = rememberTooltipState(isPersistent = false)
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            addRound(
-                                                player2Id,
-                                                player2Name,
-                                                "BACKGAMMON",
-                                                3
-                                            )
-                                        },
-                                        shape = RoundedCornerShape(4.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                            .padding(horizontal = 4.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text(
-                                                text = "B",
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "3P",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center,
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
+                            // SAĞ TARAF (KIRMIZI BÖLGE) - T butonu
+                            Button(
+                                onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("T", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("1P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+
+                            // SAĞ TARAF - M butonu
+                            Button(
+                                onClick = { addRound(player2Id, player2Name, "MARS", 2) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("M", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("2P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+
+                            // SAĞ TARAF - B butonu
+                            Button(
+                                onClick = { addRound(player2Id, player2Name, "BACKGAMMON", 3) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(start = 1.dp) // Kılcal boşluk
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("B", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("3P", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
                             }
                         }
@@ -2670,8 +2305,8 @@ fun GameScreen(
                     onClick = { undoLastRound() },
                     enabled = undoStack.size > 0,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0D47A1), // Koyu mavi
-                        disabledContainerColor = Color(0xFFBDBDBD) // Gri (pasif)
+                        containerColor = Color(0xFF0D47A1), // Koyu mavi (Blue 900)
+                        disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.5f) // Soluk koyu mavi (pasif)
                     ),
                     modifier = Modifier
                         .weight(1f)
