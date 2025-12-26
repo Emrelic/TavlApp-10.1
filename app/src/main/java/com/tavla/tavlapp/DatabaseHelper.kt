@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -20,6 +20,18 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val TABLE_ROUNDS = "rounds"
         private const val TABLE_PLAYER_STATS = "player_stats"
         private const val TABLE_DICE_STATS = "dice_statistics"
+        private const val TABLE_ACTIVITY_LOGS = "activity_logs"
+
+        // Activity Logs Tablo Sütunları
+        private const val COLUMN_LOG_ID = "id"
+        private const val COLUMN_LOG_TIMESTAMP = "timestamp"
+        private const val COLUMN_LOG_DATETIME = "date_time"
+        private const val COLUMN_LOG_ACTION_TYPE = "action_type"
+        private const val COLUMN_LOG_DESCRIPTION = "description"
+        private const val COLUMN_LOG_PLAYER1_NAME = "player1_name"
+        private const val COLUMN_LOG_PLAYER2_NAME = "player2_name"
+        private const val COLUMN_LOG_MATCH_ID = "match_id"
+        private const val COLUMN_LOG_EXTRA_DATA = "extra_data"
 
         // Players Tablo Sütunları
         private const val COLUMN_PLAYER_ID = "id"
@@ -218,15 +230,40 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             )
         """.trimIndent()
         db.execSQL(createDiceStatsTable)
+
+        val createActivityLogsTable = """
+            CREATE TABLE $TABLE_ACTIVITY_LOGS (
+                $COLUMN_LOG_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_LOG_TIMESTAMP TEXT,
+                $COLUMN_LOG_DATETIME TEXT,
+                $COLUMN_LOG_ACTION_TYPE TEXT,
+                $COLUMN_LOG_DESCRIPTION TEXT,
+                $COLUMN_LOG_PLAYER1_NAME TEXT,
+                $COLUMN_LOG_PLAYER2_NAME TEXT,
+                $COLUMN_LOG_MATCH_ID INTEGER,
+                $COLUMN_LOG_EXTRA_DATA TEXT
+            )
+        """.trimIndent()
+        db.execSQL(createActivityLogsTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_DICE_STATS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_ROUNDS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_PLAYER_STATS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_MATCHES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_PLAYERS")
-        onCreate(db)
+        // Versiyon 3'ten 4'e gecis: activity_logs tablosu eklendi
+        if (oldVersion < 4) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS $TABLE_ACTIVITY_LOGS (
+                    $COLUMN_LOG_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COLUMN_LOG_TIMESTAMP TEXT,
+                    $COLUMN_LOG_DATETIME TEXT,
+                    $COLUMN_LOG_ACTION_TYPE TEXT,
+                    $COLUMN_LOG_DESCRIPTION TEXT,
+                    $COLUMN_LOG_PLAYER1_NAME TEXT,
+                    $COLUMN_LOG_PLAYER2_NAME TEXT,
+                    $COLUMN_LOG_MATCH_ID INTEGER,
+                    $COLUMN_LOG_EXTRA_DATA TEXT
+                )
+            """.trimIndent())
+        }
     }
 
     fun addPlayer(playerName: String): Long {
@@ -1369,5 +1406,209 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         cursor.close()
         db.close()
         return null
+    }
+
+    // ============== HAREKETLER DOKUMU (ACTIVITY LOG) FONKSİYONLARI ==============
+
+    /**
+     * Yeni bir aktivite logu ekle
+     */
+    fun addActivityLog(
+        actionType: String,
+        description: String,
+        player1Name: String? = null,
+        player2Name: String? = null,
+        matchId: Long? = null,
+        extraData: String? = null
+    ): Long {
+        val db = this.writableDatabase
+        val values = ContentValues()
+
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val now = Date()
+
+        values.put(COLUMN_LOG_TIMESTAMP, timeFormat.format(now))
+        values.put(COLUMN_LOG_DATETIME, dateTimeFormat.format(now))
+        values.put(COLUMN_LOG_ACTION_TYPE, actionType)
+        values.put(COLUMN_LOG_DESCRIPTION, description)
+        values.put(COLUMN_LOG_PLAYER1_NAME, player1Name)
+        values.put(COLUMN_LOG_PLAYER2_NAME, player2Name)
+        values.put(COLUMN_LOG_MATCH_ID, matchId)
+        values.put(COLUMN_LOG_EXTRA_DATA, extraData)
+
+        val id = db.insert(TABLE_ACTIVITY_LOGS, null, values)
+        db.close()
+        return id
+    }
+
+    /**
+     * Tum aktivite loglarini getir (en yeniden en eskiye)
+     */
+    fun getAllActivityLogs(): List<ActivityLog> {
+        val logsList = mutableListOf<ActivityLog>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT * FROM $TABLE_ACTIVITY_LOGS
+            ORDER BY $COLUMN_LOG_ID DESC
+        """, null)
+
+        if (cursor.moveToFirst()) {
+            do {
+                val log = ActivityLog(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_ID)),
+                    timestamp = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_TIMESTAMP)),
+                    dateTime = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DATETIME)),
+                    actionType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_ACTION_TYPE)),
+                    description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DESCRIPTION)),
+                    player1Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER1_NAME)),
+                    player2Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER2_NAME)),
+                    matchId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID))) null
+                              else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID)),
+                    extraData = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_EXTRA_DATA))
+                )
+                logsList.add(log)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return logsList
+    }
+
+    /**
+     * Belirli bir maca ait aktivite loglarini getir
+     */
+    fun getActivityLogsByMatch(matchId: Long): List<ActivityLog> {
+        val logsList = mutableListOf<ActivityLog>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT * FROM $TABLE_ACTIVITY_LOGS
+            WHERE $COLUMN_LOG_MATCH_ID = ?
+            ORDER BY $COLUMN_LOG_ID ASC
+        """, arrayOf(matchId.toString()))
+
+        if (cursor.moveToFirst()) {
+            do {
+                val log = ActivityLog(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_ID)),
+                    timestamp = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_TIMESTAMP)),
+                    dateTime = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DATETIME)),
+                    actionType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_ACTION_TYPE)),
+                    description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DESCRIPTION)),
+                    player1Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER1_NAME)),
+                    player2Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER2_NAME)),
+                    matchId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID))) null
+                              else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID)),
+                    extraData = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_EXTRA_DATA))
+                )
+                logsList.add(log)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return logsList
+    }
+
+    /**
+     * Belirli tarihler arasindaki aktivite loglarini getir
+     */
+    fun getActivityLogsByDateRange(startDate: String, endDate: String): List<ActivityLog> {
+        val logsList = mutableListOf<ActivityLog>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT * FROM $TABLE_ACTIVITY_LOGS
+            WHERE $COLUMN_LOG_DATETIME BETWEEN ? AND ?
+            ORDER BY $COLUMN_LOG_ID DESC
+        """, arrayOf(startDate, endDate))
+
+        if (cursor.moveToFirst()) {
+            do {
+                val log = ActivityLog(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_ID)),
+                    timestamp = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_TIMESTAMP)),
+                    dateTime = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DATETIME)),
+                    actionType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_ACTION_TYPE)),
+                    description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DESCRIPTION)),
+                    player1Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER1_NAME)),
+                    player2Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER2_NAME)),
+                    matchId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID))) null
+                              else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID)),
+                    extraData = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_EXTRA_DATA))
+                )
+                logsList.add(log)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return logsList
+    }
+
+    /**
+     * Tum aktivite loglarini temizle
+     */
+    fun clearActivityLogs(): Int {
+        val db = this.writableDatabase
+        val deleted = db.delete(TABLE_ACTIVITY_LOGS, null, null)
+        db.close()
+        return deleted
+    }
+
+    /**
+     * Belirli bir maca ait aktivite loglarini sil
+     */
+    fun clearActivityLogsByMatch(matchId: Long): Int {
+        val db = this.writableDatabase
+        val deleted = db.delete(TABLE_ACTIVITY_LOGS, "$COLUMN_LOG_MATCH_ID = ?", arrayOf(matchId.toString()))
+        db.close()
+        return deleted
+    }
+
+    /**
+     * Son N adet aktivite logunu getir
+     */
+    fun getRecentActivityLogs(limit: Int = 100): List<ActivityLog> {
+        val logsList = mutableListOf<ActivityLog>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT * FROM $TABLE_ACTIVITY_LOGS
+            ORDER BY $COLUMN_LOG_ID DESC
+            LIMIT ?
+        """, arrayOf(limit.toString()))
+
+        if (cursor.moveToFirst()) {
+            do {
+                val log = ActivityLog(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_ID)),
+                    timestamp = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_TIMESTAMP)),
+                    dateTime = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DATETIME)),
+                    actionType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_ACTION_TYPE)),
+                    description = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_DESCRIPTION)),
+                    player1Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER1_NAME)),
+                    player2Name = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_PLAYER2_NAME)),
+                    matchId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID))) null
+                              else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_LOG_MATCH_ID)),
+                    extraData = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_LOG_EXTRA_DATA))
+                )
+                logsList.add(log)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return logsList
+    }
+
+    /**
+     * Bugunun aktivite loglarini getir
+     */
+    fun getTodayActivityLogs(): List<ActivityLog> {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val today = dateFormat.format(Date())
+        val startDate = "$today 00:00:00"
+        val endDate = "$today 23:59:59"
+        return getActivityLogsByDateRange(startDate, endDate)
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -200,6 +201,7 @@ fun GameScreen(
     var isPostCrawford by remember { mutableStateOf(false) } // Post-Crawford durumu mu?
 
     var showEndMatchConfirmation by remember { mutableStateOf(false) }
+    var showActivityLogDialog by remember { mutableStateOf(false) }
 
     // ✅ Maç bitirici skor onay sistemi
     var showMatchWinConfirmation by remember { mutableStateOf(false) }
@@ -267,6 +269,16 @@ fun GameScreen(
             loserScore = player1Score
         }
 
+        // Mac bitis islemini logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.GAME_END,
+            description = "Mac bitti: $winnerName kazandi ($winnerScore - $loserScore)",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId,
+            extraData = """{"winnerId":$winnerId,"winnerScore":$winnerScore,"loserScore":$loserScore,"totalRounds":$currentRound}"""
+        )
+
         showMatchEndDialog = true
     }
 
@@ -318,6 +330,28 @@ fun GameScreen(
         if (roundId != -1L) {
             undoStack = undoStack + roundId
         }
+
+        // Skor ekleme islemini logla
+        val actionType = when (winType) {
+            "SINGLE" -> ActionTypes.SCORE_SINGLE
+            "MARS" -> ActionTypes.SCORE_MARS
+            "BACKGAMMON" -> ActionTypes.SCORE_BACKGAMMON
+            else -> ActionTypes.SCORE_SINGLE
+        }
+        val winTypeText = when (winType) {
+            "SINGLE" -> "Tek"
+            "MARS" -> "Mars"
+            "BACKGAMMON" -> "Backgammon"
+            else -> winType
+        }
+        dbHelper.addActivityLog(
+            actionType = actionType,
+            description = "$playerName: $winTypeText (+$finalScore puan) - El $currentRound",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId,
+            extraData = """{"winnerId":$playerId,"winType":"$winType","score":$finalScore,"cubeValue":$doublingCubeValue,"round":$currentRound}"""
+        )
 
         // Kazanan oyuncuya puanı ekle ve kazandığı el sayısını güncelle
         if (playerId == player1Id) {
@@ -414,6 +448,15 @@ fun GameScreen(
                     // Crawford durumunu kontrol et
                     checkCrawfordStatus()
 
+                    // Geri alma islemini logla
+                    dbHelper.addActivityLog(
+                        actionType = ActionTypes.SCORE_UNDO,
+                        description = "Son hamle geri alindi (El ${currentRound + 1})",
+                        player1Name = player1Name,
+                        player2Name = player2Name,
+                        matchId = matchId
+                    )
+
                     Toast.makeText(context, "Son hamle geri alındı", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(context, "Geri alma başarısız", Toast.LENGTH_SHORT).show()
@@ -442,6 +485,15 @@ fun GameScreen(
             doublingCubePosition = DoublingCubePosition.PLAYER1_OFFER
             player1CanDouble = false
             showPlayer2DoublingMenu = true
+
+            // Katlama teklifi logla
+            dbHelper.addActivityLog(
+                actionType = ActionTypes.DOUBLE_OFFER,
+                description = "$player1Name katlama teklifi yapti (x$doublingCubeValue)",
+                player1Name = player1Name,
+                player2Name = player2Name,
+                matchId = matchId
+            )
         }
     }
 
@@ -456,6 +508,15 @@ fun GameScreen(
             doublingCubePosition = DoublingCubePosition.PLAYER2_OFFER
             player2CanDouble = false
             showPlayer1DoublingMenu = true
+
+            // Katlama teklifi logla
+            dbHelper.addActivityLog(
+                actionType = ActionTypes.DOUBLE_OFFER,
+                description = "$player2Name katlama teklifi yapti (x$doublingCubeValue)",
+                player1Name = player1Name,
+                player2Name = player2Name,
+                matchId = matchId
+            )
         }
     }
 
@@ -464,6 +525,15 @@ fun GameScreen(
         showPlayer1DoublingMenu = false
         player1CanDouble = true
         player2CanDouble = false
+
+        // Katlama kabul logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.DOUBLE_ACCEPT,
+            description = "$player1Name katlamayi kabul etti (x$doublingCubeValue)",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId
+        )
     }
 
     fun player2AcceptDouble() {
@@ -471,10 +541,28 @@ fun GameScreen(
         showPlayer2DoublingMenu = false
         player2CanDouble = true
         player1CanDouble = false
+
+        // Katlama kabul logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.DOUBLE_ACCEPT,
+            description = "$player2Name katlamayi kabul etti (x$doublingCubeValue)",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId
+        )
     }
 
     fun player1Resign() {
         // ✅ Oyuncu 1 pes etti, Oyuncu 2 bu oyunu kazandı
+        // Pes etme islemini logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.DOUBLE_REJECT,
+            description = "$player1Name pes etti - $player2Name eli kazandi",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId
+        )
+
         // Teklif öncesi küp değeri kullanılır (mevcut değerin yarısı)
         val previousCubeValue = doublingCubeValue / 2
         // Küp değerini teklif öncesine çevir (addRound bu değerle çarpacak)
@@ -492,6 +580,15 @@ fun GameScreen(
 
     fun player2Resign() {
         // ✅ Oyuncu 2 pes etti, Oyuncu 1 bu oyunu kazandı
+        // Pes etme islemini logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.DOUBLE_REJECT,
+            description = "$player2Name pes etti - $player1Name eli kazandi",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId
+        )
+
         // Teklif öncesi küp değeri kullanılır (mevcut değerin yarısı)
         val previousCubeValue = doublingCubeValue / 2
         // Küp değerini teklif öncesine çevir (addRound bu değerle çarpacak)
@@ -508,6 +605,15 @@ fun GameScreen(
     }
 
     fun resetDoublingCube() {
+        // Katlama iptal islemini logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.DOUBLE_CANCEL,
+            description = "Katlama teklifi iptal edildi",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = matchId
+        )
+
         // Önceki pozisyon ve değere dön
         doublingCubeValue = previousDoublingCubeValue
         doublingCubePosition = previousDoublingCubePosition
@@ -593,6 +699,85 @@ fun GameScreen(
             dismissButton = {
                 TextButton(onClick = { showEndMatchConfirmation = false }) {
                     Text("Hayır, Devam Et")
+                }
+            }
+        )
+    }
+
+    // Hareketler Dökümü Dialog
+    if (showActivityLogDialog) {
+        val activityLogs = remember { dbHelper.getActivityLogsByMatch(matchId) }
+
+        AlertDialog(
+            onDismissRequest = { showActivityLogDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Hareketler Dökümü", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("${activityLogs.size} kayıt", fontSize = 12.sp, color = Color.Gray)
+                }
+            },
+            text = {
+                if (activityLogs.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Henüz kayıt yok", color = Color.Gray)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .padding(4.dp)
+                    ) {
+                        // Scrollable log listesi
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(activityLogs.size) { index ->
+                                val log = activityLogs[index]
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            Color(0xFFF5F5F5),
+                                            RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Saat
+                                    Text(
+                                        text = log.timestamp,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1976D2),
+                                        modifier = Modifier.width(55.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    // Açıklama
+                                    Text(
+                                        text = log.description,
+                                        fontSize = 11.sp,
+                                        maxLines = 2,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showActivityLogDialog = false }) {
+                    Text("Kapat")
                 }
             }
         )
@@ -2611,6 +2796,20 @@ fun GameScreen(
                     ) {
                         Text("📊 Zar İst.", color = Color.White, fontSize = 12.sp)
                     }
+                }
+
+                // Hareketler Dökümü butonu - Küçük, gri
+                Button(
+                    onClick = { showActivityLogDialog = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF616161) // Gri
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(50.dp)
+                ) {
+                    Text("📋", fontSize = 14.sp)
                 }
 
                 // Maçı sonlandırma butonu - Koyu kırmızı

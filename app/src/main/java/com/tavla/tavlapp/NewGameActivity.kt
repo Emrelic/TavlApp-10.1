@@ -177,6 +177,12 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             onClick = {
                                 selectedPlayer1 = player
                                 showPlayer1Menu = false
+                                // Oyuncu 1 secimini logla
+                                dbHelper.addActivityLog(
+                                    actionType = ActionTypes.SETTINGS_PLAYER1_SELECT,
+                                    description = "Oyuncu 1 secildi: ${player.name}",
+                                    player1Name = player.name
+                                )
                             }
                         )
                     }
@@ -220,6 +226,12 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             onClick = {
                                 selectedPlayer2 = player
                                 showPlayer2Menu = false
+                                // Oyuncu 2 secimini logla
+                                dbHelper.addActivityLog(
+                                    actionType = ActionTypes.SETTINGS_PLAYER2_SELECT,
+                                    description = "Oyuncu 2 secildi: ${player.name}",
+                                    player2Name = player.name
+                                )
                             }
                         )
                     }
@@ -286,6 +298,11 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                                 onClick = {
                                     selectedGameType = "Geleneksel"
                                     selectedRounds = "5"
+                                    // Oyun tipi secimini logla
+                                    dbHelper.addActivityLog(
+                                        actionType = ActionTypes.SETTINGS_GAME_TYPE,
+                                        description = "Oyun tipi secildi: Geleneksel"
+                                    )
                                 },
                                 modifier = Modifier.size(20.dp)
                             )
@@ -309,7 +326,14 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         ) {
                             RadioButton(
                                 selected = selectedGameType == "Modern",
-                                onClick = { selectedGameType = "Modern" },
+                                onClick = {
+                                    selectedGameType = "Modern"
+                                    // Oyun tipi secimini logla
+                                    dbHelper.addActivityLog(
+                                        actionType = ActionTypes.SETTINGS_GAME_TYPE,
+                                        description = "Oyun tipi secildi: Modern"
+                                    )
+                                },
                                 modifier = Modifier.size(20.dp)
                             )
                             Text(
@@ -377,6 +401,11 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                                     onClick = {
                                         selectedRounds = rounds
                                         showRoundsMenu = false
+                                        // El sayisi secimini logla
+                                        dbHelper.addActivityLog(
+                                            actionType = ActionTypes.SETTINGS_ROUNDS,
+                                            description = "El sayisi secildi: $rounds"
+                                        )
                                     }
                                 )
                             }
@@ -422,7 +451,14 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     
                     Switch(
                         checked = isScoreAutomatic,
-                        onCheckedChange = { isScoreAutomatic = it }
+                        onCheckedChange = {
+                            isScoreAutomatic = it
+                            // Skor modu degisikligini logla
+                            dbHelper.addActivityLog(
+                                actionType = ActionTypes.SETTINGS_SCORE_MODE,
+                                description = "Skor modu: ${if (it) "Otomatik" else "Manuel"}"
+                            )
+                        }
                     )
                     }
                 }
@@ -456,7 +492,14 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     ) {
                     Switch(
                         checked = useDiceRoller,
-                        onCheckedChange = { useDiceRoller = it }
+                        onCheckedChange = {
+                            useDiceRoller = it
+                            // Zar atici ayarini logla
+                            dbHelper.addActivityLog(
+                                actionType = ActionTypes.SETTINGS_DICE_ROLLER,
+                                description = "Zar atici: ${if (it) "Acik" else "Kapali"}"
+                            )
+                        }
                     )
                     }
                 }
@@ -490,7 +533,14 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     ) {
                     Switch(
                         checked = useTimer,
-                        onCheckedChange = { useTimer = it }
+                        onCheckedChange = {
+                            useTimer = it
+                            // Sure tutucu ayarini logla
+                            dbHelper.addActivityLog(
+                                actionType = ActionTypes.SETTINGS_TIMER,
+                                description = "Sure tutucu: ${if (it) "Acik" else "Kapali"}"
+                            )
+                        }
                     )
                     }
                 }
@@ -524,7 +574,14 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     ) {
                         Switch(
                             checked = keepStatistics,
-                            onCheckedChange = { keepStatistics = it }
+                            onCheckedChange = {
+                                keepStatistics = it
+                                // Istatistik ayarini logla
+                                dbHelper.addActivityLog(
+                                    actionType = ActionTypes.SETTINGS_STATISTICS,
+                                    description = "Istatistikler: ${if (it) "Acik" else "Kapali"}"
+                                )
+                            }
                         )
                     }
                 }
@@ -558,7 +615,14 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     ) {
                         Switch(
                             checked = markDiceEvaluation,
-                            onCheckedChange = { markDiceEvaluation = it }
+                            onCheckedChange = {
+                                markDiceEvaluation = it
+                                // Zar degerlendirme ayarini logla
+                                dbHelper.addActivityLog(
+                                    actionType = ActionTypes.SETTINGS_DICE_EVAL,
+                                    description = "Zar degerlendirmesi: ${if (it) "Acik" else "Kapali"}"
+                                )
+                            }
                         )
                     }
                 }
@@ -602,6 +666,15 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     val player1Name = selectedPlayer1!!.name
                     val player2Name = selectedPlayer2!!.name
                     val rounds = selectedRounds.toInt()
+
+                    // Oyun baslatma islemini logla
+                    dbHelper.addActivityLog(
+                        actionType = ActionTypes.GAME_START,
+                        description = "Oyun basladi: $player1Name vs $player2Name ($selectedGameType, $rounds puan)",
+                        player1Name = player1Name,
+                        player2Name = player2Name,
+                        extraData = """{"gameType":"$selectedGameType","targetScore":$rounds,"scoreAutomatic":$isScoreAutomatic,"useDiceRoller":$useDiceRoller,"useTimer":$useTimer}"""
+                    )
 
                     // Skor ekranını başlat
                     val intent = Intent(context, GameScoreActivity::class.java).apply {
@@ -675,14 +748,20 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                                             val updatedList = playersList.value.toMutableList()
                                             updatedList.add(newPlayer)
                                             playersList.value = updatedList
-                                            
+
                                             // Hangi oyuncu için dialog açıldıysa o oyuncuyu seç
                                             if (dialogForPlayer == 1) {
                                                 selectedPlayer1 = newPlayer
                                             } else {
                                                 selectedPlayer2 = newPlayer
                                             }
-                                            
+
+                                            // Yeni oyuncu ekleme islemini logla
+                                            dbHelper.addActivityLog(
+                                                actionType = ActionTypes.NEW_PLAYER_ADDED,
+                                                description = "Yeni oyuncu eklendi: $name"
+                                            )
+
                                             showNewPlayerDialog = false
                                             newPlayerName = ""
                                             Toast.makeText(context, "Oyuncu eklendi", Toast.LENGTH_SHORT).show()

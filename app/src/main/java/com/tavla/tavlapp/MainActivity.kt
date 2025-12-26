@@ -23,20 +23,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import android.util.Log
+import androidx.compose.runtime.remember
 
 // Ana aktivitemizi tanımlıyoruz. ComponentActivity, Compose kullanımı için bir temel sınıftır
 class MainActivity : ComponentActivity() {
+    private lateinit var dbHelper: DatabaseHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val dbHelper = DatabaseHelper(this)
+        dbHelper = DatabaseHelper(this)
         val players = dbHelper.getAllPlayers()
 
         if (players.isEmpty()) {
             dbHelper.addPlayer("Oyuncu 1")
             dbHelper.addPlayer("Oyuncu 2")
         }
+
+        // Uygulama acilisini logla
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.APP_OPEN,
+            description = "Uygulama acildi"
+        )
 
         setContent {
             TavlaAppTheme {
@@ -57,6 +65,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     // LocalContext sayesinde Android context'ine erişebiliriz (aktiviteye erişim için)
     val context = LocalContext.current
+    val dbHelper = remember { DatabaseHelper(context) }
 
     // Column, içindeki öğeleri dikey olarak düzenler
     Column(
@@ -92,6 +101,19 @@ fun MainScreen() {
             Text(text = "Oyun Geçmişi")
         }
 
+        // Hareketler Dokumu butonu
+        Button(
+            onClick = {
+                // Hareketler dokumu ekranini ac
+                context.startActivity(Intent(context, ActivityLogActivity::class.java))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            Text(text = "Hareketler Dokumu")
+        }
+
         // Çıkış butonu
         Button(
             onClick = {
@@ -112,7 +134,12 @@ fun MainScreen() {
                 builder.setMessage("Tüm maç geçmişi ve oyuncu istatistikleri sıfırlanacak. Bu işlem geri alınamaz!")
                 builder.setPositiveButton("Evet, Sıfırla") { _, _ ->
                     val dbHelper = DatabaseHelper(context)
-                    val silinen = dbHelper.resetAllData()  // Yeni fonksiyonumuzu çağırın
+                    val silinen = dbHelper.resetAllData()
+                    // Veri sifirlama islemini logla
+                    dbHelper.addActivityLog(
+                        actionType = ActionTypes.DATA_RESET,
+                        description = "Tum veriler sifirlandi ($silinen mac silindi)"
+                    )
                     Toast.makeText(context, "Tüm veriler sıfırlandı ($silinen maç silindi)", Toast.LENGTH_SHORT).show()
                 }
                 builder.setNegativeButton("İptal", null)
