@@ -620,11 +620,47 @@ fun SimpleIntegratedScreen(
 
             isRollingGame = false
 
-            // State'i WAIT_MOVE'a çevir (hamle yapma bekleniyor)
-            if (currentPlayer == 1) {
-                player1DiceState = "WAIT_MOVE"
+            // Basit mod: Süre ve istatistik yoksa otomatik sıra değiştir
+            val simpleMode = !useTimer && !keepStatistics
+
+            if (simpleMode) {
+                // Zarları 1.5 saniye göster, sonra otomatik sıra değiştir
+                delay(1500)
+
+                // Zar durumlarını sıfırla
+                isDouble = false
+                dice1 = 0
+                dice2 = 0
+                dice1State = CheckboxState.CHECKED
+                dice2State = CheckboxState.CHECKED
+                dice3State = CheckboxState.CHECKED
+                dice4State = CheckboxState.CHECKED
+                dice1Original = 0
+                dice2Original = 0
+                dice3Original = 0
+                dice4Original = 0
+                dice1Played = 0
+                dice2Played = 0
+                dice3Played = 0
+                dice4Played = 0
+                eliminatedNumbers = ""
+
+                // Sırayı değiştir
+                currentPlayer = if (currentPlayer == 1) 2 else 1
+
+                // Yeni oyuncunun state'ini WAIT_DICE yap
+                if (currentPlayer == 1) {
+                    player1DiceState = "WAIT_DICE"
+                } else {
+                    player2DiceState = "WAIT_DICE"
+                }
             } else {
-                player2DiceState = "WAIT_MOVE"
+                // Normal mod: State'i WAIT_MOVE'a çevir (hamle yapma bekleniyor)
+                if (currentPlayer == 1) {
+                    player1DiceState = "WAIT_MOVE"
+                } else {
+                    player2DiceState = "WAIT_MOVE"
+                }
             }
         }
     }
@@ -904,7 +940,7 @@ fun SimpleIntegratedScreen(
         }
         
         
-        // === SOL ZAR ALANI ===
+        // === SOL ZAR ALANI (Tıklanabilir) ===
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -916,6 +952,19 @@ fun SimpleIntegratedScreen(
                         else -> Color(0xFF808080)
                     }
                 )
+                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && useDiceRoller && !useTimer)) {
+                    when (gamePhase) {
+                        "opening_single" -> rollOpeningDice(1)
+                        "playing" -> {
+                            if (useDiceRoller && !useTimer && currentPlayer == 1) {
+                                when (player1DiceState) {
+                                    "WAIT_DICE" -> rollGameDice()
+                                    "WAIT_MOVE" -> switchTurn()
+                                }
+                            }
+                        }
+                    }
+                }
                 .padding(16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -1033,7 +1082,7 @@ fun SimpleIntegratedScreen(
                 .background(Color.White)
         )
         
-        // === SAĞ ZAR ALANI ===
+        // === SAĞ ZAR ALANI (Tıklanabilir) ===
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -1045,6 +1094,19 @@ fun SimpleIntegratedScreen(
                         else -> Color(0xFF808080)
                     }
                 )
+                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && useDiceRoller && !useTimer)) {
+                    when (gamePhase) {
+                        "opening_single" -> rollOpeningDice(2)
+                        "playing" -> {
+                            if (useDiceRoller && !useTimer && currentPlayer == 2) {
+                                when (player2DiceState) {
+                                    "WAIT_DICE" -> rollGameDice()
+                                    "WAIT_MOVE" -> switchTurn()
+                                }
+                            }
+                        }
+                    }
+                }
                 .padding(16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
