@@ -98,6 +98,7 @@ class GameScoreActivity : ComponentActivity() {
         val useTimer = intent.getBooleanExtra("use_timer", false)
         val keepStatistics = intent.getBooleanExtra("keep_statistics", false)
         val markDiceEvaluation = intent.getBooleanExtra("mark_dice_evaluation", false)
+        val processPartialDice = intent.getBooleanExtra("process_partial_dice", false)
 
         // Yeni maç başlat ve ID'sini al
         matchId = dbHelper.startNewMatch(player1Id, player2Id, gameType, targetRounds)
@@ -126,6 +127,7 @@ class GameScoreActivity : ComponentActivity() {
                         useTimer = useTimer,
                         keepStatistics = keepStatistics,
                         markDiceEvaluation = markDiceEvaluation,
+                        processPartialDice = processPartialDice,
                         matchId = matchId,
                         dbHelper = dbHelper,
                         onFinish = { this.finish() }
@@ -150,6 +152,7 @@ fun GameScreen(
     useTimer: Boolean,
     keepStatistics: Boolean,
     markDiceEvaluation: Boolean,
+    processPartialDice: Boolean,
     matchId: Long,
     dbHelper: DatabaseHelper,
     onFinish: () -> Unit
@@ -979,9 +982,10 @@ fun GameScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.offset(y = (-50).dp)
                 ) {
-                    // ZAR AT / SAAT butonu - Koşullu görünüm
-                    if (useDiceRoller || useTimer) {
+                    // ZAR AT / SAAT / İSTATİSTİK butonu - Koşullu görünüm
+                    if (useDiceRoller || useTimer || (keepStatistics && markDiceEvaluation && !useDiceRoller)) {
                         val buttonText = when {
+                            keepStatistics && markDiceEvaluation && !useDiceRoller -> "📊 ZAR İŞLE"
                             useDiceRoller && useTimer -> "🎲⏰ ZAR/SAAT"
                             useDiceRoller -> "🎲 ZAR AT"
                             useTimer -> "⏰ SAAT KULLAN"
@@ -989,7 +993,22 @@ fun GameScreen(
                         }
                         
                         Button(
-                            onClick = { showDiceScreen = true },
+                            onClick = { 
+                                if (keepStatistics && markDiceEvaluation && !useDiceRoller) {
+                                    // Fiziki zar kullanımında istatistik işleme ekranını aç
+                                    val intent = Intent(context, DiceProcessingActivity::class.java).apply {
+                                        putExtra("match_id", matchId)
+                                        putExtra("player1_id", player1Id)
+                                        putExtra("player2_id", player2Id)
+                                        putExtra("player1_name", player1Name)
+                                        putExtra("player2_name", player2Name)
+                                        putExtra("process_partial_dice", processPartialDice)
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    showDiceScreen = true
+                                }
+                            },
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF9C27B0).copy(alpha = 0.9f)

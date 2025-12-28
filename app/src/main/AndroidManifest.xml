@@ -81,6 +81,13 @@
             android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
 
+        <!-- Zar İstatistikleri İşleme Aktivitesi -->
+        <activity
+            android:name=".DiceProcessingActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.TavlApp" />
+
         <!-- Hareketler Dokumu Aktivitesi -->
         <activity
             android:name=".ActivityLogActivity"

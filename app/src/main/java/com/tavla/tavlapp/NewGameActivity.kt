@@ -114,6 +114,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
     // Yeni ayarlar
     var keepStatistics by remember { mutableStateOf(false) }
     var markDiceEvaluation by remember { mutableStateOf(false) }
+    var processPartialDice by remember { mutableStateOf(false) }
 
     // El sayısı seçenekleri
     val roundsOptions = listOf("3", "5", "7", "9","11", "15", "17", "21")
@@ -243,6 +244,69 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             showPlayer2Menu = false
                         }
                     )
+                }
+            }
+        }
+
+        // Koşullu soru: İstatistik ve değerlendirme işaretli ama zar atıcı değilse
+        if (keepStatistics && markDiceEvaluation && !useDiceRoller) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(2.dp, Color(0xFF2196F3)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F8FF))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Ek Zar İşleme Ayarı",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF1976D2)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Text(
+                        text = "Kısmi zar geleler ve artık zarlar da işlensin mi?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { processPartialDice = true }
+                        ) {
+                            RadioButton(
+                                selected = processPartialDice,
+                                onClick = { processPartialDice = true }
+                            )
+                            Text(
+                                text = "İşle",
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { processPartialDice = false }
+                        ) {
+                            RadioButton(
+                                selected = !processPartialDice,
+                                onClick = { processPartialDice = false }
+                            )
+                            Text(
+                                text = "İşleme",
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -689,6 +753,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         putExtra("use_timer", useTimer)
                         putExtra("keep_statistics", keepStatistics)
                         putExtra("mark_dice_evaluation", markDiceEvaluation)
+                        putExtra("process_partial_dice", processPartialDice)
                     }
                     context.startActivity(intent)
                 },

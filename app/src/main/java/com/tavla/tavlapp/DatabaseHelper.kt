@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 4
+        private const val DATABASE_VERSION = 5
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -20,6 +20,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val TABLE_ROUNDS = "rounds"
         private const val TABLE_PLAYER_STATS = "player_stats"
         private const val TABLE_DICE_STATS = "dice_statistics"
+        private const val TABLE_DICE_EVALUATIONS = "dice_evaluations"
         private const val TABLE_ACTIVITY_LOGS = "activity_logs"
 
         // Activity Logs Tablo Sütunları
@@ -122,6 +123,14 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         // Bitiş artığı
         private const val COLUMN_END_WASTE_POWER = "end_waste_power"
         private const val COLUMN_END_WASTE_PIECES = "end_waste_pieces"
+
+        // Dice Evaluations Tablo Sütunları
+        private const val COLUMN_EVAL_ID = "id"
+        private const val COLUMN_EVAL_MATCH_ID = "match_id"
+        private const val COLUMN_EVAL_PLAYER_ID = "player_id"
+        private const val COLUMN_EVAL_DICE_COMBO = "dice_combo"
+        private const val COLUMN_EVAL_RATING = "rating"
+        private const val COLUMN_EVAL_TIMESTAMP = "timestamp"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -231,6 +240,20 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         """.trimIndent()
         db.execSQL(createDiceStatsTable)
 
+        val createDiceEvaluationsTable = """
+            CREATE TABLE $TABLE_DICE_EVALUATIONS (
+                $COLUMN_EVAL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_EVAL_MATCH_ID INTEGER,
+                $COLUMN_EVAL_PLAYER_ID INTEGER,
+                $COLUMN_EVAL_DICE_COMBO TEXT,
+                $COLUMN_EVAL_RATING INTEGER,
+                $COLUMN_EVAL_TIMESTAMP INTEGER,
+                FOREIGN KEY($COLUMN_EVAL_MATCH_ID) REFERENCES $TABLE_MATCHES($COLUMN_MATCH_ID),
+                FOREIGN KEY($COLUMN_EVAL_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
+            )
+        """.trimIndent()
+        db.execSQL(createDiceEvaluationsTable)
+
         val createActivityLogsTable = """
             CREATE TABLE $TABLE_ACTIVITY_LOGS (
                 $COLUMN_LOG_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -261,6 +284,22 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     $COLUMN_LOG_PLAYER2_NAME TEXT,
                     $COLUMN_LOG_MATCH_ID INTEGER,
                     $COLUMN_LOG_EXTRA_DATA TEXT
+                )
+            """.trimIndent())
+        }
+        
+        // Versiyon 4'ten 5'e gecis: dice_evaluations tablosu eklendi
+        if (oldVersion < 5) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS $TABLE_DICE_EVALUATIONS (
+                    $COLUMN_EVAL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    $COLUMN_EVAL_MATCH_ID INTEGER,
+                    $COLUMN_EVAL_PLAYER_ID INTEGER,
+                    $COLUMN_EVAL_DICE_COMBO TEXT,
+                    $COLUMN_EVAL_RATING INTEGER,
+                    $COLUMN_EVAL_TIMESTAMP INTEGER,
+                    FOREIGN KEY($COLUMN_EVAL_MATCH_ID) REFERENCES $TABLE_MATCHES($COLUMN_MATCH_ID),
+                    FOREIGN KEY($COLUMN_EVAL_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
                 )
             """.trimIndent())
         }
@@ -1406,6 +1445,28 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         cursor.close()
         db.close()
         return null
+    }
+
+    /**
+     * Zar değerlendirmesi kaydet
+     */
+    fun saveDiceEvaluation(
+        matchId: Long,
+        playerId: Long,
+        diceCombo: String,
+        rating: Int
+    ): Long {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_EVAL_MATCH_ID, matchId)
+        values.put(COLUMN_EVAL_PLAYER_ID, playerId)
+        values.put(COLUMN_EVAL_DICE_COMBO, diceCombo)
+        values.put(COLUMN_EVAL_RATING, rating)
+        values.put(COLUMN_EVAL_TIMESTAMP, System.currentTimeMillis())
+        
+        val id = db.insert(TABLE_DICE_EVALUATIONS, null, values)
+        db.close()
+        return id
     }
 
     // ============== HAREKETLER DOKUMU (ACTIVITY LOG) FONKSİYONLARI ==============
