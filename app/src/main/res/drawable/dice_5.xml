@@ -1,51 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Zar arka planı -->
+    <!-- Ana zar gövdesi -->
     <item>
         <shape android:shape="rectangle">
             <solid android:color="#FFFFFF" />
-            <stroke android:width="3dp" android:color="#000000" />
-            <corners android:radius="12dp" />
+            <stroke android:width="2dp" android:color="#333333" />
+            <corners android:radius="8dp" />
         </shape>
     </item>
     
     <!-- Sol üst nokta -->
-    <item android:gravity="top|left" android:top="8dp" android:left="8dp">
+    <item android:gravity="left|top" android:left="4dp" android:top="3dp">
         <shape android:shape="oval">
-            <solid android:color="#000000" />
-            <size android:width="12dp" android:height="12dp" />
+            <solid android:color="#222222" />
+            <size android:width="4dp" android:height="4dp" />
         </shape>
     </item>
     
     <!-- Sağ üst nokta -->
-    <item android:gravity="top|right" android:top="8dp" android:right="8dp">
+    <item android:gravity="right|top" android:right="4dp" android:top="3dp">
         <shape android:shape="oval">
-            <solid android:color="#000000" />
-            <size android:width="12dp" android:height="12dp" />
+            <solid android:color="#222222" />
+            <size android:width="4dp" android:height="4dp" />
         </shape>
     </item>
     
-    <!-- Ortadaki nokta -->
+    <!-- Orta nokta -->
     <item android:gravity="center">
         <shape android:shape="oval">
-            <solid android:color="#000000" />
-            <size android:width="12dp" android:height="12dp" />
+            <solid android:color="#222222" />
+            <size android:width="4dp" android:height="4dp" />
         </shape>
     </item>
     
     <!-- Sol alt nokta -->
-    <item android:gravity="bottom|left" android:bottom="8dp" android:left="8dp">
+    <item android:gravity="left|bottom" android:left="4dp" android:bottom="3dp">
         <shape android:shape="oval">
-            <solid android:color="#000000" />
-            <size android:width="12dp" android:height="12dp" />
+            <solid android:color="#222222" />
+            <size android:width="4dp" android:height="4dp" />
         </shape>
     </item>
     
     <!-- Sağ alt nokta -->
-    <item android:gravity="bottom|right" android:bottom="8dp" android:right="8dp">
+    <item android:gravity="right|bottom" android:right="4dp" android:bottom="3dp">
         <shape android:shape="oval">
-            <solid android:color="#000000" />
-            <size android:width="12dp" android:height="12dp" />
+            <solid android:color="#222222" />
+            <size android:width="4dp" android:height="4dp" />
         </shape>
     </item>
 </layer-list>

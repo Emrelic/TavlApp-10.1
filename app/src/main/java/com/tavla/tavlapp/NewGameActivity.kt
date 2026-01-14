@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import android.content.Intent
 
 // Yeni oyun ayarları ekranı aktivitesi
@@ -115,6 +117,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
     var keepStatistics by remember { mutableStateOf(false) }
     var markDiceEvaluation by remember { mutableStateOf(false) }
     var processPartialDice by remember { mutableStateOf(false) }
+    var showPartialDiceDialog by remember { mutableStateOf(false) }
 
     // El sayısı seçenekleri
     val roundsOptions = listOf("3", "5", "7", "9","11", "15", "17", "21")
@@ -248,66 +251,10 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             }
         }
 
-        // Koşullu soru: İstatistik ve değerlendirme işaretli ama zar atıcı değilse
-        if (keepStatistics && markDiceEvaluation && !useDiceRoller) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(2.dp, Color(0xFF2196F3)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F8FF))
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Ek Zar İşleme Ayarı",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF1976D2)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Kısmi zar geleler ve artık zarlar da işlensin mi?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { processPartialDice = true }
-                        ) {
-                            RadioButton(
-                                selected = processPartialDice,
-                                onClick = { processPartialDice = true }
-                            )
-                            Text(
-                                text = "İşle",
-                                modifier = Modifier.padding(start = 4.dp)
-                            )
-                        }
-                        
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { processPartialDice = false }
-                        ) {
-                            RadioButton(
-                                selected = !processPartialDice,
-                                onClick = { processPartialDice = false }
-                            )
-                            Text(
-                                text = "İşleme",
-                                modifier = Modifier.padding(start = 4.dp)
-                            )
-                        }
-                    }
-                }
+        // Dialog tetikleyici: İstatistik ve değerlendirme işaretli ama zar atıcı değilse
+        LaunchedEffect(keepStatistics, markDiceEvaluation, useDiceRoller) {
+            if (keepStatistics && markDiceEvaluation && !useDiceRoller) {
+                showPartialDiceDialog = true
             }
         }
 
@@ -840,6 +787,92 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text("Kaydet")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Kısmi Zar İşleme Dialog
+        if (showPartialDiceDialog) {
+            Dialog(onDismissRequest = { 
+                showPartialDiceDialog = false
+                processPartialDice = false // Varsayılan değer
+            }) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F8FF))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "🎲 Ek Zar İşleme Ayarı",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1976D2)
+                        )
+                        
+                        Text(
+                            text = "Fiziki zar kullanırken kısmi zar geleler ve artık zarlar da işlensin mi?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            color = Color(0xFF424242)
+                        )
+                        
+                        // Açıklama
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "• İşle: Tüm zar detayları kayıt edilir",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF2E7D32)
+                                )
+                                Text(
+                                    text = "• İşleme: Sadece temel istatistikler",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF2E7D32)
+                                )
+                            }
+                        }
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    processPartialDice = false
+                                    showPartialDiceDialog = false
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFF9800)
+                                )
+                            ) {
+                                Text("İşleme", fontWeight = FontWeight.Bold)
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    processPartialDice = true
+                                    showPartialDiceDialog = false
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50)
+                                )
+                            ) {
+                                Text("İşle", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 5
+        private const val DATABASE_VERSION = 6
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -130,6 +130,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_EVAL_PLAYER_ID = "player_id"
         private const val COLUMN_EVAL_DICE_COMBO = "dice_combo"
         private const val COLUMN_EVAL_RATING = "rating"
+        private const val COLUMN_EVAL_STATE = "state"
         private const val COLUMN_EVAL_TIMESTAMP = "timestamp"
     }
 
@@ -247,6 +248,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COLUMN_EVAL_PLAYER_ID INTEGER,
                 $COLUMN_EVAL_DICE_COMBO TEXT,
                 $COLUMN_EVAL_RATING INTEGER,
+                $COLUMN_EVAL_STATE TEXT DEFAULT 'OYANDI',
                 $COLUMN_EVAL_TIMESTAMP INTEGER,
                 FOREIGN KEY($COLUMN_EVAL_MATCH_ID) REFERENCES $TABLE_MATCHES($COLUMN_MATCH_ID),
                 FOREIGN KEY($COLUMN_EVAL_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
@@ -302,6 +304,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     FOREIGN KEY($COLUMN_EVAL_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
                 )
             """.trimIndent())
+        }
+        
+        // Versiyon 5'ten 6'ya gecis: dice_evaluations tablosuna state kolonu eklendi
+        if (oldVersion < 6) {
+            db.execSQL("ALTER TABLE $TABLE_DICE_EVALUATIONS ADD COLUMN $COLUMN_EVAL_STATE TEXT DEFAULT 'OYANDI'")
         }
     }
 
@@ -1454,7 +1461,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         matchId: Long,
         playerId: Long,
         diceCombo: String,
-        rating: Int
+        rating: Int,
+        state: String = "OYANDI"
     ): Long {
         val db = this.writableDatabase
         val values = ContentValues()
@@ -1462,6 +1470,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         values.put(COLUMN_EVAL_PLAYER_ID, playerId)
         values.put(COLUMN_EVAL_DICE_COMBO, diceCombo)
         values.put(COLUMN_EVAL_RATING, rating)
+        values.put(COLUMN_EVAL_STATE, state)
         values.put(COLUMN_EVAL_TIMESTAMP, System.currentTimeMillis())
         
         val id = db.insert(TABLE_DICE_EVALUATIONS, null, values)

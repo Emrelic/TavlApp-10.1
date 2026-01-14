@@ -2217,14 +2217,29 @@ fun GameScreen(
                 if (keepStatistics) {
                     Button(
                         onClick = {
-                            val intent = Intent(context, DiceStatisticsActivity::class.java).apply {
-                                putExtra("match_id", matchId)
-                                putExtra("player1_id", player1Id)
-                                putExtra("player2_id", player2Id)
-                                putExtra("player1_name", player1Name)
-                                putExtra("player2_name", player2Name)
+                            if (keepStatistics && markDiceEvaluation && !useDiceRoller) {
+                                // Manuel zar değerlendirme ekranına git
+                                val intent = Intent(context, DiceProcessingActivity::class.java).apply {
+                                    putExtra("match_id", matchId)
+                                    putExtra("player1_id", player1Id)
+                                    putExtra("player2_id", player2Id)
+                                    putExtra("player1_name", player1Name)
+                                    putExtra("player2_name", player2Name)
+                                    putExtra("current_player", player1Id)
+                                    putExtra("current_player_name", player1Name)
+                                }
+                                context.startActivity(intent)
+                            } else {
+                                // Normal zar istatistikleri ekranına git
+                                val intent = Intent(context, DiceStatisticsActivity::class.java).apply {
+                                    putExtra("match_id", matchId)
+                                    putExtra("player1_id", player1Id)
+                                    putExtra("player2_id", player2Id)
+                                    putExtra("player1_name", player1Name)
+                                    putExtra("player2_name", player2Name)
+                                }
+                                context.startActivity(intent)
                             }
-                            context.startActivity(intent)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1976D2) // Mavi renk

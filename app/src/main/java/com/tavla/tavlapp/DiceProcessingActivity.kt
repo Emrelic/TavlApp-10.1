@@ -2,26 +2,56 @@ package com.tavla.tavlapp
 
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
+
+// Zar kombinasyonu veri sınıfı
+data class DiceCombo(
+    val dice1: Int,
+    val dice2: Int,
+    val isDouble: Boolean = dice1 == dice2
+) {
+    val displayText: String get() = "$dice1$dice2"
+    val diceList: List<Int> get() = if (isDouble) listOf(dice1, dice1, dice1, dice1) else listOf(dice1, dice2)
+}
+
+// Zar durumu enum
+enum class ProcessingDiceState {
+    NORMAL,   // ✓ Normal onaylandı
+    GELE,     // ☐ Gele (checkbox kaldırıldı)
+    KISMI,    // ↻ Kısmen (yuvarlanarak azaltıldı)
+    ARTIK     // ■ Artık zar (kare dolu)
+}
+
+// Tekil zar veri sınıfı
+data class IndividualDice(
+    val originalValue: Int,
+    val currentValue: Int = originalValue,
+    val state: ProcessingDiceState = ProcessingDiceState.NORMAL,
+    val timesReduced: Int = 0
+) {
+    val isReduced: Boolean get() = currentValue < originalValue
+}
 
 class DiceProcessingActivity : ComponentActivity() {
     private lateinit var dbHelper: DatabaseHelper
@@ -46,348 +76,222 @@ class DiceProcessingActivity : ComponentActivity() {
         val player2Id = intent.getLongExtra("player2_id", -1)
         val player1Name = intent.getStringExtra("player1_name") ?: "Oyuncu 1"
         val player2Name = intent.getStringExtra("player2_name") ?: "Oyuncu 2"
-        val processPartialDice = intent.getBooleanExtra("process_partial_dice", false)
+        val currentPlayerId = player1Id // Varsayılan olarak player1
+        val currentPlayerName = player1Name // Varsayılan olarak player1
 
         setContent {
-            MaterialTheme {
-                DiceProcessingScreen(
-                    dbHelper = dbHelper,
-                    matchId = matchId,
-                    player1Id = player1Id,
-                    player2Id = player2Id,
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    processPartialDice = processPartialDice,
-                    onClose = { finish() }
-                )
+            TavlaAppTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    DiceProcessingScreen(
+                        matchId = matchId,
+                        player1Id = player1Id,
+                        player2Id = player2Id,
+                        player1Name = player1Name,
+                        player2Name = player2Name,
+                        currentPlayerId = currentPlayerId,
+                        currentPlayerName = currentPlayerName,
+                        dbHelper = dbHelper,
+                        onBack = { finish() }
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiceProcessingScreen(
-    dbHelper: DatabaseHelper,
     matchId: Long,
     player1Id: Long,
     player2Id: Long,
     player1Name: String,
     player2Name: String,
-    processPartialDice: Boolean,
-    onClose: () -> Unit
+    currentPlayerId: Long,
+    currentPlayerName: String,
+    dbHelper: DatabaseHelper,
+    onBack: () -> Unit
 ) {
-    // Sıra durumu: true = oyuncu 1, false = oyuncu 2
-    var currentPlayerTurn by remember { mutableStateOf(true) }
-    var selectedDiceCombo by remember { mutableStateOf("") }
-    var selectedDiceEvaluation by remember { mutableIntStateOf(0) }
-    
-    // Zar durumu checkboxları
-    var dice1State by remember { mutableStateOf(DiceState.NONE) }
-    var dice2State by remember { mutableStateOf(DiceState.NONE) }
-    var dice3State by remember { mutableStateOf(DiceState.NONE) }
-    var dice4State by remember { mutableStateOf(DiceState.NONE) }
-    
-    val scrollState = rememberScrollState()
-    
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = if (currentPlayerTurn) Color(0xFFE3F2FD) else Color(0xFFFFEBEE) // Açık mavi/kırmızı
-    ) {
+    // Piramit düzende zar kombinasyonları
+    val diceCombos = remember {
+        listOf(
+            // 6'lı satır
+            listOf(DiceCombo(6, 6), DiceCombo(6, 5), DiceCombo(6, 4), DiceCombo(6, 3), DiceCombo(6, 2), DiceCombo(6, 1)),
+            // 5'li satır
+            listOf(DiceCombo(5, 5), DiceCombo(5, 4), DiceCombo(5, 3), DiceCombo(5, 2), DiceCombo(5, 1)),
+            // 4'lü satır
+            listOf(DiceCombo(4, 4), DiceCombo(4, 3), DiceCombo(4, 2), DiceCombo(4, 1)),
+            // 3'lü satır
+            listOf(DiceCombo(3, 3), DiceCombo(3, 2), DiceCombo(3, 1)),
+            // 2'li satır
+            listOf(DiceCombo(2, 2), DiceCombo(2, 1)),
+            // 1'li satır
+            listOf(DiceCombo(1, 1))
+        )
+    }
+
+    var selectedCombo by remember { mutableStateOf<DiceCombo?>(null) }
+    var individualDices by remember { mutableStateOf<List<IndividualDice>>(emptyList()) }
+    var selectedRating by remember { mutableStateOf<Int?>(null) }
+
+    val playerColor = if (currentPlayerId == player1Id) Color(0xFF2196F3) else Color(0xFFF44336)
+
+    // Seçilen kombo değiştiğinde zar listesini güncelle
+    LaunchedEffect(selectedCombo) {
+        selectedCombo?.let { combo ->
+            individualDices = combo.diceList.map { IndividualDice(it) }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { 
+                    Text("Zar İstatistik İşleme", fontSize = 18.sp)
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = playerColor.copy(alpha = 0.1f)
+                )
+            )
+        }
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(paddingValues)
+                .padding(8.dp)
         ) {
-            // Başlık ve Kapat butonu
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Oyuncu bilgisi
+            Text(
+                text = "Sıra: $currentPlayerName",
+                fontSize = 14.sp,
+                color = playerColor,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Piramit düzen zar seçimi (sola dayalı)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.Start
             ) {
-                Text(
-                    text = "ZAR İSTATİSTİKLERİ İŞLEME",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1976D2)
-                )
-                Button(
-                    onClick = onClose,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
-                ) {
-                    Text("KAPAT", fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sıra göstergesi
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Sol oyuncu
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(60.dp)
-                        .background(
-                            color = if (currentPlayerTurn) Color(0xFF1976D2) else Color(0xFFBBBBBB),
-                            shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = player1Name.uppercase(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-                
-                // Ok
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color(0xFF424242), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (currentPlayerTurn) "◀" else "▶",
-                        fontSize = 20.sp,
-                        color = Color.White
-                    )
-                }
-                
-                // Sağ oyuncu
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(60.dp)
-                        .background(
-                            color = if (!currentPlayerTurn) Color(0xFFD32F2F) else Color(0xFFBBBBBB),
-                            shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = player2Name.uppercase(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(modifier = Modifier.fillMaxSize()) {
-                // Sol sütun: Zar kombinasyonları tablosu
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(scrollState)
-                        .padding(end = 8.dp)
-                ) {
-                    Text(
-                        text = "ZAR KOMBİNASYONLARI",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    
-                    DiceHelper.getAllDiceCombinations().forEach { combo ->
-                        val isSelected = selectedDiceCombo == combo
-                        val isDouble = combo.split("-").let { it[0] == it[1] }
-                        
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                                .clickable { 
-                                    selectedDiceCombo = combo
-                                    // Çift zar seçilirse 4 checkbox, normal zar seçilirse 2 checkbox
-                                    if (!isDouble) {
-                                        dice3State = DiceState.NONE
-                                        dice4State = DiceState.NONE
-                                    }
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) Color(0xFF4CAF50) else Color(0xFFF5F5F5)
-                            ),
-                            border = BorderStroke(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) Color(0xFF2E7D32) else Color.Gray
-                            )
-                        ) {
-                            Text(
-                                text = combo + if (isDouble) " (4 zar)" else "",
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) Color.White else Color.Black,
-                                modifier = Modifier.padding(12.dp),
-                                textAlign = TextAlign.Center
+                diceCombos.forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        row.forEach { combo ->
+                            PyramidDiceCard(
+                                combo = combo,
+                                isSelected = selectedCombo == combo,
+                                playerColor = playerColor,
+                                onClick = { selectedCombo = combo }
                             )
                         }
                     }
                 }
+            }
 
-                // Sağ sütun: İşleme kontrolları
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(scrollState)
-                        .padding(start = 8.dp)
+            // Seçili zarların işleme paneli
+            if (selectedCombo != null && individualDices.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8))
                 ) {
-                    if (selectedDiceCombo.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
                         Text(
-                            text = "Seçilen Zar: $selectedDiceCombo",
+                            text = "Seçilen: ${selectedCombo!!.displayText}",
+                            fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            color = playerColor
                         )
 
-                        // Zar durumu checkboxları
-                        val isDouble = selectedDiceCombo.split("-").let { it[0] == it[1] }
-                        val numberOfDice = if (isDouble) 4 else 2
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
-                            text = "Zar Durumları:",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        // Zar 1
-                        DiceStateRow(
-                            label = "Zar 1:",
-                            state = dice1State,
-                            onStateChange = { dice1State = it },
-                            processPartialDice = processPartialDice
-                        )
-
-                        // Zar 2
-                        DiceStateRow(
-                            label = "Zar 2:",
-                            state = dice2State,
-                            onStateChange = { dice2State = it },
-                            processPartialDice = processPartialDice
-                        )
-
-                        // Çift zar ise ek zarlar
-                        if (isDouble) {
-                            DiceStateRow(
-                                label = "Zar 3:",
-                                state = dice3State,
-                                onStateChange = { dice3State = it },
-                                processPartialDice = processPartialDice
-                            )
-
-                            DiceStateRow(
-                                label = "Zar 4:",
-                                state = dice4State,
-                                onStateChange = { dice4State = it },
-                                processPartialDice = processPartialDice
-                            )
+                        // Tekil zarlar işleme
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            individualDices.forEachIndexed { index, dice ->
+                                IndividualDiceProcessor(
+                                    dice = dice,
+                                    playerColor = playerColor,
+                                    onDiceChange = { newDice ->
+                                        individualDices = individualDices.toMutableList().also { list ->
+                                            list[index] = newDice
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Zar değerlendirmesi (1-6 skala)
-                        Text(
-                            text = "Zar Değerlendirmesi:",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
+                        // Değerlendirme puanları (1-6)
+                        Text("Değerlendirme:", fontWeight = FontWeight.Medium)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(top = 8.dp)
                         ) {
                             (1..6).forEach { rating ->
                                 Button(
-                                    onClick = { selectedDiceEvaluation = rating },
+                                    onClick = { selectedRating = rating },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (selectedRating == rating) playerColor else Color.Gray.copy(alpha = 0.3f)
+                                    ),
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .padding(2.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = when {
-                                            selectedDiceEvaluation == rating -> Color(0xFF4CAF50)
-                                            rating <= 2 -> Color(0xFFE53935) // Kırmızı (kötü)
-                                            rating == 3 -> Color(0xFFFF9800) // Turuncu (vasat)
-                                            rating == 4 -> Color(0xFFFFEB3B) // Sarı (faydalı)
-                                            rating >= 5 -> Color(0xFF4CAF50) // Yeşil (iyi)
-                                            else -> Color.Gray
-                                        }
-                                    ),
-                                    contentPadding = PaddingValues(0.dp)
+                                        .weight(1f)
                                 ) {
                                     Text(
                                         text = rating.toString(),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
                         }
 
-                        // Değerlendirme açıklamaları
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Column {
-                            Text("6: Maç puan kazandıran şanslı zar", fontSize = 10.sp, color = Color(0xFF4CAF50))
-                            Text("5: Oyunun ibresini çeviren faydalı zar", fontSize = 10.sp, color = Color(0xFF4CAF50))
-                            Text("4: Yapısal olarak faydalı zar", fontSize = 10.sp, color = Color(0xFFFFEB3B))
-                            Text("3: Vasat zar (niteliksiz)", fontSize = 10.sp, color = Color(0xFFFF9800))
-                            Text("2: Zora sokan zar", fontSize = 10.sp, color = Color(0xFFE53935))
-                            Text("1: Oyun/puan kaybettiren şansız zar", fontSize = 10.sp, color = Color(0xFFE53935))
-                        }
-
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // İşle butonu
+                        // Kaydet butonu
                         Button(
                             onClick = {
-                                if (selectedDiceCombo.isNotEmpty() && selectedDiceEvaluation > 0) {
-                                    // Zar istatistiklerini işle
-                                    processDiceRoll(
-                                        dbHelper = dbHelper,
-                                        matchId = matchId,
-                                        playerId = if (currentPlayerTurn) player1Id else player2Id,
-                                        diceCombo = selectedDiceCombo,
-                                        evaluation = selectedDiceEvaluation,
-                                        dice1State = dice1State,
-                                        dice2State = dice2State,
-                                        dice3State = dice3State,
-                                        dice4State = dice4State
-                                    )
+                                selectedRating?.let { rating ->
+                                    val stateInfo = analyzeIndividualDiceStates(individualDices)
                                     
-                                    // Sırayı değiştir ve formu sıfırla
-                                    currentPlayerTurn = !currentPlayerTurn
-                                    selectedDiceCombo = ""
-                                    selectedDiceEvaluation = 0
-                                    dice1State = DiceState.NONE
-                                    dice2State = DiceState.NONE
-                                    dice3State = DiceState.NONE
-                                    dice4State = DiceState.NONE
+                                    dbHelper.saveDiceEvaluation(
+                                        matchId = matchId,
+                                        playerId = currentPlayerId,
+                                        diceCombo = "${selectedCombo!!.displayText} ($stateInfo)",
+                                        rating = rating,
+                                        state = stateInfo
+                                    )
+                                    onBack()
                                 }
                             },
-                            enabled = selectedDiceCombo.isNotEmpty() && selectedDiceEvaluation > 0,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50)
-                            )
+                            enabled = selectedRating != null,
+                            colors = ButtonDefaults.buttonColors(containerColor = playerColor),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("İŞLE", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("Kaydet ve Bitir", color = Color.White, fontWeight = FontWeight.Bold)
                         }
-                    } else {
-                        Text(
-                            text = "Lütfen sol taraftan bir zar kombinasyonu seçin",
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.Gray
-                        )
                     }
                 }
             }
@@ -396,117 +300,229 @@ fun DiceProcessingScreen(
 }
 
 @Composable
-fun DiceStateRow(
-    label: String,
-    state: DiceState,
-    onStateChange: (DiceState) -> Unit,
-    processPartialDice: Boolean
+fun PyramidDiceCard(
+    combo: DiceCombo,
+    isSelected: Boolean,
+    playerColor: Color,
+    onClick: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            modifier = Modifier.width(60.dp)
+            .size(55.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) playerColor.copy(alpha = 0.1f) else Color(0xFFFAFAFA)
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 3.dp else 1.dp,
+            color = if (isSelected) playerColor else Color.Gray.copy(alpha = 0.4f)
         )
-        
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            // Tam Oynandı
-            DiceStateButton(
-                text = "☑",
-                isSelected = state == DiceState.PLAYED,
-                color = Color(0xFF4CAF50),
-                onClick = { onStateChange(DiceState.PLAYED) }
-            )
-            
-            // Gele
-            DiceStateButton(
-                text = "☐",
-                isSelected = state == DiceState.WASTED,
-                color = Color(0xFFFF9800),
-                onClick = { onStateChange(DiceState.WASTED) }
-            )
-            
-            // Kısmi boşa (sadece processPartialDice true ise)
-            if (processPartialDice) {
-                DiceStateButton(
-                    text = "↻",
-                    isSelected = state == DiceState.PARTIAL_WASTED,
-                    color = Color(0xFF9C27B0),
-                    onClick = { onStateChange(DiceState.PARTIAL_WASTED) }
-                )
-                
-                // Bitiş artığı
-                DiceStateButton(
-                    text = "■",
-                    isSelected = state == DiceState.END_WASTE,
-                    color = Color(0xFFE53935),
-                    onClick = { onStateChange(DiceState.END_WASTE) }
-                )
+            // Zar desenleri - HER ZAMAN YAN YANA 2 ZAR
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                MiniDiceVisual(combo.dice1, 12.dp)
+                MiniDiceVisual(combo.dice2, 12.dp)
             }
+            
+            Spacer(modifier = Modifier.height(2.dp))
+            
+            // Sayısal gösterim
+            Text(
+                text = combo.displayText,
+                fontSize = 8.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) playerColor else Color.DarkGray
+            )
         }
     }
 }
 
 @Composable
-fun DiceStateButton(
-    text: String,
-    isSelected: Boolean,
-    color: Color,
-    onClick: () -> Unit
+fun IndividualDiceProcessor(
+    dice: IndividualDice,
+    playerColor: Color,
+    onDiceChange: (IndividualDice) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.size(32.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (isSelected) color else Color.LightGray
-        ),
-        contentPadding = PaddingValues(0.dp)
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Zar görseli
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clickable { 
+                    // Zarı yuvarla (değeri 1 azalt, minimum 1)
+                    if (dice.currentValue > 1) {
+                        onDiceChange(
+                            dice.copy(
+                                currentValue = dice.currentValue - 1,
+                                state = ProcessingDiceState.KISMI,
+                                timesReduced = dice.timesReduced + 1
+                            )
+                        )
+                    }
+                }
+                .rotate(if (dice.isReduced) (dice.timesReduced * 30f) else 0f) // Yuvarlandıkça dönsün
+        ) {
+            DiceDotLarge(
+                dice.currentValue, 
+                if (dice.isReduced) 55.dp else 60.dp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Üç durumlu checkbox
+        DiceStateCheckbox(
+            state = dice.state,
+            playerColor = playerColor,
+            onStateChange = { newState ->
+                onDiceChange(dice.copy(state = newState))
+            }
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = when (dice.state) {
+                ProcessingDiceState.NORMAL -> "ONAY"
+                ProcessingDiceState.GELE -> "GELE"
+                ProcessingDiceState.KISMI -> "KISMİ"
+                ProcessingDiceState.ARTIK -> "ARTIK"
+            },
+            fontSize = 10.sp,
+            color = when (dice.state) {
+                ProcessingDiceState.NORMAL -> Color(0xFF4CAF50)
+                ProcessingDiceState.GELE -> Color(0xFF9E9E9E)
+                ProcessingDiceState.KISMI -> Color(0xFFFF9800)
+                ProcessingDiceState.ARTIK -> Color(0xFF9C27B0)
+            },
+            fontWeight = FontWeight.Bold
+        )
+
+        // Orijinal değerden farklıysa göster
+        if (dice.isReduced) {
+            Text(
+                text = "(${dice.originalValue}→${dice.currentValue})",
+                fontSize = 8.sp,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+fun DiceStateCheckbox(
+    state: ProcessingDiceState,
+    playerColor: Color,
+    onStateChange: (ProcessingDiceState) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(24.dp)
+            .clickable {
+                val newState = when (state) {
+                    ProcessingDiceState.NORMAL -> ProcessingDiceState.GELE
+                    ProcessingDiceState.GELE -> ProcessingDiceState.ARTIK
+                    ProcessingDiceState.KISMI -> ProcessingDiceState.ARTIK
+                    ProcessingDiceState.ARTIK -> ProcessingDiceState.NORMAL
+                }
+                onStateChange(newState)
+            }
+            .border(
+                2.dp, 
+                when (state) {
+                    ProcessingDiceState.NORMAL -> Color(0xFF4CAF50)
+                    ProcessingDiceState.GELE -> Color(0xFF9E9E9E)
+                    ProcessingDiceState.KISMI -> Color(0xFFFF9800)
+                    ProcessingDiceState.ARTIK -> Color(0xFF9C27B0)
+                },
+                RoundedCornerShape(4.dp)
+            )
+            .background(
+                when (state) {
+                    ProcessingDiceState.NORMAL -> Color(0xFF4CAF50).copy(alpha = 0.2f)
+                    ProcessingDiceState.GELE -> Color.Transparent
+                    ProcessingDiceState.KISMI -> Color(0xFFFF9800).copy(alpha = 0.2f)
+                    ProcessingDiceState.ARTIK -> Color(0xFF9C27B0)
+                },
+                RoundedCornerShape(4.dp)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        when (state) {
+            ProcessingDiceState.NORMAL -> Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
+            ProcessingDiceState.GELE -> Text("☐", color = Color.Gray)
+            ProcessingDiceState.KISMI -> Text("↻", color = Color.White, fontWeight = FontWeight.Bold)
+            ProcessingDiceState.ARTIK -> Text("■", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun MiniDiceVisual(
+    number: Int,
+    size: Dp
+) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(Color.White, RoundedCornerShape(4.dp))
+            .border(1.dp, Color.Black, RoundedCornerShape(4.dp)),
+        contentAlignment = Alignment.Center
     ) {
         Text(
-            text = text,
-            fontSize = 14.sp,
-            color = Color.White
+            text = number.toString(),
+            color = Color.Black,
+            fontSize = (size.value * 0.6f).sp,
+            fontWeight = FontWeight.Bold
         )
     }
 }
 
-fun processDiceRoll(
-    dbHelper: DatabaseHelper,
-    matchId: Long,
-    playerId: Long,
-    diceCombo: String,
-    evaluation: Int,
-    dice1State: DiceState,
-    dice2State: DiceState,
-    dice3State: DiceState,
-    dice4State: DiceState
+@Composable
+fun DiceDotLarge(
+    number: Int,
+    size: Dp
 ) {
-    // Zar kombinasyonunu parse et
-    val diceParts = diceCombo.split("-")
-    val dice1 = diceParts[0].toInt()
-    val dice2 = diceParts[1].toInt()
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = number.toString(),
+            color = Color.Black,
+            fontSize = (size.value * 0.5f).sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+// Zar durumlarını analiz et
+fun analyzeIndividualDiceStates(dices: List<IndividualDice>): String {
+    val normalCount = dices.count { it.state == ProcessingDiceState.NORMAL }
+    val geleCount = dices.count { it.state == ProcessingDiceState.GELE }
+    val kismiCount = dices.count { it.state == ProcessingDiceState.KISMI }
+    val artikCount = dices.count { it.state == ProcessingDiceState.ARTIK }
     
-    // DiceRollResult oluştur
-    val rollResult = DiceRollResult(
-        dice1 = dice1,
-        dice2 = dice2,
-        dice1State = dice1State,
-        dice2State = dice2State,
-        dice3State = dice3State,
-        dice4State = dice4State
-    )
-    
-    // Veritabanına kaydet
-    dbHelper.saveDiceRoll(matchId, playerId, rollResult)
-    
-    // Zar değerlendirmesini de kaydet
-    dbHelper.saveDiceEvaluation(matchId, playerId, diceCombo, evaluation)
+    return buildString {
+        if (normalCount > 0) append("ONAY:$normalCount ")
+        if (geleCount > 0) append("GELE:$geleCount ")
+        if (kismiCount > 0) append("KISMİ:$kismiCount ")
+        if (artikCount > 0) append("ARTIK:$artikCount")
+    }.trim()
 }
