@@ -68,4 +68,15 @@ object ActionTypes {
     const val MATCH_END_CONFIRM = "MATCH_END_CONFIRM" // Mac bitirme onaylandi
     const val MATCH_END_CANCEL = "MATCH_END_CANCEL"   // Mac bitirme iptal edildi
     const val DATA_RESET = "DATA_RESET"               // Tum veriler sifirlandi
+
+    // Rovansli Karsilasma islemleri
+    const val REMATCH_ENCOUNTER_CREATE = "REMATCH_ENCOUNTER_CREATE"   // Rovansli karsilasma olusturuldu
+    const val REMATCH_DICE_GENERATE = "REMATCH_DICE_GENERATE"         // Zar setleri uretildi
+    const val REMATCH_MATCH_START = "REMATCH_MATCH_START"             // Rovansli mac basladi
+    const val REMATCH_MATCH_END = "REMATCH_MATCH_END"                 // Rovansli mac bitti
+    const val REMATCH_ROUND_COMPLETE = "REMATCH_ROUND_COMPLETE"       // Rovansli tur tamamlandi
+    const val REMATCH_ENCOUNTER_COMPLETE = "REMATCH_ENCOUNTER_COMPLETE" // Rovansli karsilasma tamamlandi
+    const val REMATCH_ENCOUNTER_CANCEL = "REMATCH_ENCOUNTER_CANCEL"   // Rovansli karsilasma iptal edildi
+    const val REMATCH_DICE_CONFIRM = "REMATCH_DICE_CONFIRM"           // Zar onayi
+    const val REMATCH_PIP_ENTRY = "REMATCH_PIP_ENTRY"                 // Pip sayisi girildi
 }

@@ -114,6 +114,18 @@ fun MainScreen() {
             Text(text = "Hareketler Dokumu")
         }
 
+        // Rovansli Karsilasmalar butonu
+        Button(
+            onClick = {
+                context.startActivity(Intent(context, RematchProgressActivity::class.java))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            Text(text = "Rovansli Karsilasmalar")
+        }
+
         // Çıkış butonu
         Button(
             onClick = {

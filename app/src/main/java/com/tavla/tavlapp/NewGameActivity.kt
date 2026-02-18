@@ -708,6 +708,20 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
             ) {
                 Text("Oyunu Başlat")
             }
+
+            // Rovansli Karsilasma butonu
+            Button(
+                onClick = {
+                    val intent = Intent(context, RematchSetupActivity::class.java)
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6A1B9A)
+                )
+            ) {
+                Text("Rovansli", color = Color.White, fontSize = 12.sp)
+            }
         }
 
         // Yeni Oyuncu Dialog

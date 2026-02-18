@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 6
+        private const val DATABASE_VERSION = 8
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -22,6 +22,17 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val TABLE_DICE_STATS = "dice_statistics"
         private const val TABLE_DICE_EVALUATIONS = "dice_evaluations"
         private const val TABLE_ACTIVITY_LOGS = "activity_logs"
+
+        // Rövanşlı Karşılaşma Tabloları (v8 - Party/Set yapısı)
+        private const val TABLE_REMATCH_ENCOUNTERS = "rematch_encounters"
+        private const val TABLE_REMATCH_DICE_PARTIES = "rematch_dice_parties"
+        private const val TABLE_REMATCH_DICE_SETS = "rematch_dice_sets"
+        private const val TABLE_REMATCH_GAME_RESULTS = "rematch_game_results"
+        private const val TABLE_REMATCH_PARTY_RESULTS = "rematch_party_results"
+        private const val TABLE_REMATCH_ENCOUNTER_STATS = "rematch_encounter_stats"
+
+        // Eski tablo (migrasyon için)
+        private const val TABLE_REMATCH_MATCH_RESULTS = "rematch_match_results"
 
         // Activity Logs Tablo Sütunları
         private const val COLUMN_LOG_ID = "id"
@@ -132,6 +143,99 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_EVAL_RATING = "rating"
         private const val COLUMN_EVAL_STATE = "state"
         private const val COLUMN_EVAL_TIMESTAMP = "timestamp"
+
+        // Rövanşlı Karşılaşma Sütunları (v8 güncelleme)
+        private const val COLUMN_ENCOUNTER_ID = "id"
+        private const val COLUMN_ENCOUNTER_PLAYER1_ID = "player1_id"
+        private const val COLUMN_ENCOUNTER_PLAYER2_ID = "player2_id"
+        private const val COLUMN_ENCOUNTER_TOTAL_PARTIES = "total_parties"
+        private const val COLUMN_ENCOUNTER_CURRENT_ROUND = "current_round"
+        private const val COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX = "current_party_index"
+        private const val COLUMN_ENCOUNTER_CURRENT_GAME_INDEX = "current_game_index"
+        private const val COLUMN_ENCOUNTER_STATUS = "status"
+        private const val COLUMN_ENCOUNTER_CREATED_DATE = "created_date"
+        private const val COLUMN_ENCOUNTER_COMPLETED_DATE = "completed_date"
+        // Eski sütun adı (migrasyon uyumu)
+        private const val COLUMN_ENCOUNTER_TOTAL_MATCHES = "total_matches"
+        private const val COLUMN_ENCOUNTER_CURRENT_MATCH = "current_match"
+
+        // Rövanşlı Zar Seti Sütunları
+        private const val COLUMN_DICE_SET_ID = "id"
+        private const val COLUMN_DICE_SET_ENCOUNTER_ID = "encounter_id"
+        private const val COLUMN_DICE_SET_MATCH_INDEX = "match_index"
+        private const val COLUMN_DICE_SET_STARTING_P1 = "starting_dice_player1"
+        private const val COLUMN_DICE_SET_STARTING_P2 = "starting_dice_player2"
+        private const val COLUMN_DICE_SET_P1_JSON = "player1_dice_json"
+        private const val COLUMN_DICE_SET_P2_JSON = "player2_dice_json"
+
+        // Rövanşlı Maç Sonucu Sütunları
+        private const val COLUMN_REMATCH_RESULT_ID = "id"
+        private const val COLUMN_REMATCH_RESULT_ENCOUNTER_ID = "encounter_id"
+        private const val COLUMN_REMATCH_RESULT_MATCH_INDEX = "match_index"
+        private const val COLUMN_REMATCH_RESULT_ROUND_NUMBER = "round_number"
+        private const val COLUMN_REMATCH_RESULT_LEFT_PLAYER_ID = "left_player_id"
+        private const val COLUMN_REMATCH_RESULT_RIGHT_PLAYER_ID = "right_player_id"
+        private const val COLUMN_REMATCH_RESULT_WINNER_ID = "winner_id"
+        private const val COLUMN_REMATCH_RESULT_WIN_TYPE = "win_type"
+        private const val COLUMN_REMATCH_RESULT_CUBE_VALUE = "cube_value"
+        private const val COLUMN_REMATCH_RESULT_FINAL_SCORE = "final_score"
+        private const val COLUMN_REMATCH_RESULT_LOSER_PIP = "loser_pip_count"
+        private const val COLUMN_REMATCH_RESULT_TOTAL_MOVES = "total_moves_played"
+        private const val COLUMN_REMATCH_RESULT_DATE = "match_date"
+
+        // Rövanşlı Karşılaşma İstatistikleri Sütunları
+        private const val COLUMN_REMATCH_STATS_ID = "id"
+        private const val COLUMN_REMATCH_STATS_ENCOUNTER_ID = "encounter_id"
+        private const val COLUMN_REMATCH_STATS_PLAYER_ID = "player_id"
+        private const val COLUMN_REMATCH_STATS_R1_WINS = "round1_wins"
+        private const val COLUMN_REMATCH_STATS_R1_POINTS = "round1_points"
+        private const val COLUMN_REMATCH_STATS_R1_MARS = "round1_mars_wins"
+        private const val COLUMN_REMATCH_STATS_R1_BG = "round1_backgammon_wins"
+        private const val COLUMN_REMATCH_STATS_R2_WINS = "round2_wins"
+        private const val COLUMN_REMATCH_STATS_R2_POINTS = "round2_points"
+        private const val COLUMN_REMATCH_STATS_R2_MARS = "round2_mars_wins"
+        private const val COLUMN_REMATCH_STATS_R2_BG = "round2_backgammon_wins"
+        private const val COLUMN_REMATCH_STATS_TOTAL_WINS = "total_wins"
+        private const val COLUMN_REMATCH_STATS_TOTAL_POINTS = "total_points"
+        private const val COLUMN_REMATCH_STATS_R1_PARTIES = "round1_parties_won"
+        private const val COLUMN_REMATCH_STATS_R2_PARTIES = "round2_parties_won"
+        private const val COLUMN_REMATCH_STATS_TOTAL_PARTIES = "total_parties_won"
+
+        // Zar Partisi Sütunları (v8)
+        private const val COLUMN_PARTY_ID = "id"
+        private const val COLUMN_PARTY_ENCOUNTER_ID = "encounter_id"
+        private const val COLUMN_PARTY_INDEX = "party_index"
+
+        // Zar Seti Sütunları (v8 güncelleme - party_id eklendi)
+        private const val COLUMN_DICE_SET_PARTY_ID = "party_id"
+        private const val COLUMN_DICE_SET_INDEX = "set_index"
+
+        // Oyun Sonucu Sütunları (v8)
+        private const val COLUMN_GAME_RESULT_ID = "id"
+        private const val COLUMN_GAME_RESULT_ENCOUNTER_ID = "encounter_id"
+        private const val COLUMN_GAME_RESULT_PARTY_INDEX = "party_index"
+        private const val COLUMN_GAME_RESULT_SET_INDEX = "set_index"
+        private const val COLUMN_GAME_RESULT_ROUND_NUMBER = "round_number"
+        private const val COLUMN_GAME_RESULT_LEFT_PLAYER_ID = "left_player_id"
+        private const val COLUMN_GAME_RESULT_RIGHT_PLAYER_ID = "right_player_id"
+        private const val COLUMN_GAME_RESULT_WINNER_ID = "winner_id"
+        private const val COLUMN_GAME_RESULT_WIN_TYPE = "win_type"
+        private const val COLUMN_GAME_RESULT_CUBE_VALUE = "cube_value"
+        private const val COLUMN_GAME_RESULT_FINAL_SCORE = "final_score"
+        private const val COLUMN_GAME_RESULT_LOSER_PIP = "loser_pip_count"
+        private const val COLUMN_GAME_RESULT_DICE_PAIRS_USED = "dice_pairs_used"
+        private const val COLUMN_GAME_RESULT_DATE = "game_date"
+
+        // Parti Sonucu Sütunları (v8)
+        private const val COLUMN_PARTY_RESULT_ID = "id"
+        private const val COLUMN_PARTY_RESULT_ENCOUNTER_ID = "encounter_id"
+        private const val COLUMN_PARTY_RESULT_PARTY_INDEX = "party_index"
+        private const val COLUMN_PARTY_RESULT_ROUND_NUMBER = "round_number"
+        private const val COLUMN_PARTY_RESULT_P1_SCORE = "player1_score"
+        private const val COLUMN_PARTY_RESULT_P2_SCORE = "player2_score"
+        private const val COLUMN_PARTY_RESULT_WINNER_ID = "winner_id"
+        private const val COLUMN_PARTY_RESULT_TOTAL_GAMES = "total_games_played"
+        private const val COLUMN_PARTY_RESULT_DATE = "party_date"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -270,6 +374,129 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             )
         """.trimIndent()
         db.execSQL(createActivityLogsTable)
+
+        // Rövanşlı Karşılaşma Tabloları
+        createRematchTables(db)
+    }
+
+    private fun createRematchTables(db: SQLiteDatabase) {
+        // Ana karsilasma tablosu (v8)
+        val createRematchEncountersTable = """
+            CREATE TABLE $TABLE_REMATCH_ENCOUNTERS (
+                $COLUMN_ENCOUNTER_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_ENCOUNTER_PLAYER1_ID INTEGER NOT NULL,
+                $COLUMN_ENCOUNTER_PLAYER2_ID INTEGER NOT NULL,
+                $COLUMN_ENCOUNTER_TOTAL_PARTIES INTEGER NOT NULL,
+                $COLUMN_ENCOUNTER_CURRENT_ROUND INTEGER DEFAULT 1,
+                $COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX INTEGER DEFAULT 0,
+                $COLUMN_ENCOUNTER_CURRENT_GAME_INDEX INTEGER DEFAULT 0,
+                $COLUMN_ENCOUNTER_STATUS TEXT DEFAULT 'ACTIVE',
+                $COLUMN_ENCOUNTER_CREATED_DATE TEXT NOT NULL,
+                $COLUMN_ENCOUNTER_COMPLETED_DATE TEXT,
+                FOREIGN KEY($COLUMN_ENCOUNTER_PLAYER1_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
+                FOREIGN KEY($COLUMN_ENCOUNTER_PLAYER2_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
+            )
+        """.trimIndent()
+        db.execSQL(createRematchEncountersTable)
+
+        // Zar partisi tablosu (v8) - 100 parti
+        val createRematchDicePartiesTable = """
+            CREATE TABLE $TABLE_REMATCH_DICE_PARTIES (
+                $COLUMN_PARTY_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_PARTY_ENCOUNTER_ID INTEGER NOT NULL,
+                $COLUMN_PARTY_INDEX INTEGER NOT NULL,
+                FOREIGN KEY($COLUMN_PARTY_ENCOUNTER_ID) REFERENCES $TABLE_REMATCH_ENCOUNTERS($COLUMN_ENCOUNTER_ID),
+                UNIQUE($COLUMN_PARTY_ENCOUNTER_ID, $COLUMN_PARTY_INDEX)
+            )
+        """.trimIndent()
+        db.execSQL(createRematchDicePartiesTable)
+
+        // Zar seti tablosu (v8) - her parti icin 21 set
+        val createRematchDiceSetsTable = """
+            CREATE TABLE $TABLE_REMATCH_DICE_SETS (
+                $COLUMN_DICE_SET_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_DICE_SET_PARTY_ID INTEGER NOT NULL,
+                $COLUMN_DICE_SET_INDEX INTEGER NOT NULL,
+                $COLUMN_DICE_SET_STARTING_P1 INTEGER NOT NULL,
+                $COLUMN_DICE_SET_STARTING_P2 INTEGER NOT NULL,
+                $COLUMN_DICE_SET_P1_JSON TEXT NOT NULL,
+                $COLUMN_DICE_SET_P2_JSON TEXT NOT NULL,
+                FOREIGN KEY($COLUMN_DICE_SET_PARTY_ID) REFERENCES $TABLE_REMATCH_DICE_PARTIES($COLUMN_PARTY_ID),
+                UNIQUE($COLUMN_DICE_SET_PARTY_ID, $COLUMN_DICE_SET_INDEX)
+            )
+        """.trimIndent()
+        db.execSQL(createRematchDiceSetsTable)
+
+        // Oyun sonucu tablosu (v8) - tek bir el/oyun sonucu
+        val createRematchGameResultsTable = """
+            CREATE TABLE $TABLE_REMATCH_GAME_RESULTS (
+                $COLUMN_GAME_RESULT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_GAME_RESULT_ENCOUNTER_ID INTEGER NOT NULL,
+                $COLUMN_GAME_RESULT_PARTY_INDEX INTEGER NOT NULL,
+                $COLUMN_GAME_RESULT_SET_INDEX INTEGER NOT NULL,
+                $COLUMN_GAME_RESULT_ROUND_NUMBER INTEGER NOT NULL,
+                $COLUMN_GAME_RESULT_LEFT_PLAYER_ID INTEGER NOT NULL,
+                $COLUMN_GAME_RESULT_RIGHT_PLAYER_ID INTEGER NOT NULL,
+                $COLUMN_GAME_RESULT_WINNER_ID INTEGER,
+                $COLUMN_GAME_RESULT_WIN_TYPE TEXT,
+                $COLUMN_GAME_RESULT_CUBE_VALUE INTEGER DEFAULT 1,
+                $COLUMN_GAME_RESULT_FINAL_SCORE INTEGER,
+                $COLUMN_GAME_RESULT_LOSER_PIP INTEGER,
+                $COLUMN_GAME_RESULT_DICE_PAIRS_USED INTEGER,
+                $COLUMN_GAME_RESULT_DATE TEXT,
+                FOREIGN KEY($COLUMN_GAME_RESULT_ENCOUNTER_ID) REFERENCES $TABLE_REMATCH_ENCOUNTERS($COLUMN_ENCOUNTER_ID),
+                FOREIGN KEY($COLUMN_GAME_RESULT_LEFT_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
+                FOREIGN KEY($COLUMN_GAME_RESULT_RIGHT_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
+                FOREIGN KEY($COLUMN_GAME_RESULT_WINNER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
+                UNIQUE($COLUMN_GAME_RESULT_ENCOUNTER_ID, $COLUMN_GAME_RESULT_PARTY_INDEX, $COLUMN_GAME_RESULT_SET_INDEX, $COLUMN_GAME_RESULT_ROUND_NUMBER)
+            )
+        """.trimIndent()
+        db.execSQL(createRematchGameResultsTable)
+
+        // Parti sonucu tablosu (v8) - 11'lik parti sonucu
+        val createRematchPartyResultsTable = """
+            CREATE TABLE $TABLE_REMATCH_PARTY_RESULTS (
+                $COLUMN_PARTY_RESULT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_PARTY_RESULT_ENCOUNTER_ID INTEGER NOT NULL,
+                $COLUMN_PARTY_RESULT_PARTY_INDEX INTEGER NOT NULL,
+                $COLUMN_PARTY_RESULT_ROUND_NUMBER INTEGER NOT NULL,
+                $COLUMN_PARTY_RESULT_P1_SCORE INTEGER DEFAULT 0,
+                $COLUMN_PARTY_RESULT_P2_SCORE INTEGER DEFAULT 0,
+                $COLUMN_PARTY_RESULT_WINNER_ID INTEGER,
+                $COLUMN_PARTY_RESULT_TOTAL_GAMES INTEGER DEFAULT 0,
+                $COLUMN_PARTY_RESULT_DATE TEXT,
+                FOREIGN KEY($COLUMN_PARTY_RESULT_ENCOUNTER_ID) REFERENCES $TABLE_REMATCH_ENCOUNTERS($COLUMN_ENCOUNTER_ID),
+                FOREIGN KEY($COLUMN_PARTY_RESULT_WINNER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
+                UNIQUE($COLUMN_PARTY_RESULT_ENCOUNTER_ID, $COLUMN_PARTY_RESULT_PARTY_INDEX, $COLUMN_PARTY_RESULT_ROUND_NUMBER)
+            )
+        """.trimIndent()
+        db.execSQL(createRematchPartyResultsTable)
+
+        // Karsilasma istatistikleri tablosu (v8 guncelleme)
+        val createRematchEncounterStatsTable = """
+            CREATE TABLE $TABLE_REMATCH_ENCOUNTER_STATS (
+                $COLUMN_REMATCH_STATS_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_REMATCH_STATS_ENCOUNTER_ID INTEGER NOT NULL,
+                $COLUMN_REMATCH_STATS_PLAYER_ID INTEGER NOT NULL,
+                $COLUMN_REMATCH_STATS_R1_PARTIES INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R1_WINS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R1_POINTS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R1_MARS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R1_BG INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R2_PARTIES INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R2_WINS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R2_POINTS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R2_MARS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_R2_BG INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_TOTAL_PARTIES INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_TOTAL_WINS INTEGER DEFAULT 0,
+                $COLUMN_REMATCH_STATS_TOTAL_POINTS INTEGER DEFAULT 0,
+                FOREIGN KEY($COLUMN_REMATCH_STATS_ENCOUNTER_ID) REFERENCES $TABLE_REMATCH_ENCOUNTERS($COLUMN_ENCOUNTER_ID),
+                FOREIGN KEY($COLUMN_REMATCH_STATS_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
+                UNIQUE($COLUMN_REMATCH_STATS_ENCOUNTER_ID, $COLUMN_REMATCH_STATS_PLAYER_ID)
+            )
+        """.trimIndent()
+        db.execSQL(createRematchEncounterStatsTable)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -309,6 +536,26 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         // Versiyon 5'ten 6'ya gecis: dice_evaluations tablosuna state kolonu eklendi
         if (oldVersion < 6) {
             db.execSQL("ALTER TABLE $TABLE_DICE_EVALUATIONS ADD COLUMN $COLUMN_EVAL_STATE TEXT DEFAULT 'OYANDI'")
+        }
+
+        // Versiyon 6'dan 7'ye gecis: Rovansli Karsilasma tablolari eklendi (eski yapi)
+        if (oldVersion < 7 && oldVersion >= 6) {
+            // Eski v7 tabloları artık kullanılmıyor, v8'de yeniden oluşturulacak
+        }
+
+        // Versiyon 7'den 8'e gecis: Party/Set yapısına gecis
+        if (oldVersion < 8) {
+            // Eski tabloları temizle (varsa)
+            try {
+                db.execSQL("DROP TABLE IF EXISTS $TABLE_REMATCH_MATCH_RESULTS")
+                db.execSQL("DROP TABLE IF EXISTS $TABLE_REMATCH_DICE_SETS")
+                db.execSQL("DROP TABLE IF EXISTS $TABLE_REMATCH_ENCOUNTER_STATS")
+                db.execSQL("DROP TABLE IF EXISTS $TABLE_REMATCH_ENCOUNTERS")
+            } catch (e: Exception) {
+                // Tablo yoksa hata vermesin
+            }
+            // Yeni tabloları oluştur
+            createRematchTables(db)
         }
     }
 
@@ -1680,5 +1927,858 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val startDate = "$today 00:00:00"
         val endDate = "$today 23:59:59"
         return getActivityLogsByDateRange(startDate, endDate)
+    }
+
+    // ============== ROVANSLI KARSILASMA FONKSİYONLARI (v8 Party/Set yapısı) ==============
+
+    /**
+     * Yeni rovansli karsilasma olustur
+     * @param totalParties Toplam parti sayısı (örn: 100)
+     */
+    fun createRematchEncounter(player1Id: Long, player2Id: Long, totalParties: Int): Long {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_PLAYER1_ID, player1Id)
+        values.put(COLUMN_ENCOUNTER_PLAYER2_ID, player2Id)
+        values.put(COLUMN_ENCOUNTER_TOTAL_PARTIES, totalParties)
+        values.put(COLUMN_ENCOUNTER_CURRENT_ROUND, 1)
+        values.put(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX, 0)
+        values.put(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX, 0)
+        values.put(COLUMN_ENCOUNTER_STATUS, RematchStatus.ACTIVE.name)
+        values.put(COLUMN_ENCOUNTER_CREATED_DATE, getCurrentDateTime())
+
+        val encounterId = db.insert(TABLE_REMATCH_ENCOUNTERS, null, values)
+
+        // Her iki oyuncu icin istatistik kaydi olustur
+        if (encounterId != -1L) {
+            initializeRematchStats(encounterId, player1Id, db)
+            initializeRematchStats(encounterId, player2Id, db)
+        }
+
+        db.close()
+        return encounterId
+    }
+
+    private fun initializeRematchStats(encounterId: Long, playerId: Long, db: SQLiteDatabase) {
+        val values = ContentValues()
+        values.put(COLUMN_REMATCH_STATS_ENCOUNTER_ID, encounterId)
+        values.put(COLUMN_REMATCH_STATS_PLAYER_ID, playerId)
+        db.insert(TABLE_REMATCH_ENCOUNTER_STATS, null, values)
+    }
+
+    /**
+     * Karsilasma icin zar partileri ve setlerini uret ve kaydet
+     * Yapi: N parti × 21 set × 200 zar ciftii
+     * @param totalParties Toplam parti sayısı
+     */
+    fun generateAndSaveDiceSets(encounterId: Long, totalParties: Int): Boolean {
+        val db = this.writableDatabase
+        try {
+            db.beginTransaction()
+
+            for (partyIndex in 0 until totalParties) {
+                // Parti olustur
+                val partyValues = ContentValues()
+                partyValues.put(COLUMN_PARTY_ENCOUNTER_ID, encounterId)
+                partyValues.put(COLUMN_PARTY_INDEX, partyIndex)
+                val partyId = db.insert(TABLE_REMATCH_DICE_PARTIES, null, partyValues)
+
+                if (partyId == -1L) {
+                    db.endTransaction()
+                    db.close()
+                    return false
+                }
+
+                // Bu parti icin 21 zar seti olustur
+                for (setIndex in 0 until DiceGenerator.SETS_PER_PARTY) {
+                    val diceSet = DiceGenerator.generateDiceSet()
+
+                    val setValues = ContentValues()
+                    setValues.put(COLUMN_DICE_SET_PARTY_ID, partyId)
+                    setValues.put(COLUMN_DICE_SET_INDEX, setIndex)
+                    setValues.put(COLUMN_DICE_SET_STARTING_P1, diceSet.startingDicePlayer1)
+                    setValues.put(COLUMN_DICE_SET_STARTING_P2, diceSet.startingDicePlayer2)
+                    setValues.put(COLUMN_DICE_SET_P1_JSON, DiceGenerator.diceSequenceToJson(diceSet.player1Dice))
+                    setValues.put(COLUMN_DICE_SET_P2_JSON, DiceGenerator.diceSequenceToJson(diceSet.player2Dice))
+
+                    db.insert(TABLE_REMATCH_DICE_SETS, null, setValues)
+                }
+            }
+
+            db.setTransactionSuccessful()
+            db.endTransaction()
+            db.close()
+            return true
+        } catch (e: Exception) {
+            try { db.endTransaction() } catch (_: Exception) {}
+            db.close()
+            return false
+        }
+    }
+
+    /**
+     * Karsilasma bilgisini getir
+     */
+    fun getRematchEncounter(encounterId: Long): RematchEncounter? {
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT e.*, p1.name as player1_name, p2.name as player2_name
+            FROM $TABLE_REMATCH_ENCOUNTERS e
+            LEFT JOIN $TABLE_PLAYERS p1 ON e.$COLUMN_ENCOUNTER_PLAYER1_ID = p1.$COLUMN_PLAYER_ID
+            LEFT JOIN $TABLE_PLAYERS p2 ON e.$COLUMN_ENCOUNTER_PLAYER2_ID = p2.$COLUMN_PLAYER_ID
+            WHERE e.$COLUMN_ENCOUNTER_ID = ?
+        """, arrayOf(encounterId.toString()))
+
+        if (cursor.moveToFirst()) {
+            val encounter = RematchEncounter(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_ID)),
+                player1Id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_PLAYER1_ID)),
+                player2Id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_PLAYER2_ID)),
+                player1Name = cursor.getString(cursor.getColumnIndexOrThrow("player1_name")) ?: "",
+                player2Name = cursor.getString(cursor.getColumnIndexOrThrow("player2_name")) ?: "",
+                totalParties = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TOTAL_PARTIES)),
+                currentRound = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_ROUND)),
+                currentPartyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX)),
+                currentGameIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX)),
+                status = RematchStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_STATUS))),
+                createdDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CREATED_DATE)),
+                completedDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_COMPLETED_DATE))
+            )
+            cursor.close()
+            db.close()
+            return encounter
+        }
+
+        cursor.close()
+        db.close()
+        return null
+    }
+
+    /**
+     * Aktif karsilasmalari getir
+     */
+    fun getActiveRematchEncounters(): List<RematchEncounter> {
+        val encounters = mutableListOf<RematchEncounter>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT e.*, p1.name as player1_name, p2.name as player2_name
+            FROM $TABLE_REMATCH_ENCOUNTERS e
+            LEFT JOIN $TABLE_PLAYERS p1 ON e.$COLUMN_ENCOUNTER_PLAYER1_ID = p1.$COLUMN_PLAYER_ID
+            LEFT JOIN $TABLE_PLAYERS p2 ON e.$COLUMN_ENCOUNTER_PLAYER2_ID = p2.$COLUMN_PLAYER_ID
+            WHERE e.$COLUMN_ENCOUNTER_STATUS IN ('ACTIVE', 'ROUND1_COMPLETE', 'ROUND2_ACTIVE')
+            ORDER BY e.$COLUMN_ENCOUNTER_CREATED_DATE DESC
+        """, null)
+
+        if (cursor.moveToFirst()) {
+            do {
+                val encounter = RematchEncounter(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_ID)),
+                    player1Id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_PLAYER1_ID)),
+                    player2Id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_PLAYER2_ID)),
+                    player1Name = cursor.getString(cursor.getColumnIndexOrThrow("player1_name")) ?: "",
+                    player2Name = cursor.getString(cursor.getColumnIndexOrThrow("player2_name")) ?: "",
+                    totalParties = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TOTAL_PARTIES)),
+                    currentRound = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_ROUND)),
+                    currentPartyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX)),
+                    currentGameIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX)),
+                    status = RematchStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_STATUS))),
+                    createdDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CREATED_DATE)),
+                    completedDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_COMPLETED_DATE))
+                )
+                encounters.add(encounter)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return encounters
+    }
+
+    /**
+     * Tum karsilasmalari getir
+     */
+    fun getAllRematchEncounters(): List<RematchEncounter> {
+        val encounters = mutableListOf<RematchEncounter>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT e.*, p1.name as player1_name, p2.name as player2_name
+            FROM $TABLE_REMATCH_ENCOUNTERS e
+            LEFT JOIN $TABLE_PLAYERS p1 ON e.$COLUMN_ENCOUNTER_PLAYER1_ID = p1.$COLUMN_PLAYER_ID
+            LEFT JOIN $TABLE_PLAYERS p2 ON e.$COLUMN_ENCOUNTER_PLAYER2_ID = p2.$COLUMN_PLAYER_ID
+            ORDER BY e.$COLUMN_ENCOUNTER_CREATED_DATE DESC
+        """, null)
+
+        if (cursor.moveToFirst()) {
+            do {
+                val encounter = RematchEncounter(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_ID)),
+                    player1Id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_PLAYER1_ID)),
+                    player2Id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_PLAYER2_ID)),
+                    player1Name = cursor.getString(cursor.getColumnIndexOrThrow("player1_name")) ?: "",
+                    player2Name = cursor.getString(cursor.getColumnIndexOrThrow("player2_name")) ?: "",
+                    totalParties = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TOTAL_PARTIES)),
+                    currentRound = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_ROUND)),
+                    currentPartyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX)),
+                    currentGameIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX)),
+                    status = RematchStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_STATUS))),
+                    createdDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CREATED_DATE)),
+                    completedDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_COMPLETED_DATE))
+                )
+                encounters.add(encounter)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return encounters
+    }
+
+    /**
+     * Belirli bir parti ve oyun icin zar setini getir
+     */
+    fun getDiceSetForGame(encounterId: Long, partyIndex: Int, setIndex: Int): RematchDiceSet? {
+        val db = this.readableDatabase
+
+        // Önce party ID'yi bul
+        val partyCursor = db.rawQuery("""
+            SELECT $COLUMN_PARTY_ID FROM $TABLE_REMATCH_DICE_PARTIES
+            WHERE $COLUMN_PARTY_ENCOUNTER_ID = ? AND $COLUMN_PARTY_INDEX = ?
+        """, arrayOf(encounterId.toString(), partyIndex.toString()))
+
+        if (!partyCursor.moveToFirst()) {
+            partyCursor.close()
+            db.close()
+            return null
+        }
+
+        val partyId = partyCursor.getLong(partyCursor.getColumnIndexOrThrow(COLUMN_PARTY_ID))
+        partyCursor.close()
+
+        // Zar setini getir
+        val cursor = db.rawQuery("""
+            SELECT * FROM $TABLE_REMATCH_DICE_SETS
+            WHERE $COLUMN_DICE_SET_PARTY_ID = ? AND $COLUMN_DICE_SET_INDEX = ?
+        """, arrayOf(partyId.toString(), setIndex.toString()))
+
+        if (cursor.moveToFirst()) {
+            val diceSet = RematchDiceSet(
+                id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_ID)),
+                partyId = partyId,
+                setIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_INDEX)),
+                startingDicePlayer1 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_STARTING_P1)),
+                startingDicePlayer2 = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_STARTING_P2)),
+                player1Dice = DiceGenerator.jsonToDiceSequence(
+                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_P1_JSON))
+                ),
+                player2Dice = DiceGenerator.jsonToDiceSequence(
+                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_P2_JSON))
+                )
+            )
+            cursor.close()
+            db.close()
+            return diceSet
+        }
+
+        cursor.close()
+        db.close()
+        return null
+    }
+
+    /**
+     * Oyun (el) sonucunu kaydet
+     */
+    fun saveRematchGameResult(
+        encounterId: Long,
+        partyIndex: Int,
+        setIndex: Int,
+        roundNumber: Int,
+        leftPlayerId: Long,
+        rightPlayerId: Long,
+        winnerId: Long,
+        winType: String,
+        cubeValue: Int,
+        finalScore: Int,
+        loserPipCount: Int,
+        dicePairsUsed: Int
+    ): Long {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_GAME_RESULT_ENCOUNTER_ID, encounterId)
+        values.put(COLUMN_GAME_RESULT_PARTY_INDEX, partyIndex)
+        values.put(COLUMN_GAME_RESULT_SET_INDEX, setIndex)
+        values.put(COLUMN_GAME_RESULT_ROUND_NUMBER, roundNumber)
+        values.put(COLUMN_GAME_RESULT_LEFT_PLAYER_ID, leftPlayerId)
+        values.put(COLUMN_GAME_RESULT_RIGHT_PLAYER_ID, rightPlayerId)
+        values.put(COLUMN_GAME_RESULT_WINNER_ID, winnerId)
+        values.put(COLUMN_GAME_RESULT_WIN_TYPE, winType)
+        values.put(COLUMN_GAME_RESULT_CUBE_VALUE, cubeValue)
+        values.put(COLUMN_GAME_RESULT_FINAL_SCORE, finalScore)
+        values.put(COLUMN_GAME_RESULT_LOSER_PIP, loserPipCount)
+        values.put(COLUMN_GAME_RESULT_DICE_PAIRS_USED, dicePairsUsed)
+        values.put(COLUMN_GAME_RESULT_DATE, getCurrentDateTime())
+
+        val resultId = db.insert(TABLE_REMATCH_GAME_RESULTS, null, values)
+
+        // Istatistikleri guncelle
+        if (resultId != -1L) {
+            updateRematchGameStats(encounterId, winnerId, roundNumber, finalScore, winType, db)
+        }
+
+        db.close()
+        return resultId
+    }
+
+    /**
+     * Oyun istatistiklerini guncelle (tek el icin)
+     */
+    private fun updateRematchGameStats(
+        encounterId: Long,
+        winnerId: Long,
+        roundNumber: Int,
+        points: Int,
+        winType: String,
+        db: SQLiteDatabase
+    ) {
+        val winsColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_WINS else COLUMN_REMATCH_STATS_R2_WINS
+        val pointsColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_POINTS else COLUMN_REMATCH_STATS_R2_POINTS
+        val marsColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_MARS else COLUMN_REMATCH_STATS_R2_MARS
+        val bgColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_BG else COLUMN_REMATCH_STATS_R2_BG
+
+        var updateSQL = """
+            UPDATE $TABLE_REMATCH_ENCOUNTER_STATS
+            SET $winsColumn = $winsColumn + 1,
+                $pointsColumn = $pointsColumn + $points,
+                $COLUMN_REMATCH_STATS_TOTAL_WINS = $COLUMN_REMATCH_STATS_TOTAL_WINS + 1,
+                $COLUMN_REMATCH_STATS_TOTAL_POINTS = $COLUMN_REMATCH_STATS_TOTAL_POINTS + $points
+        """
+
+        if (winType == WinTypes.MARS) {
+            updateSQL += ", $marsColumn = $marsColumn + 1"
+        } else if (winType == WinTypes.BACKGAMMON) {
+            updateSQL += ", $bgColumn = $bgColumn + 1"
+        }
+
+        updateSQL += " WHERE $COLUMN_REMATCH_STATS_ENCOUNTER_ID = $encounterId AND $COLUMN_REMATCH_STATS_PLAYER_ID = $winnerId"
+
+        db.execSQL(updateSQL)
+    }
+
+    /**
+     * Oyun istatistiklerini geri al (undo icin)
+     */
+    private fun reverseRematchGameStats(
+        encounterId: Long,
+        winnerId: Long,
+        roundNumber: Int,
+        points: Int,
+        winType: String,
+        db: SQLiteDatabase
+    ) {
+        val winsColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_WINS else COLUMN_REMATCH_STATS_R2_WINS
+        val pointsColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_POINTS else COLUMN_REMATCH_STATS_R2_POINTS
+        val marsColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_MARS else COLUMN_REMATCH_STATS_R2_MARS
+        val bgColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_BG else COLUMN_REMATCH_STATS_R2_BG
+
+        var updateSQL = """
+            UPDATE $TABLE_REMATCH_ENCOUNTER_STATS
+            SET $winsColumn = MAX(0, $winsColumn - 1),
+                $pointsColumn = MAX(0, $pointsColumn - $points),
+                $COLUMN_REMATCH_STATS_TOTAL_WINS = MAX(0, $COLUMN_REMATCH_STATS_TOTAL_WINS - 1),
+                $COLUMN_REMATCH_STATS_TOTAL_POINTS = MAX(0, $COLUMN_REMATCH_STATS_TOTAL_POINTS - $points)
+        """
+
+        if (winType == WinTypes.MARS) {
+            updateSQL += ", $marsColumn = MAX(0, $marsColumn - 1)"
+        } else if (winType == WinTypes.BACKGAMMON) {
+            updateSQL += ", $bgColumn = MAX(0, $bgColumn - 1)"
+        }
+
+        updateSQL += " WHERE $COLUMN_REMATCH_STATS_ENCOUNTER_ID = $encounterId AND $COLUMN_REMATCH_STATS_PLAYER_ID = $winnerId"
+
+        db.execSQL(updateSQL)
+    }
+
+    /**
+     * Tek bir rematch oyun sonucunu sil (undo icin)
+     * Istatistikleri de geri alir
+     */
+    fun deleteRematchGameResult(resultId: Long): Int {
+        val db = this.writableDatabase
+
+        // Once sonuc verisini al (istatistik geri alma icin)
+        val cursor = db.rawQuery(
+            "SELECT * FROM $TABLE_REMATCH_GAME_RESULTS WHERE $COLUMN_GAME_RESULT_ID = ?",
+            arrayOf(resultId.toString())
+        )
+
+        if (cursor.moveToFirst()) {
+            val encounterId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_ENCOUNTER_ID))
+            val winnerIdIdx = cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WINNER_ID)
+            if (!cursor.isNull(winnerIdIdx)) {
+                val winnerId = cursor.getLong(winnerIdIdx)
+                val roundNumber = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_ROUND_NUMBER))
+                val finalScore = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_FINAL_SCORE))
+                val winType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WIN_TYPE)) ?: ""
+
+                // Istatistikleri geri al
+                reverseRematchGameStats(encounterId, winnerId, roundNumber, finalScore, winType, db)
+            }
+        }
+        cursor.close()
+
+        // Kaydi sil
+        val result = db.delete(TABLE_REMATCH_GAME_RESULTS, "$COLUMN_GAME_RESULT_ID = ?", arrayOf(resultId.toString()))
+        db.close()
+        return result
+    }
+
+    /**
+     * Parti kazanan istatistiklerini guncelle
+     */
+    private fun updateRematchPartyStats(
+        encounterId: Long,
+        winnerId: Long,
+        roundNumber: Int,
+        db: SQLiteDatabase
+    ) {
+        val partiesColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_PARTIES else COLUMN_REMATCH_STATS_R2_PARTIES
+
+        val updateSQL = """
+            UPDATE $TABLE_REMATCH_ENCOUNTER_STATS
+            SET $partiesColumn = $partiesColumn + 1,
+                $COLUMN_REMATCH_STATS_TOTAL_PARTIES = $COLUMN_REMATCH_STATS_TOTAL_PARTIES + 1
+            WHERE $COLUMN_REMATCH_STATS_ENCOUNTER_ID = $encounterId AND $COLUMN_REMATCH_STATS_PLAYER_ID = $winnerId
+        """
+
+        db.execSQL(updateSQL)
+    }
+
+    /**
+     * Parti sonucunu kaydet (11'lik parti bitti)
+     */
+    fun saveRematchPartyResult(
+        encounterId: Long,
+        partyIndex: Int,
+        roundNumber: Int,
+        player1Score: Int,
+        player2Score: Int,
+        winnerId: Long,
+        totalGamesPlayed: Int
+    ): Long {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_PARTY_RESULT_ENCOUNTER_ID, encounterId)
+        values.put(COLUMN_PARTY_RESULT_PARTY_INDEX, partyIndex)
+        values.put(COLUMN_PARTY_RESULT_ROUND_NUMBER, roundNumber)
+        values.put(COLUMN_PARTY_RESULT_P1_SCORE, player1Score)
+        values.put(COLUMN_PARTY_RESULT_P2_SCORE, player2Score)
+        values.put(COLUMN_PARTY_RESULT_WINNER_ID, winnerId)
+        values.put(COLUMN_PARTY_RESULT_TOTAL_GAMES, totalGamesPlayed)
+        values.put(COLUMN_PARTY_RESULT_DATE, getCurrentDateTime())
+
+        val resultId = db.insert(TABLE_REMATCH_PARTY_RESULTS, null, values)
+
+        // Parti kazanma istatistiklerini guncelle
+        if (resultId != -1L) {
+            updateRematchPartyStats(encounterId, winnerId, roundNumber, db)
+        }
+
+        db.close()
+        return resultId
+    }
+
+    /**
+     * Karsilasma ilerlemesini guncelle (parti ve oyun indeksi)
+     */
+    fun updateEncounterProgress(encounterId: Long, partyIndex: Int, gameIndex: Int) {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX, partyIndex)
+        values.put(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX, gameIndex)
+        db.update(TABLE_REMATCH_ENCOUNTERS, values, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+    }
+
+    /**
+     * Rovans turuna gec
+     */
+    fun advanceToRematchRound(encounterId: Long) {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_CURRENT_ROUND, 2)
+        values.put(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX, 0)
+        values.put(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX, 0)
+        values.put(COLUMN_ENCOUNTER_STATUS, RematchStatus.ROUND2_ACTIVE.name)
+        db.update(TABLE_REMATCH_ENCOUNTERS, values, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+    }
+
+    /**
+     * Ilk turu tamamla (rovans bekleniyor)
+     */
+    fun completeFirstRound(encounterId: Long) {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_STATUS, RematchStatus.ROUND1_COMPLETE.name)
+        db.update(TABLE_REMATCH_ENCOUNTERS, values, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+    }
+
+    /**
+     * Karsilasmyi tamamla
+     */
+    fun completeEncounter(encounterId: Long) {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_STATUS, RematchStatus.COMPLETED.name)
+        values.put(COLUMN_ENCOUNTER_COMPLETED_DATE, getCurrentDateTime())
+        db.update(TABLE_REMATCH_ENCOUNTERS, values, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+    }
+
+    /**
+     * Karsilasmyi iptal et
+     */
+    fun cancelEncounter(encounterId: Long) {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_STATUS, RematchStatus.CANCELLED.name)
+        values.put(COLUMN_ENCOUNTER_COMPLETED_DATE, getCurrentDateTime())
+        db.update(TABLE_REMATCH_ENCOUNTERS, values, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+    }
+
+    /**
+     * Karsilasma istatistiklerini getir
+     */
+    fun getRematchEncounterStats(encounterId: Long): List<RematchEncounterStats> {
+        val statsList = mutableListOf<RematchEncounterStats>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT s.*, p.name as player_name
+            FROM $TABLE_REMATCH_ENCOUNTER_STATS s
+            LEFT JOIN $TABLE_PLAYERS p ON s.$COLUMN_REMATCH_STATS_PLAYER_ID = p.$COLUMN_PLAYER_ID
+            WHERE s.$COLUMN_REMATCH_STATS_ENCOUNTER_ID = ?
+        """, arrayOf(encounterId.toString()))
+
+        if (cursor.moveToFirst()) {
+            do {
+                val stats = RematchEncounterStats(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_ID)),
+                    encounterId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_ENCOUNTER_ID)),
+                    playerId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_PLAYER_ID)),
+                    playerName = cursor.getString(cursor.getColumnIndexOrThrow("player_name")) ?: "",
+                    round1PartiesWon = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_R1_PARTIES)),
+                    round1GamesWon = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_R1_WINS)),
+                    round1Points = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_R1_POINTS)),
+                    round2PartiesWon = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_R2_PARTIES)),
+                    round2GamesWon = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_R2_WINS)),
+                    round2Points = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_R2_POINTS)),
+                    totalPartiesWon = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_TOTAL_PARTIES)),
+                    totalGamesWon = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_TOTAL_WINS)),
+                    totalPoints = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_REMATCH_STATS_TOTAL_POINTS))
+                )
+                statsList.add(stats)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return statsList
+    }
+
+    /**
+     * Belirli bir karsilasmanin oyun sonuclarini getir
+     */
+    fun getRematchGameResults(encounterId: Long, roundNumber: Int? = null, partyIndex: Int? = null): List<RematchGameResult> {
+        val resultsList = mutableListOf<RematchGameResult>()
+        val db = this.readableDatabase
+
+        val whereClause = StringBuilder("$COLUMN_GAME_RESULT_ENCOUNTER_ID = ?")
+        val args = mutableListOf(encounterId.toString())
+
+        if (roundNumber != null) {
+            whereClause.append(" AND $COLUMN_GAME_RESULT_ROUND_NUMBER = ?")
+            args.add(roundNumber.toString())
+        }
+
+        if (partyIndex != null) {
+            whereClause.append(" AND $COLUMN_GAME_RESULT_PARTY_INDEX = ?")
+            args.add(partyIndex.toString())
+        }
+
+        val query = """
+            SELECT * FROM $TABLE_REMATCH_GAME_RESULTS
+            WHERE $whereClause
+            ORDER BY $COLUMN_GAME_RESULT_ROUND_NUMBER ASC, $COLUMN_GAME_RESULT_PARTY_INDEX ASC, $COLUMN_GAME_RESULT_SET_INDEX ASC
+        """
+
+        val cursor = db.rawQuery(query, args.toTypedArray())
+
+        if (cursor.moveToFirst()) {
+            do {
+                val result = RematchGameResult(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_ID)),
+                    encounterId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_ENCOUNTER_ID)),
+                    partyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_PARTY_INDEX)),
+                    setIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_SET_INDEX)),
+                    roundNumber = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_ROUND_NUMBER)),
+                    leftPlayerId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LEFT_PLAYER_ID)),
+                    rightPlayerId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_RIGHT_PLAYER_ID)),
+                    winnerId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WINNER_ID))) null
+                               else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WINNER_ID)),
+                    winType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WIN_TYPE)),
+                    cubeValue = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_CUBE_VALUE)),
+                    finalScore = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_FINAL_SCORE))) null
+                                 else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_FINAL_SCORE)),
+                    loserPipCount = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LOSER_PIP))) null
+                                    else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LOSER_PIP)),
+                    dicePairsUsed = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DICE_PAIRS_USED))) null
+                                    else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DICE_PAIRS_USED)),
+                    gameDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DATE))
+                )
+                resultsList.add(result)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return resultsList
+    }
+
+    /**
+     * Belirli bir karsilasmanin parti sonuclarini getir
+     */
+    fun getRematchPartyResults(encounterId: Long, roundNumber: Int? = null): List<RematchPartyResult> {
+        val resultsList = mutableListOf<RematchPartyResult>()
+        val db = this.readableDatabase
+
+        val query = if (roundNumber != null) {
+            """
+                SELECT * FROM $TABLE_REMATCH_PARTY_RESULTS
+                WHERE $COLUMN_PARTY_RESULT_ENCOUNTER_ID = ? AND $COLUMN_PARTY_RESULT_ROUND_NUMBER = ?
+                ORDER BY $COLUMN_PARTY_RESULT_PARTY_INDEX ASC
+            """
+        } else {
+            """
+                SELECT * FROM $TABLE_REMATCH_PARTY_RESULTS
+                WHERE $COLUMN_PARTY_RESULT_ENCOUNTER_ID = ?
+                ORDER BY $COLUMN_PARTY_RESULT_ROUND_NUMBER ASC, $COLUMN_PARTY_RESULT_PARTY_INDEX ASC
+            """
+        }
+
+        val cursor = if (roundNumber != null) {
+            db.rawQuery(query, arrayOf(encounterId.toString(), roundNumber.toString()))
+        } else {
+            db.rawQuery(query, arrayOf(encounterId.toString()))
+        }
+
+        if (cursor.moveToFirst()) {
+            do {
+                val result = RematchPartyResult(
+                    id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_ID)),
+                    encounterId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_ENCOUNTER_ID)),
+                    partyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_PARTY_INDEX)),
+                    roundNumber = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_ROUND_NUMBER)),
+                    player1Score = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_P1_SCORE)),
+                    player2Score = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_P2_SCORE)),
+                    winnerId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_WINNER_ID))) null
+                               else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_WINNER_ID)),
+                    totalGamesPlayed = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_TOTAL_GAMES)),
+                    partyDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_PARTY_RESULT_DATE))
+                )
+                resultsList.add(result)
+            } while (cursor.moveToNext())
+        }
+
+        cursor.close()
+        db.close()
+        return resultsList
+    }
+
+    /**
+     * Ilk turda oynanan oyunun rovanstaki sonucunu getir
+     * @return PreviousGameInfo - Ilk turda bu parti/set icin oynanan oyunun sonucu
+     */
+    fun getPreviousRoundGameResult(encounterId: Long, partyIndex: Int, setIndex: Int): PreviousGameInfo {
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("""
+            SELECT g.*, p.name as winner_name
+            FROM $TABLE_REMATCH_GAME_RESULTS g
+            LEFT JOIN $TABLE_PLAYERS p ON g.$COLUMN_GAME_RESULT_WINNER_ID = p.$COLUMN_PLAYER_ID
+            WHERE g.$COLUMN_GAME_RESULT_ENCOUNTER_ID = ?
+              AND g.$COLUMN_GAME_RESULT_PARTY_INDEX = ?
+              AND g.$COLUMN_GAME_RESULT_SET_INDEX = ?
+              AND g.$COLUMN_GAME_RESULT_ROUND_NUMBER = 1
+        """, arrayOf(encounterId.toString(), partyIndex.toString(), setIndex.toString()))
+
+        val result = if (cursor.moveToFirst()) {
+            PreviousGameInfo(
+                wasPlayed = true,
+                winnerId = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WINNER_ID))) null
+                           else cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WINNER_ID)),
+                winnerName = cursor.getString(cursor.getColumnIndexOrThrow("winner_name")),
+                winType = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_WIN_TYPE)),
+                loserPipCount = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LOSER_PIP))) null
+                                else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LOSER_PIP)),
+                dicePairsUsed = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DICE_PAIRS_USED))) null
+                                else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DICE_PAIRS_USED))
+            )
+        } else {
+            PreviousGameInfo(wasPlayed = false)
+        }
+
+        cursor.close()
+        db.close()
+        return result
+    }
+
+    /**
+     * Karsilasmyi ve ilgili tum verileri sil
+     */
+    /**
+     * Bir parti icindeki mevcut toplam skoru hesapla
+     * @return Pair(player1Score, player2Score)
+     */
+    fun getPartyScore(encounterId: Long, partyIndex: Int, roundNumber: Int): Pair<Int, Int> {
+        val encounter = getRematchEncounter(encounterId) ?: return Pair(0, 0)
+        val db = this.readableDatabase
+
+        val cursor = db.rawQuery("""
+            SELECT $COLUMN_GAME_RESULT_WINNER_ID, SUM($COLUMN_GAME_RESULT_FINAL_SCORE) as total_score
+            FROM $TABLE_REMATCH_GAME_RESULTS
+            WHERE $COLUMN_GAME_RESULT_ENCOUNTER_ID = ?
+              AND $COLUMN_GAME_RESULT_PARTY_INDEX = ?
+              AND $COLUMN_GAME_RESULT_ROUND_NUMBER = ?
+            GROUP BY $COLUMN_GAME_RESULT_WINNER_ID
+        """, arrayOf(encounterId.toString(), partyIndex.toString(), roundNumber.toString()))
+
+        var player1Score = 0
+        var player2Score = 0
+
+        if (cursor.moveToFirst()) {
+            do {
+                val winnerId = cursor.getLong(0)
+                val score = cursor.getInt(1)
+                if (winnerId == encounter.player1Id) player1Score = score
+                else if (winnerId == encounter.player2Id) player2Score = score
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        db.close()
+        return Pair(player1Score, player2Score)
+    }
+
+    /**
+     * Bir parti icin karsilastirma verisi getir
+     * Her iki turun oyun sonuclarini setIndex ile eslestir
+     */
+    fun getPartyComparisonData(encounterId: Long, partyIndex: Int): PartyComparisonData {
+        val round1Games = getRematchGameResults(encounterId, roundNumber = 1, partyIndex = partyIndex)
+        val round2Games = getRematchGameResults(encounterId, roundNumber = 2, partyIndex = partyIndex)
+
+        val round1PartyResult = getRematchPartyResults(encounterId, roundNumber = 1)
+            .find { it.partyIndex == partyIndex }
+        val round2PartyResult = getRematchPartyResults(encounterId, roundNumber = 2)
+            .find { it.partyIndex == partyIndex }
+
+        val maxSetIndex = maxOf(
+            round1Games.maxOfOrNull { it.setIndex } ?: -1,
+            round2Games.maxOfOrNull { it.setIndex } ?: -1
+        )
+
+        val gameComparisons = if (maxSetIndex >= 0) {
+            (0..maxSetIndex).map { setIdx ->
+                GameComparisonRow(
+                    setIndex = setIdx,
+                    round1Result = round1Games.find { it.setIndex == setIdx },
+                    round2Result = round2Games.find { it.setIndex == setIdx }
+                )
+            }
+        } else {
+            emptyList()
+        }
+
+        // Istatistikleri hesapla
+        val round1TotalDicePairs = round1Games.sumOf { it.dicePairsUsed ?: 0 }
+        val round2TotalDicePairs = round2Games.sumOf { it.dicePairsUsed ?: 0 }
+        val round1MarsCount = round1Games.count { it.winType == WinTypes.MARS }
+        val round2MarsCount = round2Games.count { it.winType == WinTypes.MARS }
+        val round1BackgammonCount = round1Games.count { it.winType == WinTypes.BACKGAMMON }
+        val round2BackgammonCount = round2Games.count { it.winType == WinTypes.BACKGAMMON }
+        val round1MaxCube = round1Games.maxOfOrNull { it.cubeValue } ?: 1
+        val round2MaxCube = round2Games.maxOfOrNull { it.cubeValue } ?: 1
+
+        // Ayni/farkli kazanan sayilari
+        var sameWinnerCount = 0
+        var differentWinnerCount = 0
+        gameComparisons.forEach { row ->
+            val r1Winner = row.round1Result?.winnerId
+            val r2Winner = row.round2Result?.winnerId
+            if (r1Winner != null && r2Winner != null) {
+                // Rovansta oyuncular yer degistirdigindan, ayni fiziksel oyuncu mu kontrol et
+                // Round 1'de leftPlayer = player1, Round 2'de leftPlayer = player2
+                // Yani round1'deki winnerId ile round2'deki winnerId ayni ise ayni oyuncu kazanmis
+                if (r1Winner == r2Winner) sameWinnerCount++
+                else differentWinnerCount++
+            }
+        }
+
+        return PartyComparisonData(
+            partyIndex = partyIndex,
+            round1PartyResult = round1PartyResult,
+            round2PartyResult = round2PartyResult,
+            gameComparisons = gameComparisons,
+            round1TotalDicePairs = round1TotalDicePairs,
+            round2TotalDicePairs = round2TotalDicePairs,
+            round1MarsCount = round1MarsCount,
+            round2MarsCount = round2MarsCount,
+            round1BackgammonCount = round1BackgammonCount,
+            round2BackgammonCount = round2BackgammonCount,
+            round1MaxCube = round1MaxCube,
+            round2MaxCube = round2MaxCube,
+            sameWinnerCount = sameWinnerCount,
+            differentWinnerCount = differentWinnerCount
+        )
+    }
+
+    fun deleteRematchEncounter(encounterId: Long): Int {
+        val db = this.writableDatabase
+
+        // Önce parti ID'lerini al
+        val partyCursor = db.rawQuery("""
+            SELECT $COLUMN_PARTY_ID FROM $TABLE_REMATCH_DICE_PARTIES
+            WHERE $COLUMN_PARTY_ENCOUNTER_ID = ?
+        """, arrayOf(encounterId.toString()))
+
+        val partyIds = mutableListOf<Long>()
+        if (partyCursor.moveToFirst()) {
+            do {
+                partyIds.add(partyCursor.getLong(partyCursor.getColumnIndexOrThrow(COLUMN_PARTY_ID)))
+            } while (partyCursor.moveToNext())
+        }
+        partyCursor.close()
+
+        // Zar setlerini sil (her parti icin)
+        for (partyId in partyIds) {
+            db.delete(TABLE_REMATCH_DICE_SETS, "$COLUMN_DICE_SET_PARTY_ID = ?", arrayOf(partyId.toString()))
+        }
+
+        // Partileri sil
+        db.delete(TABLE_REMATCH_DICE_PARTIES, "$COLUMN_PARTY_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+
+        // Oyun sonuclarini sil
+        db.delete(TABLE_REMATCH_GAME_RESULTS, "$COLUMN_GAME_RESULT_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+
+        // Parti sonuclarini sil
+        db.delete(TABLE_REMATCH_PARTY_RESULTS, "$COLUMN_PARTY_RESULT_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+
+        // Istatistikleri sil
+        db.delete(TABLE_REMATCH_ENCOUNTER_STATS, "$COLUMN_REMATCH_STATS_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+
+        // Son olarak ana kaydı sil
+        val result = db.delete(TABLE_REMATCH_ENCOUNTERS, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+        return result
     }
 }

@@ -2,6 +2,8 @@ package com.tavla.tavlapp
 
 import android.content.Intent
 import android.os.Bundle
+import java.text.SimpleDateFormat
+import java.util.Locale
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -67,6 +69,17 @@ enum class DoublingCubePosition {
     PLAYER2_CONTROL  // Oyuncu 2'nin kontrol bölgesi
 }
 
+private fun formatDisplayDate(dbDate: String): String {
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+        val date = inputFormat.parse(dbDate)
+        if (date != null) outputFormat.format(date) else dbDate
+    } catch (e: Exception) {
+        dbDate
+    }
+}
+
 class GameScoreActivity : ComponentActivity() {
     private lateinit var dbHelper: DatabaseHelper
     private var matchId: Long = -1
@@ -100,13 +113,20 @@ class GameScoreActivity : ComponentActivity() {
         val markDiceEvaluation = intent.getBooleanExtra("mark_dice_evaluation", false)
         val processPartialDice = intent.getBooleanExtra("process_partial_dice", false)
 
-        // Yeni maç başlat ve ID'sini al
-        matchId = dbHelper.startNewMatch(player1Id, player2Id, gameType, targetRounds)
+        // Rövanşlı karşılaşma modu
+        val isRematchMode = intent.getBooleanExtra("is_rematch_mode", false)
+        val encounterId = intent.getLongExtra("encounter_id", -1L)
+        val totalParties = intent.getIntExtra("total_parties", 100)
 
-        // Zar istatistikleri tutuluyorsa, initialize et
-        if (keepStatistics) {
-            dbHelper.initializeDiceStats(matchId, player1Id)
-            dbHelper.initializeDiceStats(matchId, player2Id)
+        // Rövanşlı modda normal maç kaydı oluşturma
+        if (!isRematchMode) {
+            matchId = dbHelper.startNewMatch(player1Id, player2Id, gameType, targetRounds)
+
+            // Zar istatistikleri tutuluyorsa, initialize et
+            if (keepStatistics) {
+                dbHelper.initializeDiceStats(matchId, player1Id)
+                dbHelper.initializeDiceStats(matchId, player2Id)
+            }
         }
 
         setContent {
@@ -130,7 +150,10 @@ class GameScoreActivity : ComponentActivity() {
                         processPartialDice = processPartialDice,
                         matchId = matchId,
                         dbHelper = dbHelper,
-                        onFinish = { this.finish() }
+                        onFinish = { this.finish() },
+                        isRematchMode = isRematchMode,
+                        encounterId = encounterId,
+                        totalParties = totalParties
                     )
                 }
             }
@@ -155,7 +178,10 @@ fun GameScreen(
     processPartialDice: Boolean,
     matchId: Long,
     dbHelper: DatabaseHelper,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    isRematchMode: Boolean = false,
+    encounterId: Long = -1L,
+    totalParties: Int = 100
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -218,6 +244,32 @@ fun GameScreen(
     // Zar atma ekranı state'i
     var showDiceScreen by remember { mutableStateOf(false) }
 
+    // === RÖVANŞLI KARŞILAŞMA STATE ===
+    var rematchEncounter by remember { mutableStateOf<RematchEncounter?>(null) }
+    var rematchCurrentRound by remember { mutableIntStateOf(1) }
+    var rematchPartyIndex by remember { mutableIntStateOf(0) }
+    var rematchGameIndex by remember { mutableIntStateOf(0) }
+    var rematchDicePairsUsed by remember { mutableIntStateOf(0) }
+    var rematchUndoStack by remember { mutableStateOf(listOf<Long>()) }
+
+    // Pip input dialog
+    var showPipInputDialog by remember { mutableStateOf(false) }
+    var pendingRematchWinnerId by remember { mutableStateOf(-1L) }
+    var pendingRematchWinnerName by remember { mutableStateOf("") }
+    var pendingRematchWinType by remember { mutableStateOf("") }
+    var pendingRematchBaseScore by remember { mutableIntStateOf(0) }
+    var pipCountInput by remember { mutableStateOf("") }
+
+    // Oyun kimlik bilgileri
+    var gameDisplayId by remember { mutableStateOf("") }
+    var gameStartDate by remember { mutableStateOf("") }
+
+    // Parti/Tur/Karşılaşma geçiş dialogları
+    var showPartyEndDialog by remember { mutableStateOf(false) }
+    var showRoundEndDialog by remember { mutableStateOf(false) }
+    var showEncounterEndDialog by remember { mutableStateOf(false) }
+    var partyEndInfo by remember { mutableStateOf("") }
+
     // Otomatik zar ekranı açma
     LaunchedEffect(useDiceRoller, useTimer) {
         if (useDiceRoller || useTimer) {
@@ -228,7 +280,50 @@ fun GameScreen(
     // ✅ RECOMPOSE ETKİSİ - LaunchedEffect ekle
     LaunchedEffect(recomposeKey) {
         // Bu blok recomposeKey değiştiğinde çalışır ve UI'ı günceller
-        // İçeriği boş bırakabilirsin, sadece recompose tetiklemek için
+    }
+
+    // === RÖVANŞLI KARŞILAŞMA: Encounter state yükleme ===
+    LaunchedEffect(isRematchMode, encounterId, recomposeKey) {
+        if (isRematchMode && encounterId != -1L) {
+            val encounter = dbHelper.getRematchEncounter(encounterId)
+            if (encounter != null) {
+                rematchEncounter = encounter
+                rematchCurrentRound = encounter.currentRound
+                rematchPartyIndex = encounter.currentPartyIndex
+                rematchGameIndex = encounter.currentGameIndex
+                matchTargetScore = 11
+                gameDisplayId = "R-${encounter.id}"
+                gameStartDate = formatDisplayDate(encounter.createdDate)
+
+                // Mevcut parti skorlarını yükle
+                val (p1Score, p2Score) = dbHelper.getPartyScore(
+                    encounterId, encounter.currentPartyIndex, encounter.currentRound
+                )
+                player1Score = p1Score
+                player2Score = p2Score
+
+                // Mevcut partideki oyun sayısını bul
+                val gamesInParty = dbHelper.getRematchGameResults(
+                    encounterId, roundNumber = encounter.currentRound, partyIndex = encounter.currentPartyIndex
+                )
+                currentRound = gamesInParty.size
+
+                // SharedPreferences'dan dice_pairs_used oku
+                val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
+                rematchDicePairsUsed = prefs.getInt("dice_pairs_used_${encounterId}", 0)
+            }
+        }
+    }
+
+    // === NORMAL MOD: Oyun kimlik bilgileri yükleme ===
+    LaunchedEffect(isRematchMode, matchId) {
+        if (!isRematchMode && matchId != -1L) {
+            val match = dbHelper.getMatchDetails(matchId)
+            if (match != null) {
+                gameDisplayId = "M-$matchId"
+                gameStartDate = formatDisplayDate(match.date)
+            }
+        }
     }
 
     // Crawford durumunu kontrol eden fonksiyon
@@ -257,6 +352,11 @@ fun GameScreen(
 
     // Maç sona erdiğinde yapılacak işlemler
     fun endMatch() {
+        // Rövanşlı modda endMatch çağrılmaz (handleRematchPartyEnd kullanılır)
+        if (isRematchMode) {
+            showEndMatchConfirmation = true
+            return
+        }
         val winnerId = dbHelper.finishMatch(matchId)
 
         // Kazananı belirle
@@ -312,8 +412,159 @@ fun GameScreen(
         label = "yOffset"
     )
 
+    // === RÖVANŞLI MOD: Parti bitişi yönetimi ===
+    fun handleRematchPartyEnd() {
+        val totalGamesPlayed = rematchGameIndex + 1
+        val partyWinnerId = if (player1Score >= player2Score) player1Id else player2Id
+        val partyWinnerName = if (player1Score >= player2Score) player1Name else player2Name
+
+        // Parti sonucunu kaydet
+        dbHelper.saveRematchPartyResult(
+            encounterId = encounterId,
+            partyIndex = rematchPartyIndex,
+            roundNumber = rematchCurrentRound,
+            player1Score = player1Score,
+            player2Score = player2Score,
+            winnerId = partyWinnerId,
+            totalGamesPlayed = totalGamesPlayed
+        )
+
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.REMATCH_MATCH_END,
+            description = "Parti ${rematchPartyIndex+1} bitti: $partyWinnerName kazandi ($player1Score-$player2Score)",
+            player1Name = player1Name,
+            player2Name = player2Name
+        )
+
+        val nextPartyIndex = rematchPartyIndex + 1
+
+        if (nextPartyIndex >= totalParties) {
+            if (rematchCurrentRound == 1) {
+                dbHelper.completeFirstRound(encounterId)
+                dbHelper.advanceToRematchRound(encounterId)
+                showRoundEndDialog = true
+            } else {
+                dbHelper.completeEncounter(encounterId)
+                showEncounterEndDialog = true
+            }
+        } else {
+            dbHelper.updateEncounterProgress(encounterId, nextPartyIndex, 0)
+
+            if (rematchCurrentRound == 2) {
+                val intent = Intent(context, RematchComparisonActivity::class.java)
+                intent.putExtra("encounter_id", encounterId)
+                intent.putExtra("party_index", rematchPartyIndex)
+                context.startActivity(intent)
+            }
+
+            partyEndInfo = "Parti ${rematchPartyIndex+1}: $partyWinnerName kazandi ($player1Score-$player2Score)\nParti ${nextPartyIndex+1} basliyor."
+            player1Score = 0
+            player2Score = 0
+            currentRound = 0
+            rematchPartyIndex = nextPartyIndex
+            rematchGameIndex = 0
+            rematchUndoStack = emptyList()
+
+            isCrawfordGame = false
+            crawfordGamePlayed = false
+            isPostCrawford = false
+
+            showPartyEndDialog = true
+            recomposeKey++
+        }
+    }
+
+    // === RÖVANŞLI MOD: Oyun sonucu kaydet ===
+    fun executeRematchAddRound(playerId: Long, playerName: String, winType: String, score: Int) {
+        val finalScore = score * doublingCubeValue
+
+        val leftPlayerId: Long
+        val rightPlayerId: Long
+        if (rematchCurrentRound == 1) {
+            leftPlayerId = player1Id
+            rightPlayerId = player2Id
+        } else {
+            leftPlayerId = player2Id
+            rightPlayerId = player1Id
+        }
+
+        val resultId = dbHelper.saveRematchGameResult(
+            encounterId = encounterId,
+            partyIndex = rematchPartyIndex,
+            setIndex = rematchGameIndex,
+            roundNumber = rematchCurrentRound,
+            leftPlayerId = leftPlayerId,
+            rightPlayerId = rightPlayerId,
+            winnerId = playerId,
+            winType = winType,
+            cubeValue = doublingCubeValue,
+            finalScore = finalScore,
+            loserPipCount = pipCountInput.toIntOrNull() ?: 0,
+            dicePairsUsed = rematchDicePairsUsed
+        )
+
+        if (resultId != -1L) {
+            rematchUndoStack = rematchUndoStack + resultId
+        }
+
+        currentRound++
+        if (playerId == player1Id) {
+            player1Score += finalScore
+            player1RoundsWon++
+        } else {
+            player2Score += finalScore
+            player2RoundsWon++
+        }
+
+        previousDoublingCubeValue = 1
+        previousDoublingCubePosition = DoublingCubePosition.CENTER
+        doublingCubeValue = 1
+        doublingCubePosition = DoublingCubePosition.CENTER
+        player1CanDouble = true
+        player2CanDouble = true
+        showPlayer1DoublingMenu = false
+        showPlayer2DoublingMenu = false
+
+        pipCountInput = ""
+        rematchDicePairsUsed = 0
+
+        handleCrawfordGameEnd()
+        checkCrawfordStatus()
+
+        val winTypeText = when (winType) {
+            "SINGLE" -> "Tek"
+            "MARS" -> "Mars"
+            "BACKGAMMON" -> "Backgammon"
+            else -> winType
+        }
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.SCORE_SINGLE,
+            description = "Rovansli: $playerName $winTypeText (+$finalScore) - Parti ${rematchPartyIndex+1} El ${rematchGameIndex+1}",
+            player1Name = player1Name,
+            player2Name = player2Name
+        )
+
+        Toast.makeText(context, "$playerName: $winTypeText (+$finalScore puan)", Toast.LENGTH_SHORT).show()
+
+        if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
+            handleRematchPartyEnd()
+        } else if (rematchGameIndex + 1 >= DiceGenerator.SETS_PER_PARTY) {
+            handleRematchPartyEnd()
+        } else {
+            rematchGameIndex++
+            dbHelper.updateEncounterProgress(encounterId, rematchPartyIndex, rematchGameIndex)
+        }
+    }
+
     // ✅ Gerçek round ekleme işlemi (onay sonrası veya maç bitmeyecekse direkt çağrılır)
     fun executeAddRound(playerId: Long, playerName: String, winType: String, score: Int) {
+        // === RÖVANŞLI MOD ===
+        if (isRematchMode) {
+            executeRematchAddRound(playerId, playerName, winType, score)
+            return
+        }
+
+        // === NORMAL MOD ===
         currentRound++
 
         // Küp değeri ile çarparak gerçek skoru hesapla
@@ -325,7 +576,7 @@ fun GameScreen(
             roundNumber = currentRound,
             winnerId = playerId,
             winType = winType,
-            isDouble = doublingCubeValue > 1, // Küp kullanıldıysa true
+            isDouble = doublingCubeValue > 1,
             score = finalScore
         )
 
@@ -392,6 +643,34 @@ fun GameScreen(
         // Küp değeri ile çarparak gerçek skoru hesapla
         val finalScore = score * doublingCubeValue
 
+        if (isRematchMode) {
+            // Rövanşlı modda: pending bilgileri kaydet, pip input göster
+            pendingRematchWinnerId = playerId
+            pendingRematchWinnerName = playerName
+            pendingRematchWinType = winType
+            pendingRematchBaseScore = score
+
+            // Bu parti bitecek mi kontrol et
+            val newP1 = if (playerId == player1Id) player1Score + finalScore else player1Score
+            val newP2 = if (playerId == player2Id) player2Score + finalScore else player2Score
+
+            if (newP1 >= matchTargetScore || newP2 >= matchTargetScore) {
+                // Parti bitecek - onay al
+                pendingWinnerId = playerId
+                pendingWinnerName = playerName
+                pendingWinType = winType
+                pendingScore = score
+                pendingFinalPlayer1Score = newP1
+                pendingFinalPlayer2Score = newP2
+                showMatchWinConfirmation = true
+            } else {
+                // Parti bitmeyecek - pip input göster
+                showPipInputDialog = true
+            }
+            return
+        }
+
+        // === NORMAL MOD ===
         // Bu işlem sonrası skorları hesapla
         val newPlayer1Score = if (playerId == player1Id) player1Score + finalScore else player1Score
         val newPlayer2Score = if (playerId == player2Id) player2Score + finalScore else player2Score
@@ -415,6 +694,47 @@ fun GameScreen(
 
     // ✅ Son hamleyi geri al
     fun undoLastRound() {
+        // === RÖVANŞLI MOD UNDO ===
+        if (isRematchMode) {
+            if (rematchUndoStack.isNotEmpty()) {
+                try {
+                    val lastResultId = rematchUndoStack.last()
+                    val deleted = dbHelper.deleteRematchGameResult(lastResultId)
+                    if (deleted > 0) {
+                        rematchUndoStack = rematchUndoStack.dropLast(1)
+
+                        // Parti skorlarını DB'den yeniden yükle
+                        val (p1Score, p2Score) = dbHelper.getPartyScore(
+                            encounterId, rematchPartyIndex, rematchCurrentRound
+                        )
+                        player1Score = p1Score
+                        player2Score = p2Score
+                        currentRound--
+                        if (rematchGameIndex > 0) {
+                            rematchGameIndex--
+                            dbHelper.updateEncounterProgress(encounterId, rematchPartyIndex, rematchGameIndex)
+                        }
+
+                        // Küpü sıfırla
+                        doublingCubeValue = 1
+                        doublingCubePosition = DoublingCubePosition.CENTER
+                        player1CanDouble = true
+                        player2CanDouble = true
+                        showPlayer1DoublingMenu = false
+                        showPlayer2DoublingMenu = false
+
+                        checkCrawfordStatus()
+                        recomposeKey++
+                        Toast.makeText(context, "Son hamle geri alindi", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Hata: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            return
+        }
+
+        // === NORMAL MOD UNDO ===
         if (undoStack.isNotEmpty()) {
             try {
                 val lastRoundId = undoStack.last()
@@ -818,8 +1138,13 @@ fun GameScreen(
                 TextButton(
                     onClick = {
                         showMatchWinConfirmation = false
-                        // Onaylandı, işlemi gerçekleştir
-                        executeAddRound(pendingWinnerId, pendingWinnerName, pendingWinType, pendingScore)
+                        if (isRematchMode) {
+                            // Rövanşlı modda pip input göster
+                            showPipInputDialog = true
+                        } else {
+                            // Normal modda direkt onayla
+                            executeAddRound(pendingWinnerId, pendingWinnerName, pendingWinType, pendingScore)
+                        }
                     }
                 ) {
                     Text("Evet, Onayla", color = Color(0xFF4CAF50))
@@ -829,11 +1154,130 @@ fun GameScreen(
                 TextButton(
                     onClick = {
                         showMatchWinConfirmation = false
-                        // İptal edildi, bekleyen işlemi temizle
                         Toast.makeText(context, "İşlem iptal edildi", Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Text("Hayır, İptal", color = Color.Red)
+                }
+            }
+        )
+    }
+
+    // === RÖVANŞLI MOD: Pip Input Dialog ===
+    if (showPipInputDialog) {
+        AlertDialog(
+            onDismissRequest = { showPipInputDialog = false },
+            title = { Text("Pip Sayisi") },
+            text = {
+                Column {
+                    Text("Kaybeden pip sayisi (opsiyonel):")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.material3.OutlinedTextField(
+                        value = pipCountInput,
+                        onValueChange = { newVal ->
+                            if (newVal.isEmpty() || (newVal.all { it.isDigit() } && (newVal.toIntOrNull() ?: 0) <= 167)) {
+                                pipCountInput = newVal
+                            }
+                        },
+                        placeholder = { Text("0-167") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPipInputDialog = false
+                    executeAddRound(pendingRematchWinnerId, pendingRematchWinnerName, pendingRematchWinType, pendingRematchBaseScore)
+                }) {
+                    Text("Kaydet", color = Color(0xFF4CAF50))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPipInputDialog = false
+                    pipCountInput = ""
+                    executeAddRound(pendingRematchWinnerId, pendingRematchWinnerName, pendingRematchWinType, pendingRematchBaseScore)
+                }) {
+                    Text("Atla (pip=0)")
+                }
+            }
+        )
+    }
+
+    // === RÖVANŞLI MOD: Parti Bitiş Dialog ===
+    if (showPartyEndDialog) {
+        AlertDialog(
+            onDismissRequest = { showPartyEndDialog = false },
+            title = { Text("Parti Tamamlandi") },
+            text = { Text(partyEndInfo) },
+            confirmButton = {
+                TextButton(onClick = { showPartyEndDialog = false }) {
+                    Text("Sonraki Partiye Devam", color = Color(0xFF4CAF50))
+                }
+            }
+        )
+    }
+
+    // === RÖVANŞLI MOD: Tur Bitiş Dialog ===
+    if (showRoundEndDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Tur 1 Tamamlandi!") },
+            text = {
+                Column {
+                    Text("Tum $totalParties parti oynandi.")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Rovans turu basliyor. Zarlar yer degistirecek.",
+                        fontWeight = FontWeight.Bold)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRoundEndDialog = false
+                    // Tur 2 için sıfırla
+                    player1Score = 0
+                    player2Score = 0
+                    currentRound = 0
+                    rematchCurrentRound = 2
+                    rematchPartyIndex = 0
+                    rematchGameIndex = 0
+                    rematchUndoStack = emptyList()
+                    isCrawfordGame = false
+                    crawfordGamePlayed = false
+                    isPostCrawford = false
+                    recomposeKey++
+                }) {
+                    Text("Rovans Turuna Basla", color = Color(0xFF4CAF50))
+                }
+            }
+        )
+    }
+
+    // === RÖVANŞLI MOD: Karşılaşma Bitiş Dialog ===
+    if (showEncounterEndDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Karsilasma Tamamlandi!") },
+            text = { Text("Tum turlar ve partiler oynandi.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEncounterEndDialog = false
+                    val intent = Intent(context, RematchComparisonActivity::class.java)
+                    intent.putExtra("encounter_id", encounterId)
+                    intent.putExtra("party_index", rematchPartyIndex)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    context.startActivity(intent)
+                    onFinish()
+                }) {
+                    Text("Sonuclari Gor", color = Color(0xFF4CAF50))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showEncounterEndDialog = false
+                    onFinish()
+                }) {
+                    Text("Ana Menuye Don")
                 }
             }
         )
@@ -861,6 +1305,76 @@ fun GameScreen(
 
         // İçerik (arka planın üzerinde)
         Column(modifier = Modifier.fillMaxSize()) {
+            // === OYUN KİMLİK BİLGİ BARI ===
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2D2D2D))
+            ) {
+                // Satır 1: ID | Tarih | Mod Etiketi
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = gameDisplayId,
+                        color = if (isRematchMode) Color(0xFFFFD54F) else Color(0xFF81D4FA),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = gameStartDate,
+                        color = Color.LightGray,
+                        fontSize = 10.sp
+                    )
+                    if (isRematchMode) {
+                        Text(
+                            text = "RÖVANŞLI",
+                            color = Color(0xFFCE93D8),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    } else {
+                        Text(
+                            text = gameType,
+                            color = Color(0xFF81C784),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+                // Satır 2: Tur/Parti/El bilgisi (sadece rövanşlı modda)
+                if (isRematchMode) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 1.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Tur ${rematchCurrentRound}/2",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = "Parti ${rematchPartyIndex + 1}/$totalParties",
+                            color = Color(0xFF6A1B9A),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = "El ${rematchGameIndex + 1}/${DiceGenerator.SETS_PER_PARTY}",
+                            color = Color.LightGray,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+
             // Oyuncu bilgileri
             Row(modifier = Modifier.weight(1f)) {
                 // Oyuncu 1 bilgileri
@@ -977,57 +1491,13 @@ fun GameScreen(
 
                 }
 
-                // ORTA KISIM - Zar atma butonu ve hedef puan kutusu
+                // ORTA KISIM - Hedef puan kutusu
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.offset(y = (-50).dp)
+                    modifier = Modifier
+                        .width(160.dp)
+                        .offset(y = (-20).dp)
                 ) {
-                    // ZAR AT / SAAT / İSTATİSTİK butonu - Koşullu görünüm
-                    if (useDiceRoller || useTimer || (keepStatistics && markDiceEvaluation && !useDiceRoller)) {
-                        val buttonText = when {
-                            keepStatistics && markDiceEvaluation && !useDiceRoller -> "📊 ZAR İŞLE"
-                            useDiceRoller && useTimer -> "🎲⏰ ZAR/SAAT"
-                            useDiceRoller -> "🎲 ZAR AT"
-                            useTimer -> "⏰ SAAT KULLAN"
-                            else -> "🎲 ZAR AT"
-                        }
-                        
-                        Button(
-                            onClick = { 
-                                if (keepStatistics && markDiceEvaluation && !useDiceRoller) {
-                                    // Fiziki zar kullanımında istatistik işleme ekranını aç
-                                    val intent = Intent(context, DiceProcessingActivity::class.java).apply {
-                                        putExtra("match_id", matchId)
-                                        putExtra("player1_id", player1Id)
-                                        putExtra("player2_id", player2Id)
-                                        putExtra("player1_name", player1Name)
-                                        putExtra("player2_name", player2Name)
-                                        putExtra("process_partial_dice", processPartialDice)
-                                    }
-                                    context.startActivity(intent)
-                                } else {
-                                    showDiceScreen = true
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF9C27B0).copy(alpha = 0.9f)
-                            ),
-                            modifier = Modifier
-                                .width(100.dp)
-                                .height(30.dp)
-                        ) {
-                            Text(
-                                text = buttonText,
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     // Hedef puan kutusu
                     Box(
                         modifier = Modifier
@@ -1054,13 +1524,12 @@ fun GameScreen(
                         )
                     }
 
-                    // Metin (arka planın üzerinde) - Her modda 15dp aşağıya
+                    // Metin (arka planın üzerinde)
                     Text(
                         text = "$targetRounds",
                         color = Color.White,
                         style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.offset(y = 15.dp)
+                        fontWeight = FontWeight.Bold
                     )
                     }
                 }
@@ -2107,7 +2576,7 @@ fun GameScreen(
                 // Geri al butonu - Her modda göster
                 Button(
                     onClick = { undoLastRound() },
-                    enabled = undoStack.size > 0,
+                    enabled = if (isRematchMode) rematchUndoStack.isNotEmpty() else undoStack.size > 0,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF0D47A1), // Koyu mavi (Blue 900)
                         disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.5f) // Soluk koyu mavi (pasif)
@@ -2177,8 +2646,24 @@ fun GameScreen(
                         }
                     }
                 } else {
-                    // Zar/Saat butonu - Koşullu görünüm (Modern mod)
-                    if (useDiceRoller || useTimer) {
+                    // Modern mod - Zar/Saat veya Rövanş butonu
+                    if (isRematchMode) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, RematchDiceDisplayActivity::class.java)
+                                intent.putExtra("encounter_id", encounterId)
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF6A1B9A) // Mor
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("🎲 Zarlar", color = Color.White, fontSize = 12.sp)
+                        }
+                    } else if (useDiceRoller || useTimer) {
                         val buttonIcon = when {
                             useDiceRoller && useTimer -> "🎲⏰"
                             useDiceRoller -> "🎲"
@@ -2191,7 +2676,7 @@ fun GameScreen(
                             useTimer -> "Saat Kullan"
                             else -> "Zar At"
                         }
-                        
+
                         Button(
                             onClick = { showDiceScreen = true },
                             colors = ButtonDefaults.buttonColors(
@@ -2211,6 +2696,19 @@ fun GameScreen(
                             }
                         }
                     }
+                }
+
+                // Hareketler Dökümü butonu - orta hattın sağında
+                Button(
+                    onClick = { showActivityLogDialog = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF616161) // Gri
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                ) {
+                    Text("📋 Döküm", color = Color.White, fontSize = 12.sp)
                 }
 
                 // Zar İstatistikleri butonu - Sadece keepStatistics true ise göster
@@ -2252,20 +2750,6 @@ fun GameScreen(
                     }
                 }
 
-                // Hareketler Dökümü butonu - Küçük, gri
-                Button(
-                    onClick = { showActivityLogDialog = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF616161) // Gri
-                    ),
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                    modifier = Modifier
-                        .width(60.dp)
-                        .height(50.dp)
-                ) {
-                    Text("📋", fontSize = 14.sp)
-                }
-
                 // Maçı sonlandırma butonu - Koyu kırmızı
                 Button(
                     onClick = { showEndMatchConfirmation = true },
@@ -2280,7 +2764,6 @@ fun GameScreen(
                 }
             }
         }
-
 
         // Katlama Zarı - Sadece Modern tavla için görünür
         if (!isTraditionalGame) {
@@ -2369,8 +2852,8 @@ fun GameScreen(
     // Aktivite sonlandığında yapılacak işlemler
     DisposableEffect(Unit) {
         onDispose {
-            // Eğer maç bitmeden aktivite kapatılırsa, maçı sonlandır
-            if (!showMatchEndDialog && matchId != -1L) {
+            // Rövanşlı modda finishMatch çağırma (encounter DB'de kalmalı)
+            if (!isRematchMode && !showMatchEndDialog && matchId != -1L) {
                 dbHelper.finishMatch(matchId)
             }
         }

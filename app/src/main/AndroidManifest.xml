@@ -94,6 +94,38 @@
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.TavlApp" />
+
+        <!-- Rovansli Karsilasma Aktiviteleri -->
+        <activity
+            android:name=".RematchSetupActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.TavlApp" />
+
+        <activity
+            android:name=".RematchDiceDisplayActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:theme="@style/Theme.TavlApp" />
+
+        <activity
+            android:name=".RematchPipEntryActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.TavlApp" />
+
+        <activity
+            android:name=".RematchProgressActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.TavlApp" />
+
+        <activity
+            android:name=".RematchComparisonActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.TavlApp" />
     </application>
 
 </manifest>
