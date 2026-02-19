@@ -291,7 +291,7 @@ fun GameScreen(
                 rematchCurrentRound = encounter.currentRound
                 rematchPartyIndex = encounter.currentPartyIndex
                 rematchGameIndex = encounter.currentGameIndex
-                matchTargetScore = 11
+                matchTargetScore = targetRounds
                 gameDisplayId = "R-${encounter.id}"
                 gameStartDate = formatDisplayDate(encounter.createdDate)
 
@@ -1305,77 +1305,7 @@ fun GameScreen(
 
         // İçerik (arka planın üzerinde)
         Column(modifier = Modifier.fillMaxSize()) {
-            // === OYUN KİMLİK BİLGİ BARI ===
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF2D2D2D))
-            ) {
-                // Satır 1: ID | Tarih | Mod Etiketi
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = gameDisplayId,
-                        color = if (isRematchMode) Color(0xFFFFD54F) else Color(0xFF81D4FA),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    )
-                    Text(
-                        text = gameStartDate,
-                        color = Color.LightGray,
-                        fontSize = 10.sp
-                    )
-                    if (isRematchMode) {
-                        Text(
-                            text = "RÖVANŞLI",
-                            color = Color(0xFFCE93D8),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        )
-                    } else {
-                        Text(
-                            text = gameType,
-                            color = Color(0xFF81C784),
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-                // Satır 2: Tur/Parti/El bilgisi (sadece rövanşlı modda)
-                if (isRematchMode) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 1.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Tur ${rematchCurrentRound}/2",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = "Parti ${rematchPartyIndex + 1}/$totalParties",
-                            color = Color(0xFF6A1B9A),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = "El ${rematchGameIndex + 1}/${DiceGenerator.SETS_PER_PARTY}",
-                            color = Color.LightGray,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-            }
-
-            // Oyuncu bilgileri
+            // Oyuncu bilgileri (bilgi barı dahil)
             Row(modifier = Modifier.weight(1f)) {
                 // Oyuncu 1 bilgileri
                 Column(
@@ -1386,10 +1316,38 @@ fun GameScreen(
                         .fillMaxHeight()
                         .padding(8.dp)
                 ) {
-                    // Üst kısım - İsim ve Skor
+                    // Üst kısım - Bilgi barı + İsim ve Skor
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Bilgi satırı (sol taraf)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = gameDisplayId,
+                                color = if (isRematchMode) Color(0xFFFFD54F) else Color(0xFF81D4FA),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                            if (isRematchMode) {
+                                Text(
+                                    text = "Tur ${rematchCurrentRound}/2",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            } else {
+                                Text(
+                                    text = gameStartDate,
+                                    color = Color.LightGray,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
                         // Oyuncu adı
                         Text(
                             text = "$player1Name ($player1RoundsWon)",
@@ -1426,14 +1384,15 @@ fun GameScreen(
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFFFB300)
                                 ),
+                                contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .height(50.dp)
+                                    .fillMaxWidth()
+                                    .height(45.dp)
                             ) {
                                 Text(
                                     text = "KATLA",
                                     color = Color.White,
-                                    fontSize = 20.sp,
+                                    fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -1496,8 +1455,18 @@ fun GameScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .width(160.dp)
-                        .offset(y = (-20).dp)
+                        .offset(y = (-42).dp)
                 ) {
+                    // Tarih ve parti bilgisi
+                    if (isRematchMode) {
+                        Text(
+                            text = "$gameStartDate  P${rematchPartyIndex + 1}/$totalParties",
+                            color = Color(0xFFCE93D8),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
                     // Hedef puan kutusu
                     Box(
                         modifier = Modifier
@@ -1543,10 +1512,42 @@ fun GameScreen(
                         .fillMaxHeight()
                         .padding(8.dp)
                 ) {
-                    // Üst kısım - İsim ve Skor
+                    // Üst kısım - Bilgi barı + İsim ve Skor
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Bilgi satırı (sag taraf)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            if (isRematchMode) {
+                                Text(
+                                    text = "RÖVANŞLI",
+                                    color = Color(0xFFCE93D8),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                                Text(
+                                    text = "El ${rematchGameIndex + 1}/${DiceGenerator.SETS_PER_PARTY}",
+                                    color = Color.White,
+                                    fontSize = 11.sp
+                                )
+                            } else {
+                                Text(
+                                    text = gameType,
+                                    color = Color(0xFF81C784),
+                                    fontSize = 10.sp
+                                )
+                                Text(
+                                    text = gameStartDate,
+                                    color = Color.LightGray,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
                         // Oyuncu adı
                         Text(
                             text = "$player2Name ($player2RoundsWon)",
@@ -1583,14 +1584,15 @@ fun GameScreen(
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFFFB300)
                                 ),
+                                contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .height(50.dp)
+                                    .fillMaxWidth()
+                                    .height(45.dp)
                             ) {
                                 Text(
                                     text = "KATLA",
                                     color = Color.White,
-                                    fontSize = 20.sp,
+                                    fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }

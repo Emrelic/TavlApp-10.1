@@ -30,6 +30,8 @@ data class RematchEncounter(
     val player1Name: String = "",
     val player2Name: String = "",
     val totalParties: Int,              // Toplam parti sayisi (ornegin 100)
+    val targetScore: Int = 11,          // Parti hedef puani (ornegin 7, 9, 11)
+    val trackPipCount: Boolean = true,  // Pip sayisi islensin mi
     val currentRound: Int,              // 1 = ilk tur, 2 = rovans turu
     val currentPartyIndex: Int,         // Mevcut parti indeksi (0'dan baslar)
     val currentGameIndex: Int,          // Mevcut el/oyun indeksi (0-20)

@@ -13,7 +13,10 @@ import kotlin.random.Random
 object DiceGenerator {
 
     const val DICE_PAIRS_PER_SET = 200      // Her zar setinde 200 cift zar
-    const val SETS_PER_PARTY = 21           // Her partide maksimum 21 zar seti
+    const val SETS_PER_PARTY = 21           // Her partide maksimum 21 zar seti (11 puanlik parti icin)
+
+    /** Hedef puana gore bir partideki maksimum el sayisini hesaplar */
+    fun maxSetsForTargetScore(targetScore: Int): Int = 2 * targetScore - 1
 
     /**
      * Baslangic zarlarini uret (iki oyuncu icin farkli degerler)

@@ -64,7 +64,7 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
 
     // Görünüm modu için durum değişkeni
     var viewMode by remember { mutableStateOf("Tüm Maçlar") }
-    val viewModeOptions = listOf("Tüm Maçlar", "Oyuncu İstatistikleri", "İkili Karşılaşmalar")
+    val viewModeOptions = listOf("Tüm Maçlar", "Oyuncu İstatistikleri", "İkili Karşılaşmalar", "Rövanşlı Karşılaşmalar")
 
     // Silme modu için durum değişkeni
     var isDeleteMode by remember { mutableStateOf(false) }
@@ -179,8 +179,8 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
                                 maxLines = 2, // Maksimum 2 satır
                                 overflow = TextOverflow.Ellipsis, // Metin taşarsa ...
                                 textAlign = TextAlign.Center, // Ortalanmış metin
-                                fontSize = 12.sp, // Biraz daha küçük font
-                                lineHeight = 14.sp // Satır yüksekliği
+                                fontSize = 11.sp, // 4 sekme sığması için küçük font
+                                lineHeight = 13.sp // Satır yüksekliği
                             )
                         },
                         modifier = Modifier
@@ -354,6 +354,24 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
                             ) {
                                 Text("İkili Karşılaşma İstatistiklerini Görüntüle")
                             }
+                        }
+                    }
+                }
+
+                "Rövanşlı Karşılaşmalar" -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, RematchProgressActivity::class.java)
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Text("Rövanşlı Karşılaşmaları Görüntüle")
                         }
                     }
                 }

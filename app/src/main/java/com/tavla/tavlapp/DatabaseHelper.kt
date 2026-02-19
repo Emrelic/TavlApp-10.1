@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 8
+        private const val DATABASE_VERSION = 9
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -155,6 +155,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_ENCOUNTER_STATUS = "status"
         private const val COLUMN_ENCOUNTER_CREATED_DATE = "created_date"
         private const val COLUMN_ENCOUNTER_COMPLETED_DATE = "completed_date"
+        private const val COLUMN_ENCOUNTER_TARGET_SCORE = "target_score"
+        private const val COLUMN_ENCOUNTER_TRACK_PIP = "track_pip_count"
         // Eski sütun adı (migrasyon uyumu)
         private const val COLUMN_ENCOUNTER_TOTAL_MATCHES = "total_matches"
         private const val COLUMN_ENCOUNTER_CURRENT_MATCH = "current_match"
@@ -387,6 +389,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COLUMN_ENCOUNTER_PLAYER1_ID INTEGER NOT NULL,
                 $COLUMN_ENCOUNTER_PLAYER2_ID INTEGER NOT NULL,
                 $COLUMN_ENCOUNTER_TOTAL_PARTIES INTEGER NOT NULL,
+                $COLUMN_ENCOUNTER_TARGET_SCORE INTEGER DEFAULT 11,
+                $COLUMN_ENCOUNTER_TRACK_PIP INTEGER DEFAULT 1,
                 $COLUMN_ENCOUNTER_CURRENT_ROUND INTEGER DEFAULT 1,
                 $COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX INTEGER DEFAULT 0,
                 $COLUMN_ENCOUNTER_CURRENT_GAME_INDEX INTEGER DEFAULT 0,
@@ -556,6 +560,16 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             }
             // Yeni tabloları oluştur
             createRematchTables(db)
+        }
+
+        // Versiyon 8'den 9'a gecis: target_score ve track_pip_count kolonlari eklendi
+        if (oldVersion < 9) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_ENCOUNTERS ADD COLUMN $COLUMN_ENCOUNTER_TARGET_SCORE INTEGER DEFAULT 11")
+            } catch (e: Exception) { }
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_ENCOUNTERS ADD COLUMN $COLUMN_ENCOUNTER_TRACK_PIP INTEGER DEFAULT 1")
+            } catch (e: Exception) { }
         }
     }
 
@@ -1935,12 +1949,17 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
      * Yeni rovansli karsilasma olustur
      * @param totalParties Toplam parti sayısı (örn: 100)
      */
-    fun createRematchEncounter(player1Id: Long, player2Id: Long, totalParties: Int): Long {
+    fun createRematchEncounter(player1Id: Long, player2Id: Long, totalParties: Int, targetScore: Int = 11, trackPipCount: Boolean = true): Long {
         val db = this.writableDatabase
+        // Yeni kolonlarin var oldugundan emin ol
+        try { db.execSQL("ALTER TABLE $TABLE_REMATCH_ENCOUNTERS ADD COLUMN $COLUMN_ENCOUNTER_TARGET_SCORE INTEGER DEFAULT 11") } catch (_: Exception) {}
+        try { db.execSQL("ALTER TABLE $TABLE_REMATCH_ENCOUNTERS ADD COLUMN $COLUMN_ENCOUNTER_TRACK_PIP INTEGER DEFAULT 1") } catch (_: Exception) {}
         val values = ContentValues()
         values.put(COLUMN_ENCOUNTER_PLAYER1_ID, player1Id)
         values.put(COLUMN_ENCOUNTER_PLAYER2_ID, player2Id)
         values.put(COLUMN_ENCOUNTER_TOTAL_PARTIES, totalParties)
+        values.put(COLUMN_ENCOUNTER_TARGET_SCORE, targetScore)
+        values.put(COLUMN_ENCOUNTER_TRACK_PIP, if (trackPipCount) 1 else 0)
         values.put(COLUMN_ENCOUNTER_CURRENT_ROUND, 1)
         values.put(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX, 0)
         values.put(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX, 0)
@@ -1968,10 +1987,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     /**
      * Karsilasma icin zar partileri ve setlerini uret ve kaydet
-     * Yapi: N parti × 21 set × 200 zar ciftii
+     * Yapi: N parti × (2*targetScore-1) set × 200 zar ciftii
      * @param totalParties Toplam parti sayısı
+     * @param targetScore Parti hedef puanı (max el = 2*targetScore-1)
      */
-    fun generateAndSaveDiceSets(encounterId: Long, totalParties: Int): Boolean {
+    fun generateAndSaveDiceSets(encounterId: Long, totalParties: Int, targetScore: Int = 11): Boolean {
         val db = this.writableDatabase
         try {
             db.beginTransaction()
@@ -1989,8 +2009,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     return false
                 }
 
-                // Bu parti icin 21 zar seti olustur
-                for (setIndex in 0 until DiceGenerator.SETS_PER_PARTY) {
+                // Bu parti icin zar setleri olustur (max el = 2*targetScore-1)
+                val setsPerParty = DiceGenerator.maxSetsForTargetScore(targetScore)
+                for (setIndex in 0 until setsPerParty) {
                     val diceSet = DiceGenerator.generateDiceSet()
 
                     val setValues = ContentValues()
@@ -2037,6 +2058,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 player1Name = cursor.getString(cursor.getColumnIndexOrThrow("player1_name")) ?: "",
                 player2Name = cursor.getString(cursor.getColumnIndexOrThrow("player2_name")) ?: "",
                 totalParties = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TOTAL_PARTIES)),
+                targetScore = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TARGET_SCORE)),
+                trackPipCount = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TRACK_PIP)) == 1,
                 currentRound = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_ROUND)),
                 currentPartyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX)),
                 currentGameIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX)),
@@ -2078,6 +2101,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     player1Name = cursor.getString(cursor.getColumnIndexOrThrow("player1_name")) ?: "",
                     player2Name = cursor.getString(cursor.getColumnIndexOrThrow("player2_name")) ?: "",
                     totalParties = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TOTAL_PARTIES)),
+                    targetScore = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TARGET_SCORE)),
+                    trackPipCount = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TRACK_PIP)) == 1,
                     currentRound = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_ROUND)),
                     currentPartyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX)),
                     currentGameIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX)),
@@ -2117,6 +2142,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     player1Name = cursor.getString(cursor.getColumnIndexOrThrow("player1_name")) ?: "",
                     player2Name = cursor.getString(cursor.getColumnIndexOrThrow("player2_name")) ?: "",
                     totalParties = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TOTAL_PARTIES)),
+                    targetScore = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TARGET_SCORE)),
+                    trackPipCount = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_TRACK_PIP)) == 1,
                     currentRound = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_ROUND)),
                     currentPartyIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX)),
                     currentGameIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX)),

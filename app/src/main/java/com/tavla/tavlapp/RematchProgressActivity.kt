@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * Rovansli karsilasma ilerleme ve istatistik ekrani
@@ -59,10 +61,21 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
     // Dialog durumlari
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var encounterToDelete by remember { mutableStateOf<RematchEncounter?>(null) }
+    var showDeleteAllDialog by remember { mutableStateOf(false) }
+
+    // Tum karsilasmalarin istatistikleri
+    var allEncounterStats by remember { mutableStateOf(mapOf<Long, List<RematchEncounterStats>>()) }
 
     // Verileri yukle
     LaunchedEffect(Unit) {
-        encounters = dbHelper.getAllRematchEncounters()
+        val loaded = dbHelper.getAllRematchEncounters()
+        encounters = loaded
+        val statsMap = mutableMapOf<Long, List<RematchEncounterStats>>()
+        loaded.forEach { enc ->
+            statsMap[enc.id] = dbHelper.getRematchEncounterStats(enc.id)
+        }
+        allEncounterStats = statsMap
     }
 
     // Secili karsilasma istatistiklerini yukle
@@ -82,7 +95,11 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
                 Button(
                     onClick = {
                         dbHelper.cancelEncounter(selectedEncounter!!.id)
-                        encounters = dbHelper.getAllRematchEncounters()
+                        val reloaded = dbHelper.getAllRematchEncounters()
+                        encounters = reloaded
+                        val statsMap = mutableMapOf<Long, List<RematchEncounterStats>>()
+                        reloaded.forEach { enc -> statsMap[enc.id] = dbHelper.getRematchEncounterStats(enc.id) }
+                        allEncounterStats = statsMap
                         selectedEncounter = null
                         showCancelDialog = false
                         Toast.makeText(context, "Karsilasma iptal edildi", Toast.LENGTH_SHORT).show()
@@ -110,7 +127,11 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
                 Button(
                     onClick = {
                         dbHelper.deleteRematchEncounter(selectedEncounter!!.id)
-                        encounters = dbHelper.getAllRematchEncounters()
+                        val reloaded = dbHelper.getAllRematchEncounters()
+                        encounters = reloaded
+                        val statsMap = mutableMapOf<Long, List<RematchEncounterStats>>()
+                        reloaded.forEach { enc -> statsMap[enc.id] = dbHelper.getRematchEncounterStats(enc.id) }
+                        allEncounterStats = statsMap
                         selectedEncounter = null
                         showDeleteDialog = false
                         Toast.makeText(context, "Karsilasma silindi", Toast.LENGTH_SHORT).show()
@@ -122,6 +143,74 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
             },
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteDialog = false }) {
+                    Text("Vazgec")
+                }
+            }
+        )
+    }
+
+    // Kart uzerinden silme dialog
+    if (encounterToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { encounterToDelete = null },
+            title = { Text("Karsilasmyi Sil") },
+            text = {
+                Text("${encounterToDelete!!.player1Name} vs ${encounterToDelete!!.player2Name} karsilasmasi ve tum verileri kalici olarak silinecek. Devam etmek istiyor musunuz?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val encToDelete = encounterToDelete!!
+                        dbHelper.deleteRematchEncounter(encToDelete.id)
+                        val reloaded = dbHelper.getAllRematchEncounters()
+                        encounters = reloaded
+                        val statsMap = mutableMapOf<Long, List<RematchEncounterStats>>()
+                        reloaded.forEach { enc -> statsMap[enc.id] = dbHelper.getRematchEncounterStats(enc.id) }
+                        allEncounterStats = statsMap
+                        if (selectedEncounter?.id == encToDelete.id) {
+                            selectedEncounter = null
+                        }
+                        encounterToDelete = null
+                        Toast.makeText(context, "Karsilasma silindi", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Sil")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { encounterToDelete = null }) {
+                    Text("Vazgec")
+                }
+            }
+        )
+    }
+
+    // Tumunu sil dialog
+    if (showDeleteAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllDialog = false },
+            title = { Text("Tum Karsilasmalari Sil") },
+            text = { Text("${encounters.size} karsilasma ve tum verileri kalici olarak silinecek. Devam etmek istiyor musunuz?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        encounters.forEach { enc ->
+                            dbHelper.deleteRematchEncounter(enc.id)
+                        }
+                        encounters = emptyList()
+                        allEncounterStats = emptyMap()
+                        selectedEncounter = null
+                        showDeleteAllDialog = false
+                        Toast.makeText(context, "Tum karsilasmalar silindi", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Tumunu Sil")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteAllDialog = false }) {
                     Text("Vazgec")
                 }
             }
@@ -151,14 +240,25 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
                 )
-                Button(
-                    onClick = {
-                        context.startActivity(Intent(context, RematchSetupActivity::class.java))
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text("+ Yeni", fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (encounters.isNotEmpty()) {
+                        Button(
+                            onClick = { showDeleteAllDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("Tumunu Sil", fontSize = 13.sp)
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            context.startActivity(Intent(context, RematchSetupActivity::class.java))
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("+ Yeni", fontSize = 13.sp)
+                    }
                 }
             }
 
@@ -191,7 +291,9 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
                         EncounterListItem(
                             encounter = encounter,
                             isSelected = selectedEncounter?.id == encounter.id,
-                            onClick = { selectedEncounter = encounter }
+                            stats = allEncounterStats[encounter.id] ?: emptyList(),
+                            onClick = { selectedEncounter = encounter },
+                            onDelete = { encounterToDelete = encounter }
                         )
                     }
                 }
@@ -229,6 +331,7 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
                         intent.putExtra("player1_name", enc.player1Name)
                         intent.putExtra("player2_name", enc.player2Name)
                         intent.putExtra("total_parties", enc.totalParties)
+                        intent.putExtra("rounds", enc.targetScore)
                         context.startActivity(intent)
                     },
                     onCancel = { showCancelDialog = true },
@@ -250,8 +353,27 @@ fun RematchProgressScreen(dbHelper: DatabaseHelper) {
 fun EncounterListItem(
     encounter: RematchEncounter,
     isSelected: Boolean,
-    onClick: () -> Unit
+    stats: List<RematchEncounterStats>,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
+    val textColor = if (isSelected) Color.White else Color.Black
+    val subtextColor = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
+
+    // Tarih formatlama
+    val formattedDate = try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        val date = inputFormat.parse(encounter.createdDate)
+        if (date != null) outputFormat.format(date) else encounter.createdDate
+    } catch (e: Exception) {
+        encounter.createdDate
+    }
+
+    // Istatistikler
+    val p1Stats = stats.find { it.playerId == encounter.player1Id }
+    val p2Stats = stats.find { it.playerId == encounter.player2Id }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -264,24 +386,52 @@ fun EncounterListItem(
         Column(
             modifier = Modifier.padding(12.dp)
         ) {
-            Text(
-                text = "${encounter.player1Name} vs ${encounter.player2Name}",
-                fontWeight = FontWeight.Bold,
-                color = if (isSelected) Color.White else Color.Black
-            )
+            // Baslik satiri + silme butonu
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${encounter.player1Name} vs ${encounter.player2Name}",
+                    fontWeight = FontWeight.Bold,
+                    color = textColor,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Text(
+                        text = "\u2715",
+                        fontSize = 14.sp,
+                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.Gray
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(4.dp))
+
+            // Tarih ve durum satiri
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Tur ${encounter.currentRound}/2",
-                    fontSize = 12.sp,
-                    color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
+                    text = formattedDate,
+                    fontSize = 11.sp,
+                    color = subtextColor
                 )
                 Text(
-                    text = encounter.status.name,
-                    fontSize = 12.sp,
+                    text = when (encounter.status) {
+                        RematchStatus.ACTIVE -> "Aktif"
+                        RematchStatus.ROUND1_COMPLETE -> "Rovans Bekliyor"
+                        RematchStatus.ROUND2_ACTIVE -> "Rovans"
+                        RematchStatus.COMPLETED -> "Tamamlandi"
+                        RematchStatus.CANCELLED -> "Iptal"
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
                     color = when (encounter.status) {
                         RematchStatus.ACTIVE -> if (isSelected) Color.Green else Color(0xFF4CAF50)
                         RematchStatus.COMPLETED -> if (isSelected) Color.Cyan else Color(0xFF2196F3)
@@ -290,11 +440,48 @@ fun EncounterListItem(
                     }
                 )
             }
+
+            // Tur ve parti satiri
             Text(
-                text = "Parti ${encounter.currentPartyIndex + 1}/${encounter.totalParties}",
-                fontSize = 12.sp,
-                color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
+                text = "Tur ${encounter.currentRound}/2 | Parti ${encounter.currentPartyIndex + 1}/${encounter.totalParties}",
+                fontSize = 11.sp,
+                color = subtextColor
             )
+
+            // Istatistikler bolumu
+            if (p1Stats != null && p2Stats != null) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 6.dp),
+                    thickness = 1.dp,
+                    color = if (isSelected) Color.White.copy(alpha = 0.3f) else Color.LightGray
+                )
+
+                // Parti ve oyun skoru
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Parti: ${p1Stats.totalPartiesWon} - ${p2Stats.totalPartiesWon}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textColor
+                    )
+                    Text(
+                        text = "Oyun: ${p1Stats.totalGamesWon} - ${p2Stats.totalGamesWon}",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textColor
+                    )
+                }
+
+                // Puan
+                Text(
+                    text = "Puan: ${p1Stats.totalPoints} - ${p2Stats.totalPoints}",
+                    fontSize = 11.sp,
+                    color = subtextColor
+                )
+            }
         }
     }
 }

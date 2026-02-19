@@ -138,9 +138,21 @@ fun RematchPipEntryScreen(
     val finalScore = baseScore * cubeValue
 
     // Tahmini yeni skor
+    // Encounter'dan hedef puani al
+    var partyTargetScore by remember { mutableStateOf(11) }
+    var trackPipCount by remember { mutableStateOf(true) }
+
+    LaunchedEffect(encounterId) {
+        val encounter = dbHelper.getRematchEncounter(encounterId)
+        if (encounter != null) {
+            partyTargetScore = encounter.targetScore
+            trackPipCount = encounter.trackPipCount
+        }
+    }
+
     val projectedLeftScore = if (selectedWinner == "left") currentLeftScore + finalScore else currentLeftScore
     val projectedRightScore = if (selectedWinner == "right") currentRightScore + finalScore else currentRightScore
-    val partyWillEnd = projectedLeftScore >= 11 || projectedRightScore >= 11
+    val partyWillEnd = projectedLeftScore >= partyTargetScore || projectedRightScore >= partyTargetScore
 
     Column(
         modifier = Modifier
@@ -329,28 +341,27 @@ fun RematchPipEntryScreen(
             }
         }
 
-        // Pip sayisi
-        Text(
-            text = "Kaybeden Pip Sayisi",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp
-        )
+        // Pip sayisi (ayardan acik ise goster)
+        if (trackPipCount) {
+            Text(
+                text = "Kaybeden Pip Sayisi",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
 
-        OutlinedTextField(
-            value = loserPipCount,
-            onValueChange = { newValue ->
-                if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
-                    val intValue = newValue.toIntOrNull() ?: 0
-                    if (intValue <= 167) {
+            OutlinedTextField(
+                value = loserPipCount,
+                onValueChange = { newValue ->
+                    if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
                         loserPipCount = newValue
                     }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("0-167 arasi") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true
-        )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Pip sayisi girin") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true
+            )
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -418,8 +429,8 @@ fun RematchPipEntryScreen(
                             val totalParties = encounter.totalParties
                             val (p1Score, p2Score) = dbHelper.getPartyScore(encounterId, partyIndex, roundNumber)
 
-                            val partyTargetScore = 11
-                            val partyIsOver = p1Score >= partyTargetScore || p2Score >= partyTargetScore
+                            val targetScore = encounter.targetScore
+                            val partyIsOver = p1Score >= targetScore || p2Score >= targetScore
                             val totalGamesPlayed = setIndex + 1
 
                             // Activity log
@@ -433,7 +444,7 @@ fun RematchPipEntryScreen(
 
                             if (partyIsOver) {
                                 // 3. Parti bitti - parti sonucunu kaydet
-                                val partyWinnerId = if (p1Score >= partyTargetScore) encounter.player1Id else encounter.player2Id
+                                val partyWinnerId = if (p1Score >= targetScore) encounter.player1Id else encounter.player2Id
                                 dbHelper.saveRematchPartyResult(
                                     encounterId = encounterId,
                                     partyIndex = partyIndex,
@@ -502,8 +513,8 @@ fun RematchPipEntryScreen(
                                         }
                                     }
                                 }
-                            } else if (setIndex + 1 >= DiceGenerator.SETS_PER_PARTY) {
-                                // Maksimum oyun sayisina ulasildi (21 oyun) ama kimse 11'e ulasamadi
+                            } else if (setIndex + 1 >= DiceGenerator.maxSetsForTargetScore(targetScore)) {
+                                // Maksimum oyun sayisina ulasildi ama kimse hedefe ulasamadi
                                 // Mevcut skorlarla partiyi bitir
                                 val partyWinnerId = if (p1Score > p2Score) encounter.player1Id else encounter.player2Id
                                 dbHelper.saveRematchPartyResult(
