@@ -1,5 +1,11 @@
 # TavlApp Geliştirme Notları
 
+## Bildirim Protokolu
+- **KURAL**: Kullaniciya soru sorarken, onay isterken veya bitirmis bir calismayi sunarken **3 kez beep sistem sesi cal**
+- **Komut**: `powershell -c "[console]::beep(800,200); Start-Sleep -Milliseconds 100; [console]::beep(1000,200); Start-Sleep -Milliseconds 100; [console]::beep(1200,200)"`
+- **Ne zaman**: Soru sorma, onay isteme, tamamlanmis is sunma anlarinda
+- **Her zaman uygula**, istisnasiz
+
 ## Proje Bilgileri
 - **Proje Adı**: TavlApp
 - **Platform**: Android (Kotlin + Jetpack Compose)

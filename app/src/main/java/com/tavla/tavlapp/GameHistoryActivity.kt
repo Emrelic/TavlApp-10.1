@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 // Oyun geçmişi ekranı aktivitesi
 class GameHistoryActivity : ComponentActivity() {
@@ -359,19 +360,121 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
                 }
 
                 "Rövanşlı Karşılaşmalar" -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Button(
-                            onClick = {
-                                val intent = Intent(context, RematchProgressActivity::class.java)
-                                context.startActivity(intent)
-                            }
+                    // Karşılaşma verileri
+                    var rematchEncounters by remember(refreshTrigger) {
+                        mutableStateOf(dbHelper.getAllRematchEncounters())
+                    }
+                    var allEncounterStats by remember(refreshTrigger) {
+                        mutableStateOf(mapOf<Long, List<RematchEncounterStats>>())
+                    }
+
+                    // İstatistikleri yükle
+                    LaunchedEffect(rematchEncounters) {
+                        val statsMap = mutableMapOf<Long, List<RematchEncounterStats>>()
+                        rematchEncounters.forEach { enc ->
+                            statsMap[enc.id] = dbHelper.getRematchEncounterStats(enc.id)
+                        }
+                        allEncounterStats = statsMap
+                    }
+
+                    if (rematchEncounters.isEmpty()) {
+                        // Boş durum
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Rövanşlı Karşılaşmaları Görüntüle")
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Henüz rövanşlı karşılaşma bulunmamaktadır",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = {
+                                        val intent = Intent(context, RematchProgressActivity::class.java)
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    Text("Yeni Karşılaşma Başlat")
+                                }
+                            }
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Üst bar: Özet bilgi + Yeni butonu
+                            val activeCount = rematchEncounters.count {
+                                it.status == RematchStatus.ACTIVE || it.status == RematchStatus.ROUND2_ACTIVE
+                            }
+                            val completedCount = rematchEncounters.count {
+                                it.status == RematchStatus.COMPLETED
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${rematchEncounters.size} karşılaşma (${activeCount} aktif, ${completedCount} tamamlanmış)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Gray
+                                )
+                                Button(
+                                    onClick = {
+                                        val intent = Intent(context, RematchProgressActivity::class.java)
+                                        context.startActivity(intent)
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text("Yeni", fontSize = 12.sp)
+                                }
+                            }
+
+                            // Karşılaşma listesi
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp)
+                            ) {
+                                items(rematchEncounters) { encounter ->
+                                    val stats = allEncounterStats[encounter.id] ?: emptyList()
+                                    RematchEncounterCard(
+                                        encounter = encounter,
+                                        stats = stats,
+                                        onContinue = {
+                                            val intent = Intent(context, GameScoreActivity::class.java)
+                                            intent.putExtra("is_rematch_mode", true)
+                                            intent.putExtra("encounter_id", encounter.id)
+                                            intent.putExtra("player1_id", encounter.player1Id)
+                                            intent.putExtra("player2_id", encounter.player2Id)
+                                            intent.putExtra("player1_name", encounter.player1Name)
+                                            intent.putExtra("player2_name", encounter.player2Name)
+                                            intent.putExtra("total_parties", encounter.totalParties)
+                                            intent.putExtra("rounds", encounter.targetScore)
+                                            context.startActivity(intent)
+                                        },
+                                        onCompare = {
+                                            val intent = Intent(context, RematchComparisonActivity::class.java)
+                                            intent.putExtra("encounter_id", encounter.id)
+                                            context.startActivity(intent)
+                                        },
+                                        onCardClick = {
+                                            val intent = Intent(context, RematchProgressActivity::class.java)
+                                            context.startActivity(intent)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -504,6 +607,207 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
         }
     }
 }
+
+@Composable
+fun RematchEncounterCard(
+    encounter: RematchEncounter,
+    stats: List<RematchEncounterStats>,
+    onContinue: () -> Unit,
+    onCompare: () -> Unit,
+    onCardClick: () -> Unit
+) {
+    // Durum rengi ve metni
+    val (statusColor, statusText) = when (encounter.status) {
+        RematchStatus.ACTIVE -> Color(0xFF4CAF50) to "Aktif"
+        RematchStatus.ROUND1_COMPLETE -> Color(0xFFFF9800) to "Rövanş Bekliyor"
+        RematchStatus.ROUND2_ACTIVE -> Color(0xFFFF9800) to "Rövanş"
+        RematchStatus.COMPLETED -> Color(0xFF2196F3) to "Tamamlandı"
+        RematchStatus.CANCELLED -> Color(0xFFF44336) to "İptal"
+    }
+
+    // İstatistik verileri
+    val player1Stats = stats.find { it.playerId == encounter.player1Id }
+    val player2Stats = stats.find { it.playerId == encounter.player2Id }
+
+    val p1Parties = player1Stats?.totalPartiesWon ?: 0
+    val p2Parties = player2Stats?.totalPartiesWon ?: 0
+    val p1Games = player1Stats?.totalGamesWon ?: 0
+    val p2Games = player2Stats?.totalGamesWon ?: 0
+    val p1Points = player1Stats?.totalPoints ?: 0
+    val p2Points = player2Stats?.totalPoints ?: 0
+
+    // İlerleme hesaplama
+    val totalPartiesPlayed = p1Parties + p2Parties
+    val totalPartiesTarget = encounter.totalParties * 2 // İki tur
+    val progress = if (totalPartiesTarget > 0) {
+        totalPartiesPlayed.toFloat() / totalPartiesTarget.toFloat()
+    } else 0f
+    val progressPercent = (progress * 100).toInt()
+
+    // Tarih formatı
+    val formattedDate = try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        val parsedDate = inputFormat.parse(encounter.createdDate)
+        if (parsedDate != null) outputFormat.format(parsedDate) else encounter.createdDate
+    } catch (e: Exception) {
+        encounter.createdDate
+    }
+
+    // Aktif mi?
+    val isActive = encounter.status == RematchStatus.ACTIVE ||
+            encounter.status == RematchStatus.ROUND2_ACTIVE ||
+            encounter.status == RematchStatus.ROUND1_COMPLETE
+
+    // Karşılaştırma mümkün mü? (en az 1 parti tamamlanmış)
+    val canCompare = encounter.currentRound >= 2 || encounter.status == RematchStatus.COMPLETED
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { onCardClick() },
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Üst satır: Oyuncu isimleri + Durum
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${encounter.player1Name} vs ${encounter.player2Name}",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(statusColor, RoundedCornerShape(4.dp))
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = statusText,
+                        fontSize = 11.sp,
+                        color = statusColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // İkinci satır: Tarih + Tur/Parti bilgisi
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = formattedDate,
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "Tur ${encounter.currentRound} | Parti ${encounter.currentPartyIndex + 1}/${encounter.totalParties}",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+
+            // İlerleme çubuğu
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(6.dp),
+                    color = statusColor,
+                    trackColor = Color.LightGray.copy(alpha = 0.3f),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "%$progressPercent",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+
+            // Skor satırı
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Parti", fontSize = 10.sp, color = Color.Gray)
+                    Text(
+                        "$p1Parties-$p2Parties",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Oyun", fontSize = 10.sp, color = Color.Gray)
+                    Text(
+                        "$p1Games-$p2Games",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Puan", fontSize = 10.sp, color = Color.Gray)
+                    Text(
+                        "$p1Points-$p2Points",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Butonlar
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (isActive) {
+                    OutlinedButton(
+                        onClick = onContinue,
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text("Devam Et", fontSize = 12.sp)
+                    }
+                }
+                if (canCompare) {
+                    if (isActive) Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(
+                        onClick = onCompare,
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text("Karşılaştır", fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
         /*
 @Composable
 fun MatchListItemWithDelete(

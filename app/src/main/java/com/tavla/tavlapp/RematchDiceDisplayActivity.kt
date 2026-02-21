@@ -126,12 +126,8 @@ fun RematchDiceDisplayScreen(
         totalMoveCount = 0
         // İlk oyuncuyu belirle (başlangıç zarlarına göre)
         currentDiceSet?.let { diceSet ->
-            currentPlayerTurn = if (currentRound == 1) {
-                diceSet.getFirstPlayer()
-            } else {
-                // Rovansta zarlar yer değiştirdiği için ters
-                if (diceSet.getFirstPlayer() == 1) 2 else 1
-            }
+            // Zarlar aynı pozisyonda kalıyor, büyük zar atan başlar
+            currentPlayerTurn = diceSet.getFirstPlayer()
         }
     }
 
@@ -141,24 +137,15 @@ fun RematchDiceDisplayScreen(
     val leftDice: List<Pair<Int, Int>>?
     val rightDice: List<Pair<Int, Int>>?
 
-    if (currentRound == 1) {
-        leftStartingDice = currentDiceSet?.startingDicePlayer1
-        rightStartingDice = currentDiceSet?.startingDicePlayer2
-        leftDice = currentDiceSet?.player1Dice
-        rightDice = currentDiceSet?.player2Dice
-    } else {
-        // Rovansta zarlar yer değiştirir
-        leftStartingDice = currentDiceSet?.startingDicePlayer2
-        rightStartingDice = currentDiceSet?.startingDicePlayer1
-        leftDice = currentDiceSet?.player2Dice
-        rightDice = currentDiceSet?.player1Dice
-    }
+    // Zarlar her zaman aynı pozisyonda kalır (player1Dice=sol, player2Dice=sağ)
+    // Rovanşta isimler yer değiştirir → solda oturan oyuncu karşı tarafın zarlarını alır
+    leftStartingDice = currentDiceSet?.startingDicePlayer1
+    rightStartingDice = currentDiceSet?.startingDicePlayer2
+    leftDice = currentDiceSet?.player1Dice
+    rightDice = currentDiceSet?.player2Dice
 
-    // Başlayan oyuncu (1=sol, 2=sağ)
-    val firstPlayer = currentDiceSet?.let {
-        if (currentRound == 1) it.getFirstPlayer()
-        else if (it.getFirstPlayer() == 1) 2 else 1
-    } ?: 1
+    // Başlayan oyuncu (1=sol, 2=sağ) - zarlar aynı pozisyonda, büyük atan başlar
+    val firstPlayer = currentDiceSet?.getFirstPlayer() ?: 1
 
     // Şu anki oyuncunun zarı
     val currentDicePair = when (gamePhase) {
@@ -361,9 +348,53 @@ fun RematchDiceDisplayScreen(
             // El bitti butonu - PipEntry'ye git
             Button(
                 onClick = {
-                    // dice_pairs_used kaydet (SharedPreferences ile skorboard'a aktar)
+                    // Zar istatistiklerini hesapla
+                    var leftDiceTotal = 0
+                    var rightDiceTotal = 0
+                    var leftDoublesCount = 0
+                    var rightDoublesCount = 0
+
+                    // Başlangıç zarları (ilk hamleyi yapan oyuncuya ait)
+                    val startingTotal = (leftStartingDice ?: 0) + (rightStartingDice ?: 0)
+                    if (firstPlayer == 1) leftDiceTotal += startingTotal
+                    else rightDiceTotal += startingTotal
+
+                    // Sol oyuncunun kullandığı zar çiftleri
+                    for (i in 0 until leftMoveIndex) {
+                        val pair = leftDice?.getOrNull(i)
+                        if (pair != null) {
+                            if (pair.first == pair.second) {
+                                // Çift: tavlada 4 hamle = değer × 4
+                                leftDiceTotal += pair.first * 4
+                                leftDoublesCount++
+                            } else {
+                                leftDiceTotal += pair.first + pair.second
+                            }
+                        }
+                    }
+
+                    // Sağ oyuncunun kullandığı zar çiftleri
+                    for (i in 0 until rightMoveIndex) {
+                        val pair = rightDice?.getOrNull(i)
+                        if (pair != null) {
+                            if (pair.first == pair.second) {
+                                rightDiceTotal += pair.first * 4
+                                rightDoublesCount++
+                            } else {
+                                rightDiceTotal += pair.first + pair.second
+                            }
+                        }
+                    }
+
+                    // SharedPreferences ile skorboard'a aktar
                     val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
-                    prefs.edit().putInt("dice_pairs_used_${encounterId}", totalMoveCount).apply()
+                    prefs.edit()
+                        .putInt("dice_pairs_used_${encounterId}", totalMoveCount)
+                        .putInt("left_dice_total_${encounterId}", leftDiceTotal)
+                        .putInt("right_dice_total_${encounterId}", rightDiceTotal)
+                        .putInt("left_doubles_count_${encounterId}", leftDoublesCount)
+                        .putInt("right_doubles_count_${encounterId}", rightDoublesCount)
+                        .apply()
                     // Skorboard'a geri dön
                     (context as? ComponentActivity)?.finish()
                 },

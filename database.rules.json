@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomCode": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "currentGame": {
+          "dice": {
+            ".write": false
+          }
+        }
+      }
+    }
+  }
+}

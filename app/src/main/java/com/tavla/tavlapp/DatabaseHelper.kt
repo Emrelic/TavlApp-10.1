@@ -11,7 +11,7 @@ import java.util.Locale
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 9
+        private const val DATABASE_VERSION = 11
         private const val DATABASE_NAME = "TavlaScoreboard.db"
 
         // Tablo adları
@@ -33,6 +33,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         // Eski tablo (migrasyon için)
         private const val TABLE_REMATCH_MATCH_RESULTS = "rematch_match_results"
+
+        // Online Matches Tablosu
+        private const val TABLE_ONLINE_MATCHES = "online_matches"
 
         // Activity Logs Tablo Sütunları
         private const val COLUMN_LOG_ID = "id"
@@ -227,6 +230,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_GAME_RESULT_LOSER_PIP = "loser_pip_count"
         private const val COLUMN_GAME_RESULT_DICE_PAIRS_USED = "dice_pairs_used"
         private const val COLUMN_GAME_RESULT_DATE = "game_date"
+        private const val COLUMN_GAME_RESULT_DOUBLER_ID = "doubler_player_id"
+        private const val COLUMN_GAME_RESULT_LEFT_DICE_TOTAL = "left_dice_total"
+        private const val COLUMN_GAME_RESULT_RIGHT_DICE_TOTAL = "right_dice_total"
+        private const val COLUMN_GAME_RESULT_LEFT_DOUBLES = "left_doubles_count"
+        private const val COLUMN_GAME_RESULT_RIGHT_DOUBLES = "right_doubles_count"
 
         // Parti Sonucu Sütunları (v8)
         private const val COLUMN_PARTY_RESULT_ID = "id"
@@ -379,6 +387,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         // Rövanşlı Karşılaşma Tabloları
         createRematchTables(db)
+
+        // Online Matches Tablosu
+        createOnlineMatchesTable(db)
     }
 
     private fun createRematchTables(db: SQLiteDatabase) {
@@ -448,6 +459,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 $COLUMN_GAME_RESULT_LOSER_PIP INTEGER,
                 $COLUMN_GAME_RESULT_DICE_PAIRS_USED INTEGER,
                 $COLUMN_GAME_RESULT_DATE TEXT,
+                $COLUMN_GAME_RESULT_DOUBLER_ID INTEGER,
+                $COLUMN_GAME_RESULT_LEFT_DICE_TOTAL INTEGER DEFAULT 0,
+                $COLUMN_GAME_RESULT_RIGHT_DICE_TOTAL INTEGER DEFAULT 0,
+                $COLUMN_GAME_RESULT_LEFT_DOUBLES INTEGER DEFAULT 0,
+                $COLUMN_GAME_RESULT_RIGHT_DOUBLES INTEGER DEFAULT 0,
                 FOREIGN KEY($COLUMN_GAME_RESULT_ENCOUNTER_ID) REFERENCES $TABLE_REMATCH_ENCOUNTERS($COLUMN_ENCOUNTER_ID),
                 FOREIGN KEY($COLUMN_GAME_RESULT_LEFT_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
                 FOREIGN KEY($COLUMN_GAME_RESULT_RIGHT_PLAYER_ID) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID),
@@ -571,6 +587,81 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 db.execSQL("ALTER TABLE $TABLE_REMATCH_ENCOUNTERS ADD COLUMN $COLUMN_ENCOUNTER_TRACK_PIP INTEGER DEFAULT 1")
             } catch (e: Exception) { }
         }
+
+        // Versiyon 9'dan 10'a gecis: küp ve zar istatistik kolonlari eklendi
+        if (oldVersion < 10) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_GAME_RESULTS ADD COLUMN $COLUMN_GAME_RESULT_DOUBLER_ID INTEGER")
+            } catch (e: Exception) { }
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_GAME_RESULTS ADD COLUMN $COLUMN_GAME_RESULT_LEFT_DICE_TOTAL INTEGER DEFAULT 0")
+            } catch (e: Exception) { }
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_GAME_RESULTS ADD COLUMN $COLUMN_GAME_RESULT_RIGHT_DICE_TOTAL INTEGER DEFAULT 0")
+            } catch (e: Exception) { }
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_GAME_RESULTS ADD COLUMN $COLUMN_GAME_RESULT_LEFT_DOUBLES INTEGER DEFAULT 0")
+            } catch (e: Exception) { }
+            try {
+                db.execSQL("ALTER TABLE $TABLE_REMATCH_GAME_RESULTS ADD COLUMN $COLUMN_GAME_RESULT_RIGHT_DOUBLES INTEGER DEFAULT 0")
+            } catch (e: Exception) { }
+        }
+
+        // Versiyon 10'dan 11'e gecis: online_matches tablosu eklendi
+        if (oldVersion < 11) {
+            createOnlineMatchesTable(db)
+        }
+    }
+
+    private fun createOnlineMatchesTable(db: SQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_ONLINE_MATCHES (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_code TEXT,
+                my_player_id INTEGER,
+                opponent_name TEXT,
+                my_color TEXT,
+                my_score INTEGER,
+                opponent_score INTEGER,
+                target_score INTEGER,
+                game_type TEXT,
+                total_games INTEGER,
+                winner TEXT,
+                match_date TEXT,
+                FOREIGN KEY(my_player_id) REFERENCES $TABLE_PLAYERS($COLUMN_PLAYER_ID)
+            )
+        """.trimIndent())
+    }
+
+    fun saveOnlineMatchResult(
+        roomCode: String,
+        myPlayerId: Long,
+        opponentName: String,
+        myColor: String,
+        myScore: Int,
+        opponentScore: Int,
+        targetScore: Int,
+        gameType: String,
+        totalGames: Int,
+        winner: String
+    ): Long {
+        val db = this.writableDatabase
+        val values = ContentValues().apply {
+            put("room_code", roomCode)
+            put("my_player_id", myPlayerId)
+            put("opponent_name", opponentName)
+            put("my_color", myColor)
+            put("my_score", myScore)
+            put("opponent_score", opponentScore)
+            put("target_score", targetScore)
+            put("game_type", gameType)
+            put("total_games", totalGames)
+            put("winner", winner)
+            put("match_date", SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()))
+        }
+        val id = db.insert(TABLE_ONLINE_MATCHES, null, values)
+        db.close()
+        return id
     }
 
     fun addPlayer(playerName: String): Long {
@@ -580,9 +671,18 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val id = db.insertWithOnConflict(TABLE_PLAYERS, null, values, SQLiteDatabase.CONFLICT_IGNORE)
         if (id != -1L) {
             initializePlayerStats(id)
+            db.close()
+            return id
         }
+        // Oyuncu zaten varsa mevcut ID'yi dondur
+        val cursor = db.rawQuery(
+            "SELECT $COLUMN_PLAYER_ID FROM $TABLE_PLAYERS WHERE $COLUMN_PLAYER_NAME = ?",
+            arrayOf(playerName)
+        )
+        val existingId = if (cursor.moveToFirst()) cursor.getLong(0) else -1L
+        cursor.close()
         db.close()
-        return id
+        return existingId
     }
 
     private fun initializePlayerStats(playerId: Long) {
@@ -2226,7 +2326,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         cubeValue: Int,
         finalScore: Int,
         loserPipCount: Int,
-        dicePairsUsed: Int
+        dicePairsUsed: Int,
+        doublerPlayerId: Long? = null,
+        leftDiceTotal: Int = 0,
+        rightDiceTotal: Int = 0,
+        leftDoublesCount: Int = 0,
+        rightDoublesCount: Int = 0
     ): Long {
         val db = this.writableDatabase
         val values = ContentValues()
@@ -2243,6 +2348,13 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         values.put(COLUMN_GAME_RESULT_LOSER_PIP, loserPipCount)
         values.put(COLUMN_GAME_RESULT_DICE_PAIRS_USED, dicePairsUsed)
         values.put(COLUMN_GAME_RESULT_DATE, getCurrentDateTime())
+        if (doublerPlayerId != null) {
+            values.put(COLUMN_GAME_RESULT_DOUBLER_ID, doublerPlayerId)
+        }
+        values.put(COLUMN_GAME_RESULT_LEFT_DICE_TOTAL, leftDiceTotal)
+        values.put(COLUMN_GAME_RESULT_RIGHT_DICE_TOTAL, rightDiceTotal)
+        values.put(COLUMN_GAME_RESULT_LEFT_DOUBLES, leftDoublesCount)
+        values.put(COLUMN_GAME_RESULT_RIGHT_DOUBLES, rightDoublesCount)
 
         val resultId = db.insert(TABLE_REMATCH_GAME_RESULTS, null, values)
 
@@ -2562,7 +2674,15 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                                     else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LOSER_PIP)),
                     dicePairsUsed = if (cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DICE_PAIRS_USED))) null
                                     else cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DICE_PAIRS_USED)),
-                    gameDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DATE))
+                    gameDate = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DATE)),
+                    doublerPlayerId = try {
+                        val idx = cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_DOUBLER_ID)
+                        if (cursor.isNull(idx)) null else cursor.getLong(idx)
+                    } catch (e: Exception) { null },
+                    leftDiceTotal = try { cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LEFT_DICE_TOTAL)) } catch (e: Exception) { 0 },
+                    rightDiceTotal = try { cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_RIGHT_DICE_TOTAL)) } catch (e: Exception) { 0 },
+                    leftDoublesCount = try { cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_LEFT_DOUBLES)) } catch (e: Exception) { 0 },
+                    rightDoublesCount = try { cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_GAME_RESULT_RIGHT_DOUBLES)) } catch (e: Exception) { 0 }
                 )
                 resultsList.add(result)
             } while (cursor.moveToNext())
@@ -2736,6 +2856,16 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         val round1MaxCube = round1Games.maxOfOrNull { it.cubeValue } ?: 1
         val round2MaxCube = round2Games.maxOfOrNull { it.cubeValue } ?: 1
 
+        // Zar istatistikleri
+        val round1TotalDiceUnits = round1Games.sumOf { it.leftDiceTotal + it.rightDiceTotal }
+        val round2TotalDiceUnits = round2Games.sumOf { it.leftDiceTotal + it.rightDiceTotal }
+        val round1TotalDoubles = round1Games.sumOf { it.leftDoublesCount + it.rightDoublesCount }
+        val round2TotalDoubles = round2Games.sumOf { it.leftDoublesCount + it.rightDoublesCount }
+        val round1ResignCount = round1Games.count { it.winType == WinTypes.RESIGN }
+        val round2ResignCount = round2Games.count { it.winType == WinTypes.RESIGN }
+        val round1CubeUsedCount = round1Games.count { it.cubeValue > 1 }
+        val round2CubeUsedCount = round2Games.count { it.cubeValue > 1 }
+
         // Ayni/farkli kazanan sayilari
         var sameWinnerCount = 0
         var differentWinnerCount = 0
@@ -2743,9 +2873,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             val r1Winner = row.round1Result?.winnerId
             val r2Winner = row.round2Result?.winnerId
             if (r1Winner != null && r2Winner != null) {
-                // Rovansta oyuncular yer degistirdigindan, ayni fiziksel oyuncu mu kontrol et
-                // Round 1'de leftPlayer = player1, Round 2'de leftPlayer = player2
-                // Yani round1'deki winnerId ile round2'deki winnerId ayni ise ayni oyuncu kazanmis
                 if (r1Winner == r2Winner) sameWinnerCount++
                 else differentWinnerCount++
             }
@@ -2765,7 +2892,15 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             round1MaxCube = round1MaxCube,
             round2MaxCube = round2MaxCube,
             sameWinnerCount = sameWinnerCount,
-            differentWinnerCount = differentWinnerCount
+            differentWinnerCount = differentWinnerCount,
+            round1TotalDiceUnits = round1TotalDiceUnits,
+            round2TotalDiceUnits = round2TotalDiceUnits,
+            round1TotalDoubles = round1TotalDoubles,
+            round2TotalDoubles = round2TotalDoubles,
+            round1ResignCount = round1ResignCount,
+            round2ResignCount = round2ResignCount,
+            round1CubeUsedCount = round1CubeUsedCount,
+            round2CubeUsedCount = round2CubeUsedCount
         )
     }
 

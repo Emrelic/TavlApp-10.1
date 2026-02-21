@@ -24,6 +24,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import android.util.Log
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import com.tavla.tavlapp.ui.online.OnlineLobbyActivity
 
 // Ana aktivitemizi tanımlıyoruz. ComponentActivity, Compose kullanımı için bir temel sınıftır
 class MainActivity : ComponentActivity() {
@@ -86,6 +88,21 @@ fun MainScreen() {
                 .padding(vertical = 8.dp) // Üst ve alttan 8dp boşluk bırak
         ) {
             Text(text = "Yeni Oyun Aç")
+        }
+
+        // Online Oyun butonu
+        Button(
+            onClick = {
+                context.startActivity(Intent(context, OnlineLobbyActivity::class.java))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2196F3)
+            )
+        ) {
+            Text(text = "Online Oyun", color = Color.White)
         }
 
         // Oyun Geçmişi butonu

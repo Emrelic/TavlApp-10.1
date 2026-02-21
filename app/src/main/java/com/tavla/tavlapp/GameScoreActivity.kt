@@ -250,6 +250,11 @@ fun GameScreen(
     var rematchPartyIndex by remember { mutableIntStateOf(0) }
     var rematchGameIndex by remember { mutableIntStateOf(0) }
     var rematchDicePairsUsed by remember { mutableIntStateOf(0) }
+    var rematchLastDoublerPlayerId by remember { mutableStateOf<Long?>(null) }
+    var rematchLeftDiceTotal by remember { mutableIntStateOf(0) }
+    var rematchRightDiceTotal by remember { mutableIntStateOf(0) }
+    var rematchLeftDoublesCount by remember { mutableIntStateOf(0) }
+    var rematchRightDoublesCount by remember { mutableIntStateOf(0) }
     var rematchUndoStack by remember { mutableStateOf(listOf<Long>()) }
 
     // Pip input dialog
@@ -308,9 +313,13 @@ fun GameScreen(
                 )
                 currentRound = gamesInParty.size
 
-                // SharedPreferences'dan dice_pairs_used oku
+                // SharedPreferences'dan zar verilerini oku
                 val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
                 rematchDicePairsUsed = prefs.getInt("dice_pairs_used_${encounterId}", 0)
+                rematchLeftDiceTotal = prefs.getInt("left_dice_total_${encounterId}", 0)
+                rematchRightDiceTotal = prefs.getInt("right_dice_total_${encounterId}", 0)
+                rematchLeftDoublesCount = prefs.getInt("left_doubles_count_${encounterId}", 0)
+                rematchRightDoublesCount = prefs.getInt("right_doubles_count_${encounterId}", 0)
             }
         }
     }
@@ -478,6 +487,15 @@ fun GameScreen(
     fun executeRematchAddRound(playerId: Long, playerName: String, winType: String, score: Int) {
         val finalScore = score * doublingCubeValue
 
+        // SharedPreferences'dan zar verilerini KAYDETME ANINDA oku
+        // (Zar ekranından döndükten sonra güncel değerleri almak için)
+        val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
+        rematchDicePairsUsed = prefs.getInt("dice_pairs_used_${encounterId}", 0)
+        rematchLeftDiceTotal = prefs.getInt("left_dice_total_${encounterId}", 0)
+        rematchRightDiceTotal = prefs.getInt("right_dice_total_${encounterId}", 0)
+        rematchLeftDoublesCount = prefs.getInt("left_doubles_count_${encounterId}", 0)
+        rematchRightDoublesCount = prefs.getInt("right_doubles_count_${encounterId}", 0)
+
         val leftPlayerId: Long
         val rightPlayerId: Long
         if (rematchCurrentRound == 1) {
@@ -500,7 +518,12 @@ fun GameScreen(
             cubeValue = doublingCubeValue,
             finalScore = finalScore,
             loserPipCount = pipCountInput.toIntOrNull() ?: 0,
-            dicePairsUsed = rematchDicePairsUsed
+            dicePairsUsed = rematchDicePairsUsed,
+            doublerPlayerId = rematchLastDoublerPlayerId,
+            leftDiceTotal = rematchLeftDiceTotal,
+            rightDiceTotal = rematchRightDiceTotal,
+            leftDoublesCount = rematchLeftDoublesCount,
+            rightDoublesCount = rematchRightDoublesCount
         )
 
         if (resultId != -1L) {
@@ -527,6 +550,11 @@ fun GameScreen(
 
         pipCountInput = ""
         rematchDicePairsUsed = 0
+        rematchLastDoublerPlayerId = null
+        rematchLeftDiceTotal = 0
+        rematchRightDiceTotal = 0
+        rematchLeftDoublesCount = 0
+        rematchRightDoublesCount = 0
 
         handleCrawfordGameEnd()
         checkCrawfordStatus()
@@ -808,6 +836,7 @@ fun GameScreen(
             doublingCubePosition = DoublingCubePosition.PLAYER1_OFFER
             player1CanDouble = false
             showPlayer2DoublingMenu = true
+            if (isRematchMode) rematchLastDoublerPlayerId = player1Id
 
             // Katlama teklifi logla
             dbHelper.addActivityLog(
@@ -831,6 +860,7 @@ fun GameScreen(
             doublingCubePosition = DoublingCubePosition.PLAYER2_OFFER
             player2CanDouble = false
             showPlayer1DoublingMenu = true
+            if (isRematchMode) rematchLastDoublerPlayerId = player2Id
 
             // Katlama teklifi logla
             dbHelper.addActivityLog(
@@ -1214,6 +1244,14 @@ fun GameScreen(
                 TextButton(onClick = { showPartyEndDialog = false }) {
                     Text("Sonraki Partiye Devam", color = Color(0xFF4CAF50))
                 }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPartyEndDialog = false
+                    onFinish()
+                }) {
+                    Text("Daha Sonra Devam Et", color = Color.Gray)
+                }
             }
         )
     }
@@ -1248,6 +1286,14 @@ fun GameScreen(
                     recomposeKey++
                 }) {
                     Text("Rovans Turuna Basla", color = Color(0xFF4CAF50))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRoundEndDialog = false
+                    onFinish()
+                }) {
+                    Text("Daha Sonra Devam Et", color = Color.Gray)
                 }
             }
         )

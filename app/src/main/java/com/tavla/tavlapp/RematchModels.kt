@@ -87,7 +87,12 @@ data class RematchGameResult(
     val finalScore: Int? = null,
     val loserPipCount: Int? = null,
     val dicePairsUsed: Int? = null,     // Kac cift zar kullanildi
-    val gameDate: String? = null
+    val gameDate: String? = null,
+    val doublerPlayerId: Long? = null,  // Katlama teklif eden oyuncu (null = katlama yok)
+    val leftDiceTotal: Int = 0,         // Sol oyuncunun toplam zar birimi
+    val rightDiceTotal: Int = 0,        // Sag oyuncunun toplam zar birimi
+    val leftDoublesCount: Int = 0,      // Sol oyuncunun çift zar sayisi (çare)
+    val rightDoublesCount: Int = 0      // Sag oyuncunun çift zar sayisi (çare)
 )
 
 /**
@@ -211,7 +216,16 @@ data class PartyComparisonData(
     val round1MaxCube: Int,
     val round2MaxCube: Int,
     val sameWinnerCount: Int,
-    val differentWinnerCount: Int
+    val differentWinnerCount: Int,
+    // Zar istatistikleri
+    val round1TotalDiceUnits: Int = 0,       // Tur 1 toplam zar birimi
+    val round2TotalDiceUnits: Int = 0,       // Tur 2 toplam zar birimi
+    val round1TotalDoubles: Int = 0,         // Tur 1 toplam care (cift) sayisi
+    val round2TotalDoubles: Int = 0,         // Tur 2 toplam care (cift) sayisi
+    val round1ResignCount: Int = 0,          // Tur 1 pes sayisi
+    val round2ResignCount: Int = 0,          // Tur 2 pes sayisi
+    val round1CubeUsedCount: Int = 0,        // Tur 1 kup kullanilan el sayisi
+    val round2CubeUsedCount: Int = 0         // Tur 2 kup kullanilan el sayisi
 )
 
 /**
