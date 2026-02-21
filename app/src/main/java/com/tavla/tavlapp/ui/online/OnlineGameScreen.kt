@@ -70,9 +70,7 @@ fun OnlineGameScreen(
                             else -> {
                                 BackgammonBoard(
                                     boardState = viewModel.boardState,
-                                    perspective = if (viewModel.isMyTurn || viewModel.currentTurn == "white" == (viewModel.myScore >= 0))
-                                        PlayerColor.WHITE.takeIf { viewModel.myName == viewModel.myName } ?: PlayerColor.WHITE
-                                    else PlayerColor.WHITE, // Perspektif her zaman beyaz veya siyah
+                                    perspective = if (viewModel.isWhitePlayer) PlayerColor.WHITE else PlayerColor.BLACK,
                                     selectedPoint = viewModel.selectedPoint,
                                     legalDestinations = viewModel.legalDestinations,
                                     onPointTapped = { viewModel.onPointTapped(it) },
@@ -141,18 +139,62 @@ fun OnlineGameScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Zar gosterimi
-                    if (viewModel.diceValues.isNotEmpty()) {
-                        DiceDisplay(
-                            dice = if (viewModel.diceValues.size == 2 && viewModel.diceValues[0] == viewModel.diceValues[1]) {
-                                listOf(viewModel.diceValues[0], viewModel.diceValues[0], viewModel.diceValues[0], viewModel.diceValues[0])
-                            } else viewModel.diceValues,
-                            usedDice = viewModel.usedDice,
-                            isMyTurn = viewModel.isMyTurn,
-                            canRoll = false,
-                            isRolling = false,
-                            onRollDice = {}
-                        )
+                    // Zar gosterimi (tiklayinca sira degisir)
+                    if (viewModel.remainingDice.isNotEmpty() && viewModel.isMyTurn) {
+                        // Aktif zar (ilk siradaki) vurgulu gosterilir
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.onSwapDice() }
+                                .background(Color(0xFF333333), RoundedCornerShape(8.dp))
+                                .padding(8.dp)
+                        ) {
+                            viewModel.remainingDice.forEachIndexed { index, die ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(45.dp)
+                                        .background(
+                                            if (index == 0) Color.White else Color.White.copy(alpha = 0.4f),
+                                            RoundedCornerShape(6.dp)
+                                        )
+                                        .border(
+                                            width = if (index == 0) 3.dp else 1.dp,
+                                            color = if (index == 0) Color(0xFF4CAF50) else Color.Gray,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = DiceUnicode.get(die),
+                                        fontSize = 28.sp,
+                                        color = if (index == 0) Color.Black else Color.Black.copy(alpha = 0.4f)
+                                    )
+                                }
+                            }
+                            if (viewModel.remainingDice.size >= 2 && viewModel.pendingMoves.isEmpty()) {
+                                Text("  ↔", fontSize = 18.sp, color = Color(0xFF4CAF50))
+                            }
+                        }
+                        if (viewModel.remainingDice.size >= 2 && viewModel.pendingMoves.isEmpty()) {
+                            Text(
+                                "Zarlara tikla: sira degistir",
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    } else if (viewModel.diceValues.isNotEmpty() && !viewModel.isMyTurn) {
+                        // Rakibin zarlari (sadece gosterim)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(4.dp)
+                        ) {
+                            viewModel.diceValues.forEach { die ->
+                                SingleDie(value = die, isUsed = false, isRolling = false)
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                     }
 
@@ -369,6 +411,9 @@ private fun WaitingOverlay() {
 
 @Composable
 private fun StartingDiceOverlay(viewModel: OnlineGameViewModel) {
+    val myDieRolled = if (viewModel.isWhitePlayer) viewModel.startingDiceWhite != null
+                      else viewModel.startingDiceBlack != null
+
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
         contentAlignment = Alignment.Center
@@ -377,7 +422,7 @@ private fun StartingDiceOverlay(viewModel: OnlineGameViewModel) {
             whiteDie = viewModel.startingDiceWhite,
             blackDie = viewModel.startingDiceBlack,
             isWaitingForRoll = viewModel.startingDiceWhite == null || viewModel.startingDiceBlack == null,
-            isMyTurn = true,  // Herkes kendi zarini atabilir
+            hasRolled = myDieRolled,
             onRollStartingDice = { viewModel.onRollDice() }
         )
     }
@@ -385,8 +430,9 @@ private fun StartingDiceOverlay(viewModel: OnlineGameViewModel) {
 
 @Composable
 private fun DoublingOverlay(viewModel: OnlineGameViewModel) {
+    val myColor = if (viewModel.isWhitePlayer) "white" else "black"
     val isOfferForMe = viewModel.pendingDoubleOffer != null &&
-            viewModel.pendingDoubleOffer != (if (viewModel.currentTurn == "white") "white" else "black")
+            viewModel.pendingDoubleOffer != myColor
 
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
@@ -443,7 +489,8 @@ private fun DoublingOverlay(viewModel: OnlineGameViewModel) {
 
 @Composable
 private fun GameOverOverlay(viewModel: OnlineGameViewModel, onExit: () -> Unit) {
-    val isWinner = viewModel.winner == (if (viewModel.myScore >= 0) "white" else "black")
+    val myColor = if (viewModel.isWhitePlayer) "white" else "black"
+    val isWinner = viewModel.winner == myColor
     val winTypeText = when (viewModel.winType) {
         "M" -> "Mars"
         "B" -> "Backgammon"

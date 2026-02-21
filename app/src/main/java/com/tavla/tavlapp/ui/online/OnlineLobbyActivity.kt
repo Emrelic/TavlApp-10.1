@@ -1,5 +1,6 @@
 package com.tavla.tavlapp.ui.online
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.Bundle
@@ -44,9 +45,10 @@ fun OnlineLobbyScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val roomManager = remember { RoomManager() }
+    val prefs = remember { context.getSharedPreferences("tavla_online", Context.MODE_PRIVATE) }
 
     var screen by remember { mutableStateOf<LobbyScreen>(LobbyScreen.Main) }
-    var displayName by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf(prefs.getString("displayName", "") ?: "") }
     var roomCode by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var targetScore by remember { mutableIntStateOf(11) }
@@ -70,6 +72,7 @@ fun OnlineLobbyScreen() {
                             errorMessage = "Isim giriniz"
                             return@MainLobby
                         }
+                        prefs.edit().putString("displayName", displayName).apply()
                         screen = LobbyScreen.Settings
                     },
                     onJoinRoom = {
@@ -77,6 +80,7 @@ fun OnlineLobbyScreen() {
                             errorMessage = "Isim giriniz"
                             return@MainLobby
                         }
+                        prefs.edit().putString("displayName", displayName).apply()
                         screen = LobbyScreen.JoinRoom
                     },
                     onBack = { (context as? ComponentActivity)?.finish() }
@@ -345,12 +349,13 @@ private fun WaitingScreen(
     onOpponentJoined: () -> Unit,
     onCancel: () -> Unit
 ) {
-    // Oda durumunu izle
-    val roomState by roomManager.observeRoom(roomCode).collectAsState(initial = null)
+    // Oda durumunu izle - Flow'u remember ile sakla, her recomposition'da yeniden olusturma
+    val roomFlow = remember(roomCode) { roomManager.observeRoom(roomCode) }
+    val roomState by roomFlow.collectAsState(initial = null)
 
     LaunchedEffect(roomState) {
         val state = roomState ?: return@LaunchedEffect
-        if (state.blackPlayer != null && state.status == "ready") {
+        if (state.blackPlayer != null && (state.status == "playing" || state.status == "rolling_start")) {
             onOpponentJoined()
         }
     }

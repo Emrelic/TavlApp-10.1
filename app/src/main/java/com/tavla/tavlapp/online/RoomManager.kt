@@ -101,8 +101,12 @@ class RoomManager {
             "connected" to true
         )
 
-        roomRef.child("players/black").setValue(blackPlayer).await()
-        roomRef.child("status").setValue("ready").await()
+        val updates = mapOf<String, Any?>(
+            "players/black" to blackPlayer,
+            "status" to "playing",
+            "currentGame/status" to "rolling_start"
+        )
+        roomRef.updateChildren(updates).await()
 
         // Baglanti kopma handler'i
         setupDisconnectHandler(roomCode, "black")

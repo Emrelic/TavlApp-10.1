@@ -6,7 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tavla.tavlapp.engine.*
-import com.tavla.tavlapp.ui.board.BoardInteraction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -23,6 +22,7 @@ class OnlineGameViewModel(
 ) : ViewModel() {
 
     private val gameManager = OnlineGameManager(roomCode, isWhite)
+    val isWhitePlayer: Boolean = isWhite
 
     // ========== UI State ==========
     var boardState by mutableStateOf(BoardState.initial())
@@ -111,15 +111,6 @@ class OnlineGameViewModel(
 
     // Baglanti kopma job
     private var disconnectJob: Job? = null
-
-    // Board interaction
-    val boardInteraction = BoardInteraction(
-        onMoveExecuted = { move -> onMoveExecuted(move) },
-        onSelectionChanged = { point, destinations ->
-            selectedPoint = point
-            legalDestinations = destinations
-        }
-    )
 
     init {
         observeGameState()
@@ -267,52 +258,105 @@ class OnlineGameViewModel(
 
     // ========== Kullanici Aksiyonlari ==========
 
-    /** Nokta tiklandiginda */
+    /**
+     * Nokta tiklandiginda - 1 tikla otomatik hamle sistemi.
+     * Pula tikla → ilk sIradaki zarla otomatik hareket eder.
+     */
     fun onPointTapped(point: Int) {
         if (!isMyTurn || gamePhase != GamePhase.PLAYING || remainingDice.isEmpty()) return
-        boardInteraction.onPointTapped(point, currentBoardForMoves, gameManager.myColor, remainingDice)
+
+        val player = gameManager.myColor
+        val activeDie = remainingDice.first()
+
+        // Barda tas varsa sadece bar tiklama
+        if (currentBoardForMoves.hasOnBar(player)) {
+            if (point != -1) return
+            // Bardan giris: aktif zarla giris noktasini hesapla
+            val entry = BackgammonEngine.barEntryPoint(player, activeDie)
+            if (entry in 0..23 && !BackgammonEngine.isPointBlocked(currentBoardForMoves, entry, player)) {
+                val isHit = BackgammonEngine.isHitMove(currentBoardForMoves, entry, player)
+                val move = Move(from = -1, to = entry, dieUsed = activeDie, isHit = isHit)
+                executeAutoMove(move)
+            }
+            return
+        }
+
+        if (point == -1) return  // Bar tiklanmis ama barda tas yok
+
+        // Bu noktada benim tasim var mi?
+        if (currentBoardForMoves.checkerCount(point, player) == 0) return
+
+        // Aktif zarla hedefi hesapla
+        val dest = BackgammonEngine.destinationPoint(point, activeDie, player)
+
+        if (dest == -1) {
+            // Tam bear off
+            if (BackgammonEngine.canBearOff(currentBoardForMoves, player)) {
+                val move = Move(from = point, to = -1, dieUsed = activeDie, isHit = false)
+                executeAutoMove(move)
+            }
+        } else if (dest in 0..23) {
+            // Normal hamle
+            if (!BackgammonEngine.isPointBlocked(currentBoardForMoves, dest, player)) {
+                val isHit = BackgammonEngine.isHitMove(currentBoardForMoves, dest, player)
+                val move = Move(from = point, to = dest, dieUsed = activeDie, isHit = isHit)
+                executeAutoMove(move)
+            }
+        } else {
+            // Overshoot - en yuksek tastan cikarma
+            if (BackgammonEngine.canBearOffWithExactOrHigher(currentBoardForMoves, player, point, activeDie)) {
+                val move = Move(from = point, to = -1, dieUsed = activeDie, isHit = false)
+                executeAutoMove(move)
+            }
+        }
     }
 
-    /** Bear off tiklandiginda */
+    /** Bear off bolgesi tiklandiginda */
     fun onBearOffTapped() {
         if (!isMyTurn || gamePhase != GamePhase.PLAYING || remainingDice.isEmpty()) return
-        boardInteraction.onBearOffTapped(currentBoardForMoves, gameManager.myColor, remainingDice)
+        // Bear off bolgesi tiklaninca: secili nokta yoksa islem yok
+        // Kullanici pula tiklamali, otomatik cikarma hesaplanir
     }
 
-    /** Hamle yapildiginda (BoardInteraction'dan callback) */
-    private fun onMoveExecuted(move: Move) {
+    /** Zar sirasini degistir (ornek: 4-2 → 2-4) */
+    fun onSwapDice() {
+        if (remainingDice.size < 2) return
+        if (pendingMoves.isNotEmpty()) return  // Hamle yapildiysa swap yapilamaz
+        // Ilk iki zari yer degistir
+        val swapped = remainingDice.toMutableList()
+        val temp = swapped[0]
+        swapped[0] = swapped[1]
+        swapped[1] = temp
+        remainingDice = swapped
+        updateUsedDice()
+    }
+
+    /** Otomatik hamle uygular (1-tikla sistemi) */
+    private fun executeAutoMove(move: Move) {
         // Hamleyi uygula
         currentBoardForMoves = BackgammonEngine.applyMove(currentBoardForMoves, move, gameManager.myColor)
         pendingMoves = pendingMoves + move
 
-        // Kullanilan zari kaldir
+        // Kullanilan zari kaldir (ilk eslesen)
         val newRemaining = remainingDice.toMutableList()
         newRemaining.remove(move.dieUsed)
         remainingDice = newRemaining
 
-        // Used dice durumunu guncelle
+        updateUsedDice()
+
+        // UI state'i guncelle
+        boardState = currentBoardForMoves
+    }
+
+    /** Used dice durumunu gunceller */
+    private fun updateUsedDice() {
         val allDice = if (diceValues.size == 2 && diceValues[0] == diceValues[1]) {
             listOf(diceValues[0], diceValues[0], diceValues[0], diceValues[0])
         } else {
             diceValues.toList()
         }
-        usedDice = allDice.mapIndexed { index, _ ->
-            index >= remainingDice.size || !remainingDice.contains(allDice[index])
-        }
-
-        // Daha fazla hamle var mi?
-        if (remainingDice.isEmpty() ||
-            !MoveGenerator.hasAnyLegalMove(currentBoardForMoves, gameManager.myColor, remainingDice)
-        ) {
-            // Otomatik tur gonder
-            viewModelScope.launch {
-                delay(300)
-                submitTurn()
-            }
-        }
-
-        // UI state'i guncelle
-        boardState = currentBoardForMoves
+        val usedCount = allDice.size - remainingDice.size
+        usedDice = List(allDice.size) { index -> index < usedCount }
     }
 
     /** Turu gonder */
@@ -331,7 +375,6 @@ class OnlineGameViewModel(
         usedDice = emptyList()
         selectedPoint = null
         legalDestinations = emptyList()
-        boardInteraction.clearSelection()
     }
 
     /** Son hamleyi geri al */
@@ -341,26 +384,16 @@ class OnlineGameViewModel(
         val lastMove = pendingMoves.last()
         pendingMoves = pendingMoves.dropLast(1)
 
-        // Kalan zarlari guncelle
-        remainingDice = remainingDice + lastMove.dieUsed
+        // Kalan zarlari guncelle - geri alinan zari basa ekle
+        remainingDice = listOf(lastMove.dieUsed) + remainingDice
 
-        // Tahtayi yeniden hesapla
-        currentBoardForMoves = boardState // Orijinal board state'e don
+        // Tahtayi yeniden hesapla (orijinal board state'den)
+        currentBoardForMoves = boardState
         for (move in pendingMoves) {
             currentBoardForMoves = BackgammonEngine.applyMove(currentBoardForMoves, move, gameManager.myColor)
         }
 
-        // Used dice guncelle
-        val allDice = if (diceValues.size == 2 && diceValues[0] == diceValues[1]) {
-            listOf(diceValues[0], diceValues[0], diceValues[0], diceValues[0])
-        } else {
-            diceValues.toList()
-        }
-        usedDice = allDice.mapIndexed { index, _ ->
-            index >= remainingDice.size || !remainingDice.contains(allDice[index])
-        }
-
-        boardInteraction.clearSelection()
+        updateUsedDice()
     }
 
     /** Zar at */

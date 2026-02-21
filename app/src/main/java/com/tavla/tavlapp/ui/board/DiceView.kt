@@ -176,7 +176,7 @@ fun StartingDiceDisplay(
     whiteDie: Int?,
     blackDie: Int?,
     isWaitingForRoll: Boolean,
-    isMyTurn: Boolean,
+    hasRolled: Boolean,
     onRollStartingDice: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -233,8 +233,16 @@ fun StartingDiceDisplay(
             }
         }
 
-        if (isWaitingForRoll && isMyTurn) {
+        if (!hasRolled) {
+            // Henuz zarini atmamis - buton goster
             RollDiceButton(isRolling = false, onClick = onRollStartingDice)
+        } else if (isWaitingForRoll) {
+            // Zarini atti ama rakip henuz atmadi - bekleme mesaji
+            Text(
+                text = "Rakibin zarini atmasi bekleniyor...",
+                fontSize = 14.sp,
+                color = Color(0xFFFF9800)
+            )
         }
 
         if (whiteDie != null && blackDie != null) {

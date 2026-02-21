@@ -18,16 +18,16 @@ data class BoardState(
         /** Standart tavla baslangic pozisyonu */
         fun initial(): BoardState {
             val points = IntArray(24)
-            // Beyaz taslar (pozitif)
-            points[0] = 2    // 1. nokta
-            points[11] = 5   // 12. nokta
-            points[16] = 3   // 17. nokta
-            points[18] = 5   // 19. nokta
-            // Siyah taslar (negatif)
-            points[23] = -2  // 24. nokta
-            points[12] = -5  // 13. nokta
-            points[7] = -3   // 8. nokta
-            points[5] = -5   // 6. nokta
+            // Beyaz taslar (pozitif) - 24->1 yonunde hareket eder, ic saha: 1-6
+            points[23] = 2   // 24. nokta (rakibin ic sahasinda 2 kosucu)
+            points[12] = 5   // 13. nokta
+            points[7] = 3    // 8. nokta
+            points[5] = 5    // 6. nokta (kendi ic sahasinda)
+            // Siyah taslar (negatif) - 1->24 yonunde hareket eder, ic saha: 19-24
+            points[0] = -2   // 1. nokta (rakibin ic sahasinda 2 kosucu)
+            points[11] = -5  // 12. nokta
+            points[16] = -3  // 17. nokta
+            points[18] = -5  // 19. nokta (kendi ic sahasinda)
             return BoardState(points = points)
         }
 
