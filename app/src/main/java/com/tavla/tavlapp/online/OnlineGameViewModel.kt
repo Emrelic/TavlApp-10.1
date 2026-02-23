@@ -108,6 +108,7 @@ class OnlineGameViewModel(
 
     // Oyun motoru tahta durumu (hamle takibi icin)
     private var currentBoardForMoves = BoardState.initial()
+    private var turnStartBoard = BoardState.initial()  // Tur basindaki orijinal tahta
 
     // Baglanti kopma job
     private var disconnectJob: Job? = null
@@ -189,12 +190,23 @@ class OnlineGameViewModel(
         cubeOwner = state.cubeOwner
         pendingDoubleOffer = state.pendingDoubleOffer
 
-        // Tahta
-        boardState = state.board
+        // Sira degisti mi?
+        val myColorStr = if (isWhite) "white" else "black"
+        val newIsMyTurn = state.turn == myColorStr
+        val turnChanged = currentTurn != state.turn
+        currentTurn = state.turn
+        isMyTurn = newIsMyTurn
+
+        // Tahta - pending hamle varken Firebase'den ezme
+        if (pendingMoves.isEmpty()) {
+            boardState = state.board
+            turnStartBoard = state.board.deepCopy()
+            currentBoardForMoves = state.board
+        }
 
         // Zar
         val newDice = state.diceValues
-        if (newDice != diceValues) {
+        if (newDice != diceValues || turnChanged) {
             diceValues = newDice
             if (newDice.isNotEmpty() && pendingMoves.isEmpty()) {
                 // Yeni zarlar geldi - kalan zarlari hesapla
@@ -205,14 +217,10 @@ class OnlineGameViewModel(
                 }
                 usedDice = List(remainingDice.size) { false }
                 currentBoardForMoves = state.board
+                turnStartBoard = state.board.deepCopy()
                 pendingMoves = emptyList()
             }
         }
-
-        // Sira
-        currentTurn = state.turn
-        val myColorStr = if (isWhite) "white" else "black"
-        isMyTurn = state.turn == myColorStr
 
         // Baslangic zarlari
         startingDiceWhite = state.startingDiceWhite
@@ -387,12 +395,14 @@ class OnlineGameViewModel(
         // Kalan zarlari guncelle - geri alinan zari basa ekle
         remainingDice = listOf(lastMove.dieUsed) + remainingDice
 
-        // Tahtayi yeniden hesapla (orijinal board state'den)
-        currentBoardForMoves = boardState
+        // Tahtayi yeniden hesapla (tur basindaki orijinal board state'den)
+        currentBoardForMoves = turnStartBoard.deepCopy()
         for (move in pendingMoves) {
             currentBoardForMoves = BackgammonEngine.applyMove(currentBoardForMoves, move, gameManager.myColor)
         }
 
+        // UI tahtasini guncelle
+        boardState = currentBoardForMoves
         updateUsedDice()
     }
 
