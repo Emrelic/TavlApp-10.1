@@ -1,3 +1,6 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,6 +20,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Uygulama simgesi altindaki isim: TavlApp + build tarih/saat
+        val labelDateFormat = SimpleDateFormat("dd.MM.yyyy.HH.mm")
+        val labelDate = labelDateFormat.format(Date())
+        resValue("string", "app_name", "TavlApp.$labelDate")
     }
 
     buildTypes {
@@ -37,6 +45,16 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    applicationVariants.all {
+        val variant = this
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm")
+        val buildDate = dateFormat.format(Date())
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "TavlApp-${variant.buildType.name}-${buildDate}.apk"
+        }
     }
 }
 

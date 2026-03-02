@@ -110,8 +110,16 @@ class OnlineGameViewModel(
     private var currentBoardForMoves = BoardState.initial()
     private var turnStartBoard = BoardState.initial()  // Tur basindaki orijinal tahta
 
+    // Undo stack - her hamle oncesi snapshot kaydeder
+    private data class MoveSnapshot(
+        val board: BoardState,
+        val remainingDice: List<Int>
+    )
+    private val moveUndoStack = mutableListOf<MoveSnapshot>()
+
     // Baglanti kopma job
     private var disconnectJob: Job? = null
+    private var autoPassJob: Job? = null
 
     init {
         observeGameState()
@@ -197,11 +205,11 @@ class OnlineGameViewModel(
         currentTurn = state.turn
         isMyTurn = newIsMyTurn
 
-        // Tahta - pending hamle varken Firebase'den ezme
-        if (pendingMoves.isEmpty()) {
+        // Tahta - aktif hamle veya undo islemi varken Firebase'den ezme
+        if (pendingMoves.isEmpty() && moveUndoStack.isEmpty()) {
             boardState = state.board
             turnStartBoard = state.board.deepCopy()
-            currentBoardForMoves = state.board
+            currentBoardForMoves = state.board.deepCopy()
         }
 
         // Zar
@@ -216,9 +224,10 @@ class OnlineGameViewModel(
                     newDice.toList()
                 }
                 usedDice = List(remainingDice.size) { false }
-                currentBoardForMoves = state.board
+                currentBoardForMoves = state.board.deepCopy()
                 turnStartBoard = state.board.deepCopy()
                 pendingMoves = emptyList()
+                moveUndoStack.clear()
             }
         }
 
@@ -255,12 +264,15 @@ class OnlineGameViewModel(
         // Hamle yapilabilirlik kontrolu
         if (gamePhase == GamePhase.PLAYING && isMyTurn && remainingDice.isNotEmpty()) {
             if (!MoveGenerator.hasAnyLegalMove(currentBoardForMoves, gameManager.myColor, remainingDice)) {
-                // Hamle yapilamiyor - otomatik pas
-                viewModelScope.launch {
+                // Hamle yapilamiyor - otomatik pas (onceki job'u iptal et)
+                autoPassJob?.cancel()
+                autoPassJob = viewModelScope.launch {
                     delay(1000)
                     gameManager.passTurn()
                 }
             }
+        } else {
+            autoPassJob?.cancel()
         }
     }
 
@@ -341,6 +353,12 @@ class OnlineGameViewModel(
 
     /** Otomatik hamle uygular (1-tikla sistemi) */
     private fun executeAutoMove(move: Move) {
+        // Hamle oncesi durumu kaydet (undo icin)
+        moveUndoStack.add(MoveSnapshot(
+            board = currentBoardForMoves.deepCopy(),
+            remainingDice = remainingDice.toList()
+        ))
+
         // Hamleyi uygula
         currentBoardForMoves = BackgammonEngine.applyMove(currentBoardForMoves, move, gameManager.myColor)
         pendingMoves = pendingMoves + move
@@ -353,7 +371,7 @@ class OnlineGameViewModel(
         updateUsedDice()
 
         // UI state'i guncelle
-        boardState = currentBoardForMoves
+        boardState = currentBoardForMoves.deepCopy()
     }
 
     /** Used dice durumunu gunceller */
@@ -383,26 +401,25 @@ class OnlineGameViewModel(
         usedDice = emptyList()
         selectedPoint = null
         legalDestinations = emptyList()
+        moveUndoStack.clear()
     }
 
     /** Son hamleyi geri al */
     fun onUndoLastMove() {
-        if (pendingMoves.isEmpty()) return
+        if (moveUndoStack.isEmpty() || pendingMoves.isEmpty()) return
 
-        val lastMove = pendingMoves.last()
+        val snapshot = moveUndoStack.removeAt(moveUndoStack.size - 1)
         pendingMoves = pendingMoves.dropLast(1)
 
-        // Kalan zarlari guncelle - geri alinan zari basa ekle
-        remainingDice = listOf(lastMove.dieUsed) + remainingDice
+        // Snapshot'tan durumu geri yukle
+        currentBoardForMoves = snapshot.board
+        remainingDice = snapshot.remainingDice
+        boardState = currentBoardForMoves.deepCopy()
 
-        // Tahtayi yeniden hesapla (tur basindaki orijinal board state'den)
-        currentBoardForMoves = turnStartBoard.deepCopy()
-        for (move in pendingMoves) {
-            currentBoardForMoves = BackgammonEngine.applyMove(currentBoardForMoves, move, gameManager.myColor)
-        }
+        // Secim durumunu temizle
+        selectedPoint = null
+        legalDestinations = emptyList()
 
-        // UI tahtasini guncelle
-        boardState = currentBoardForMoves
         updateUsedDice()
     }
 
