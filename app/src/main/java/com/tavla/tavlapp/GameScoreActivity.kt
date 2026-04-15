@@ -576,7 +576,7 @@ fun GameScreen(
 
         if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
             handleRematchPartyEnd()
-        } else if (rematchGameIndex + 1 >= DiceGenerator.SETS_PER_PARTY) {
+        } else if (rematchGameIndex + 1 >= DiceGenerator.maxSetsForTargetScore(matchTargetScore)) {
             handleRematchPartyEnd()
         } else {
             rematchGameIndex++
@@ -1577,7 +1577,7 @@ fun GameScreen(
                                     fontSize = 10.sp
                                 )
                                 Text(
-                                    text = "El ${rematchGameIndex + 1}/${DiceGenerator.SETS_PER_PARTY}",
+                                    text = "El ${rematchGameIndex + 1}/${DiceGenerator.maxSetsForTargetScore(matchTargetScore)}",
                                     color = Color.White,
                                     fontSize = 11.sp
                                 )

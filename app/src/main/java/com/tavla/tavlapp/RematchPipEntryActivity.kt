@@ -408,6 +408,13 @@ fun RematchPipEntryScreen(
                 coroutineScope.launch {
                     try {
                         val navigateIntent = withContext(Dispatchers.IO) {
+                            // SharedPreferences'dan zar istatistiklerini oku
+                            val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
+                            val savedLeftDiceTotal = prefs.getInt("left_dice_total_${encounterId}", 0)
+                            val savedRightDiceTotal = prefs.getInt("right_dice_total_${encounterId}", 0)
+                            val savedLeftDoublesCount = prefs.getInt("left_doubles_count_${encounterId}", 0)
+                            val savedRightDoublesCount = prefs.getInt("right_doubles_count_${encounterId}", 0)
+
                             // 1. Oyun sonucunu kaydet
                             dbHelper.saveRematchGameResult(
                                 encounterId = encounterId,
@@ -421,7 +428,11 @@ fun RematchPipEntryScreen(
                                 cubeValue = cubeValue,
                                 finalScore = finalScore,
                                 loserPipCount = pipCount,
-                                dicePairsUsed = dicePairsUsed
+                                dicePairsUsed = dicePairsUsed,
+                                leftDiceTotal = savedLeftDiceTotal,
+                                rightDiceTotal = savedRightDiceTotal,
+                                leftDoublesCount = savedLeftDoublesCount,
+                                rightDoublesCount = savedRightDoublesCount
                             )
 
                             // 2. Guncel parti skorunu al

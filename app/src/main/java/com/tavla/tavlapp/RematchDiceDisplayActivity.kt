@@ -170,251 +170,274 @@ fun RematchDiceDisplayScreen(
     val currentPlayerColor = if (currentPlayerTurn == 1) Color(0xFF1565C0) else Color(0xFFC62828)
     val currentPlayerBgColor = if (currentPlayerTurn == 1) Color(0xFF1565C0).copy(alpha = 0.2f) else Color(0xFFC62828).copy(alpha = 0.2f)
 
-    Column(
+    // Sonraki zar atma fonksiyonu (sol ve sağ butonlar aynı işlevi kullanır)
+    val advanceToNextDice: () -> Unit = {
+        when (gamePhase) {
+            GamePhase.STARTING_DICE -> {
+                gamePhase = GamePhase.FIRST_MOVE
+                totalMoveCount = 1
+            }
+            GamePhase.FIRST_MOVE -> {
+                gamePhase = GamePhase.PLAYING
+                val secondPlayer = if (firstPlayer == 1) 2 else 1
+                currentPlayerTurn = secondPlayer
+                totalMoveCount = 2
+            }
+            GamePhase.PLAYING -> {
+                val prevPlayer = currentPlayerTurn
+                currentPlayerTurn = if (currentPlayerTurn == 1) 2 else 1
+                if (prevPlayer == 1) {
+                    leftMoveIndex++
+                } else {
+                    rightMoveIndex++
+                }
+                totalMoveCount++
+            }
+        }
+    }
+
+    val nextDiceEnabled = leftMoveIndex < DiceGenerator.DICE_PAIRS_PER_SET && rightMoveIndex < DiceGenerator.DICE_PAIRS_PER_SET
+
+    Row(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1E1E1E))
     ) {
-        // Üst bilgi satırı
-        Row(
+        // === SOL ZAR ATMA BUTONU (mavi - sol oyuncu) ===
+        Button(
+            onClick = advanceToNextDice,
+            enabled = nextDiceEnabled,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1565C0),
+                disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.4f)
+            ),
+            shape = RoundedCornerShape(0.dp),
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF2D2D2D))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxHeight()
+                .width(64.dp)
         ) {
-            Text(
-                text = "Tur ${currentRound}/2",
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Parti ${currentPartyIndex + 1}/$totalParties | Oyun ${currentGameIndex + 1}",
-                color = Color(0xFF6A1B9A),
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
             Text(
                 text = when (gamePhase) {
-                    GamePhase.STARTING_DICE -> "Başlangıç Zarı"
-                    GamePhase.FIRST_MOVE -> "İlk Hamle (Başlangıç Zarı)"
-                    GamePhase.PLAYING -> "Hamle $totalMoveCount"
+                    GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                    else -> "Z\nA\nR\n\nA\nT"
                 },
-                color = Color.Gray
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
             )
         }
 
-        // Ana zar gösterim alanı
-        Box(
+        // === ORTA İÇERİK (bilgi + zar + kontroller) ===
+        Column(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center
+                .fillMaxHeight()
         ) {
-            when (gamePhase) {
-                GamePhase.STARTING_DICE -> {
-                    // Başlangıç zarları - iki oyuncu da görünür
-                    StartingDiceDisplay(
-                        leftPlayerName = leftPlayerName,
-                        rightPlayerName = rightPlayerName,
-                        leftDice = leftStartingDice,
-                        rightDice = rightStartingDice,
-                        firstPlayer = currentPlayerTurn
-                    )
-                }
-                GamePhase.FIRST_MOVE -> {
-                    // İlk hamle - başlangıç zarlarının kombinasyonu
-                    SinglePlayerDiceDisplay(
-                        playerName = currentPlayerName,
-                        playerColor = currentPlayerColor,
-                        bgColor = currentPlayerBgColor,
-                        dicePair = currentDicePair,
-                        moveIndex = 0,
-                        label = "İlk Hamle (Başlangıç Zarı)"
-                    )
-                }
-                GamePhase.PLAYING -> {
-                    // Oyun zarları - sadece sıradaki oyuncunun zarı
-                    val moveIdx = if (currentPlayerTurn == 1) leftMoveIndex else rightMoveIndex
-                    SinglePlayerDiceDisplay(
-                        playerName = currentPlayerName,
-                        playerColor = currentPlayerColor,
-                        bgColor = currentPlayerBgColor,
-                        dicePair = currentDicePair,
-                        moveIndex = moveIdx
-                    )
-                }
-            }
-        }
-
-        // Alt kontrol paneli
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF2D2D2D))
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Önceki buton
-            Button(
-                onClick = {
-                    when (gamePhase) {
-                        GamePhase.STARTING_DICE -> {
-                            // Başlangıçtan öncesine gidemez
-                        }
-                        GamePhase.FIRST_MOVE -> {
-                            // İlk hamleden başlangıç zarlarına dön
-                            gamePhase = GamePhase.STARTING_DICE
-                            totalMoveCount = 0
-                        }
-                        GamePhase.PLAYING -> {
-                            // İkinci oyuncu ilk zarında (indeks 0) ve başlayan da 0 ise → FIRST_MOVE'a dön
-                            val secondPlayer = if (firstPlayer == 1) 2 else 1
-                            val currentIdx = if (currentPlayerTurn == 1) leftMoveIndex else rightMoveIndex
-                            val firstPlayerIdx = if (firstPlayer == 1) leftMoveIndex else rightMoveIndex
-                            if (currentPlayerTurn == secondPlayer && currentIdx == 0 && firstPlayerIdx == 0) {
-                                gamePhase = GamePhase.FIRST_MOVE
-                                currentPlayerTurn = firstPlayer
-                                totalMoveCount = 1
-                            } else {
-                                // Normal geri: diğer oyuncuya dön, onun indeksini azalt
-                                val otherPlayer = if (currentPlayerTurn == 1) 2 else 1
-                                if (otherPlayer == 1) leftMoveIndex-- else rightMoveIndex--
-                                currentPlayerTurn = otherPlayer
-                                totalMoveCount--
-                            }
-                        }
-                    }
-                },
-                enabled = !(gamePhase == GamePhase.STARTING_DICE),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575)),
-                modifier = Modifier.width(100.dp)
-            ) {
-                Text("◀ ÖNCEKİ", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
-
-            // Sonraki zar butonu
-            Button(
-                onClick = {
-                    when (gamePhase) {
-                        GamePhase.STARTING_DICE -> {
-                            // İlk hamleye geç (başlangıç zarı kombinasyonu)
-                            gamePhase = GamePhase.FIRST_MOVE
-                            // currentPlayerTurn zaten firstPlayer
-                            totalMoveCount = 1
-                        }
-                        GamePhase.FIRST_MOVE -> {
-                            // İlk hamle bitti, karşı taraf çift zar atar
-                            gamePhase = GamePhase.PLAYING
-                            val secondPlayer = if (firstPlayer == 1) 2 else 1
-                            currentPlayerTurn = secondPlayer
-                            // İkinci oyuncunun ilk zarı (indeks 0)
-                            totalMoveCount = 2
-                        }
-                        GamePhase.PLAYING -> {
-                            // Oyuncu değiştir
-                            val prevPlayer = currentPlayerTurn
-                            currentPlayerTurn = if (currentPlayerTurn == 1) 2 else 1
-                            // Önceki oyuncunun indeksini artır (gösterilen zarı tüket)
-                            // Yeni oyuncunun zarı gösterilecek
-                            if (prevPlayer == 1) {
-                                leftMoveIndex++
-                            } else {
-                                rightMoveIndex++
-                            }
-                            totalMoveCount++
-                        }
-                    }
-                },
-                enabled = leftMoveIndex < 199 && rightMoveIndex < 199,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+            // Üst bilgi satırı
+            Row(
                 modifier = Modifier
-                    .width(180.dp)
-                    .height(56.dp)
+                    .fillMaxWidth()
+                    .background(Color(0xFF2D2D2D))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = when (gamePhase) {
-                        GamePhase.STARTING_DICE -> "▶ OYUNA BAŞLA"
-                        GamePhase.FIRST_MOVE -> "▶ SONRAKİ ZAR"
-                        GamePhase.PLAYING -> "▶ SONRAKİ ZAR"
-                    },
+                    text = "Tur ${currentRound}/2",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Parti ${currentPartyIndex + 1}/$totalParties | Oyun ${currentGameIndex + 1}",
+                    color = Color(0xFF6A1B9A),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
+                Text(
+                    text = when (gamePhase) {
+                        GamePhase.STARTING_DICE -> "Başlangıç Zarı"
+                        GamePhase.FIRST_MOVE -> "İlk Hamle (Başlangıç Zarı)"
+                        GamePhase.PLAYING -> "Hamle $totalMoveCount"
+                    },
+                    color = Color.Gray
+                )
             }
 
-            // El bitti butonu - PipEntry'ye git
-            Button(
-                onClick = {
-                    // Zar istatistiklerini hesapla
-                    var leftDiceTotal = 0
-                    var rightDiceTotal = 0
-                    var leftDoublesCount = 0
-                    var rightDoublesCount = 0
-
-                    // Başlangıç zarları (ilk hamleyi yapan oyuncuya ait)
-                    val startingTotal = (leftStartingDice ?: 0) + (rightStartingDice ?: 0)
-                    if (firstPlayer == 1) leftDiceTotal += startingTotal
-                    else rightDiceTotal += startingTotal
-
-                    // Sol oyuncunun kullandığı zar çiftleri
-                    for (i in 0 until leftMoveIndex) {
-                        val pair = leftDice?.getOrNull(i)
-                        if (pair != null) {
-                            if (pair.first == pair.second) {
-                                // Çift: tavlada 4 hamle = değer × 4
-                                leftDiceTotal += pair.first * 4
-                                leftDoublesCount++
-                            } else {
-                                leftDiceTotal += pair.first + pair.second
-                            }
-                        }
-                    }
-
-                    // Sağ oyuncunun kullandığı zar çiftleri
-                    for (i in 0 until rightMoveIndex) {
-                        val pair = rightDice?.getOrNull(i)
-                        if (pair != null) {
-                            if (pair.first == pair.second) {
-                                rightDiceTotal += pair.first * 4
-                                rightDoublesCount++
-                            } else {
-                                rightDiceTotal += pair.first + pair.second
-                            }
-                        }
-                    }
-
-                    // SharedPreferences ile skorboard'a aktar
-                    val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
-                    prefs.edit()
-                        .putInt("dice_pairs_used_${encounterId}", totalMoveCount)
-                        .putInt("left_dice_total_${encounterId}", leftDiceTotal)
-                        .putInt("right_dice_total_${encounterId}", rightDiceTotal)
-                        .putInt("left_doubles_count_${encounterId}", leftDoublesCount)
-                        .putInt("right_doubles_count_${encounterId}", rightDoublesCount)
-                        .apply()
-                    // Skorboard'a geri dön
-                    (context as? ComponentActivity)?.finish()
-                },
-                enabled = gamePhase == GamePhase.PLAYING || gamePhase == GamePhase.FIRST_MOVE,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
+            // Ana zar gösterim alanı
+            Box(
                 modifier = Modifier
-                    .width(120.dp)
-                    .height(56.dp)
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Text("EL BİTTİ", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                when (gamePhase) {
+                    GamePhase.STARTING_DICE -> {
+                        StartingDiceDisplay(
+                            leftPlayerName = leftPlayerName,
+                            rightPlayerName = rightPlayerName,
+                            leftDice = leftStartingDice,
+                            rightDice = rightStartingDice,
+                            firstPlayer = currentPlayerTurn
+                        )
+                    }
+                    GamePhase.FIRST_MOVE -> {
+                        SinglePlayerDiceDisplay(
+                            playerName = currentPlayerName,
+                            playerColor = currentPlayerColor,
+                            bgColor = currentPlayerBgColor,
+                            dicePair = currentDicePair,
+                            moveIndex = 0,
+                            label = "İlk Hamle (Başlangıç Zarı)"
+                        )
+                    }
+                    GamePhase.PLAYING -> {
+                        val moveIdx = if (currentPlayerTurn == 1) leftMoveIndex else rightMoveIndex
+                        SinglePlayerDiceDisplay(
+                            playerName = currentPlayerName,
+                            playerColor = currentPlayerColor,
+                            bgColor = currentPlayerBgColor,
+                            dicePair = currentDicePair,
+                            moveIndex = moveIdx
+                        )
+                    }
+                }
             }
 
-            // Geri dön butonu
-            Button(
-                onClick = onBack,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575)),
-                modifier = Modifier.width(100.dp)
+            // Alt kontrol paneli
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2D2D2D))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("SKORBOARD", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                // Önceki buton
+                Button(
+                    onClick = {
+                        when (gamePhase) {
+                            GamePhase.STARTING_DICE -> { }
+                            GamePhase.FIRST_MOVE -> {
+                                gamePhase = GamePhase.STARTING_DICE
+                                totalMoveCount = 0
+                            }
+                            GamePhase.PLAYING -> {
+                                val secondPlayer = if (firstPlayer == 1) 2 else 1
+                                val currentIdx = if (currentPlayerTurn == 1) leftMoveIndex else rightMoveIndex
+                                val firstPlayerIdx = if (firstPlayer == 1) leftMoveIndex else rightMoveIndex
+                                if (currentPlayerTurn == secondPlayer && currentIdx == 0 && firstPlayerIdx == 0) {
+                                    gamePhase = GamePhase.FIRST_MOVE
+                                    currentPlayerTurn = firstPlayer
+                                    totalMoveCount = 1
+                                } else {
+                                    val otherPlayer = if (currentPlayerTurn == 1) 2 else 1
+                                    val otherIdx = if (otherPlayer == 1) leftMoveIndex else rightMoveIndex
+                                    if (otherIdx > 0) {
+                                        if (otherPlayer == 1) leftMoveIndex-- else rightMoveIndex--
+                                        currentPlayerTurn = otherPlayer
+                                        totalMoveCount--
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = !(gamePhase == GamePhase.STARTING_DICE),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575)),
+                    modifier = Modifier.width(100.dp)
+                ) {
+                    Text("◀ ÖNCEKİ", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                // El bitti butonu
+                Button(
+                    onClick = {
+                        var leftDiceTotal = 0
+                        var rightDiceTotal = 0
+                        var leftDoublesCount = 0
+                        var rightDoublesCount = 0
+
+                        val startingTotal = (leftStartingDice ?: 0) + (rightStartingDice ?: 0)
+                        if (firstPlayer == 1) leftDiceTotal += startingTotal
+                        else rightDiceTotal += startingTotal
+
+                        for (i in 0 until leftMoveIndex) {
+                            val pair = leftDice?.getOrNull(i)
+                            if (pair != null) {
+                                if (pair.first == pair.second) {
+                                    leftDiceTotal += pair.first * 4
+                                    leftDoublesCount++
+                                } else {
+                                    leftDiceTotal += pair.first + pair.second
+                                }
+                            }
+                        }
+
+                        for (i in 0 until rightMoveIndex) {
+                            val pair = rightDice?.getOrNull(i)
+                            if (pair != null) {
+                                if (pair.first == pair.second) {
+                                    rightDiceTotal += pair.first * 4
+                                    rightDoublesCount++
+                                } else {
+                                    rightDiceTotal += pair.first + pair.second
+                                }
+                            }
+                        }
+
+                        val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putInt("dice_pairs_used_${encounterId}", totalMoveCount)
+                            .putInt("left_dice_total_${encounterId}", leftDiceTotal)
+                            .putInt("right_dice_total_${encounterId}", rightDiceTotal)
+                            .putInt("left_doubles_count_${encounterId}", leftDoublesCount)
+                            .putInt("right_doubles_count_${encounterId}", rightDoublesCount)
+                            .apply()
+                        (context as? ComponentActivity)?.finish()
+                    },
+                    enabled = gamePhase == GamePhase.PLAYING || gamePhase == GamePhase.FIRST_MOVE,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(48.dp)
+                ) {
+                    Text("EL BİTTİ", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+
+                // Geri dön butonu
+                Button(
+                    onClick = onBack,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575)),
+                    modifier = Modifier.width(100.dp)
+                ) {
+                    Text("SKORBOARD", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
+        }
+
+        // === SAĞ ZAR ATMA BUTONU (kırmızı - sağ oyuncu) ===
+        Button(
+            onClick = advanceToNextDice,
+            enabled = nextDiceEnabled,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFC62828),
+                disabledContainerColor = Color(0xFFC62828).copy(alpha = 0.4f)
+            ),
+            shape = RoundedCornerShape(0.dp),
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(64.dp)
+        ) {
+            Text(
+                text = when (gamePhase) {
+                    GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                    else -> "Z\nA\nR\n\nA\nT"
+                },
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
+            )
         }
     }
 }
