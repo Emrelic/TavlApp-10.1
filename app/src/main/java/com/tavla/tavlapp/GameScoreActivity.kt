@@ -1,7 +1,10 @@
 package com.tavla.tavlapp
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.text.SimpleDateFormat
 import java.util.Locale
 import android.view.View
@@ -15,6 +18,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +38,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -231,6 +238,76 @@ fun GameScreen(
 
     var showEndMatchConfirmation by remember { mutableStateOf(false) }
     var showActivityLogDialog by remember { mutableStateOf(false) }
+    
+    // ✅ ZAR SETİ TAKİP SİSTEMİ
+    var currentDiceSetNumber by remember { mutableIntStateOf(1) }
+    var currentPartNumber by remember { mutableIntStateOf(1) }
+    var currentGameNumber by remember { mutableIntStateOf(1) }
+    var diceSetHistory by remember { mutableStateOf(mutableListOf<String>()) } // P1-O1-S1 formatında
+    
+    // ✅ ZAR SETİ REPLAY SİSTEMİ
+    var showDiceSetHistoryDialog by remember { mutableStateOf(false) }
+    
+    // ✅ TAM GERİ ALMA SİSTEMİ - GameState Snapshot
+    data class GameStateSnapshot(
+        val player1Score: Int,
+        val player2Score: Int,
+        val currentRound: Int,
+        val player1RoundsWon: Int,
+        val player2RoundsWon: Int,
+        val doublingCubeValue: Int,
+        val doublingCubePosition: DoublingCubePosition,
+        val player1CanDouble: Boolean,
+        val player2CanDouble: Boolean,
+        val isCrawfordGame: Boolean,
+        val crawfordGamePlayed: Boolean,
+        val isPostCrawford: Boolean,
+        val currentDiceSetNumber: Int,
+        val diceSetHistory: List<String>,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    
+    var gameStateHistory by remember { mutableStateOf(mutableListOf<GameStateSnapshot>()) }
+    
+    // ✅ ZAR EKRANI RESULT LAUNCHER - Katlama sonuçlarını al
+    val diceActivityLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val doublingResult = data?.getIntExtra("doubling_cube_value", doublingCubeValue) ?: doublingCubeValue
+            val player1CanDoubleResult = data?.getBooleanExtra("player1_can_double", player1CanDouble) ?: player1CanDouble
+            val player2CanDoubleResult = data?.getBooleanExtra("player2_can_double", player2CanDouble) ?: player2CanDouble
+            val doublingPositionResult = data?.getStringExtra("doubling_cube_position") ?: doublingCubePosition.name
+            val acceptedPlayerId = data?.getLongExtra("accepted_player_id", -1L) ?: -1L
+            val resignedPlayerId = data?.getLongExtra("resigned_player_id", -1L) ?: -1L
+            
+            // ✅ Skorboard'u güncelle
+            doublingCubeValue = doublingResult
+            player1CanDouble = player1CanDoubleResult
+            player2CanDouble = player2CanDoubleResult
+            
+            // Pozisyon güncellemesi
+            doublingCubePosition = when (doublingPositionResult) {
+                "PLAYER1_CONTROL" -> DoublingCubePosition.PLAYER1_CONTROL
+                "PLAYER2_CONTROL" -> DoublingCubePosition.PLAYER2_CONTROL
+                "PLAYER1_OFFER" -> DoublingCubePosition.PLAYER1_OFFER
+                "PLAYER2_OFFER" -> DoublingCubePosition.PLAYER2_OFFER
+                else -> DoublingCubePosition.CENTER
+            }
+            
+            // Sonuçları göster
+            if (resignedPlayerId != -1L) {
+                val winnerName = if (resignedPlayerId == player1Id) player2Name else player1Name
+                Toast.makeText(context, "Zar ekranında pes edildi: $winnerName kazandı", Toast.LENGTH_SHORT).show()
+            }
+            
+            if (acceptedPlayerId != -1L) {
+                val accepterName = if (acceptedPlayerId == player1Id) player1Name else player2Name
+                Toast.makeText(context, "Zar ekranında katlama kabul edildi: $accepterName (x$doublingCubeValue)", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // ✅ Maç bitirici skor onay sistemi
     var showMatchWinConfirmation by remember { mutableStateOf(false) }
@@ -275,10 +352,19 @@ fun GameScreen(
     var showEncounterEndDialog by remember { mutableStateOf(false) }
     var partyEndInfo by remember { mutableStateOf("") }
 
-    // Otomatik zar ekranı açma
+    // Otomatik zar ekranı açma ve mevcut zar setini initialize et
     LaunchedEffect(useDiceRoller, useTimer) {
         if (useDiceRoller || useTimer) {
             showDiceScreen = true
+        }
+        // ✅ Oyun başladığında mevcut seti ekle
+        val currentSetId = if (isRematchMode) {
+            "P${rematchPartyIndex + 1}-O${currentRound + 1}-S$currentDiceSetNumber"
+        } else {
+            "P$currentPartNumber-O${currentRound + 1}-S$currentDiceSetNumber"
+        }
+        if (!diceSetHistory.contains(currentSetId)) {
+            diceSetHistory.add(currentSetId)
         }
     }
 
@@ -357,6 +443,89 @@ fun GameScreen(
                 isPostCrawford = true
             }
         }
+    }
+    
+    // ✅ ZAR SETİ NUMARALANDIRMA FONKSİYONLARI
+    fun getCurrentDiceSetId(): String {
+        return if (isRematchMode) {
+            "P${rematchPartyIndex + 1}-O${currentRound + 1}-S$currentDiceSetNumber"
+        } else {
+            "P$currentPartNumber-O${currentRound + 1}-S$currentDiceSetNumber"
+        }
+    }
+    
+    fun incrementDiceSet() {
+        currentDiceSetNumber++
+        val setId = getCurrentDiceSetId()
+        diceSetHistory.add(setId)
+        
+        // Activity log'a kaydet
+        dbHelper.addActivityLog(
+            actionType = ActionTypes.DICE_ROLL,
+            description = "Yeni zar seti: $setId",
+            player1Name = player1Name,
+            player2Name = player2Name,
+            matchId = if (isRematchMode) -1 else matchId
+        )
+    }
+    
+    // ✅ OYUN BAŞLADIĞINDA MEVCUT SETİ EKLE
+    fun initializeCurrentDiceSet() {
+        val currentSetId = getCurrentDiceSetId()
+        if (!diceSetHistory.contains(currentSetId)) {
+            diceSetHistory.add(currentSetId)
+        }
+    }
+    
+    fun resetDiceSetForNewGame() {
+        currentDiceSetNumber = 1
+        currentGameNumber++
+    }
+    
+    fun resetDiceSetForNewParty() {
+        currentDiceSetNumber = 1
+        currentGameNumber = 1
+        currentPartNumber++
+    }
+    
+    // ✅ TAM GERİ ALMA FONKSİYONLARI
+    fun captureGameState(): GameStateSnapshot {
+        return GameStateSnapshot(
+            player1Score = player1Score,
+            player2Score = player2Score,
+            currentRound = currentRound,
+            player1RoundsWon = player1RoundsWon,
+            player2RoundsWon = player2RoundsWon,
+            doublingCubeValue = doublingCubeValue,
+            doublingCubePosition = doublingCubePosition,
+            player1CanDouble = player1CanDouble,
+            player2CanDouble = player2CanDouble,
+            isCrawfordGame = isCrawfordGame,
+            crawfordGamePlayed = crawfordGamePlayed,
+            isPostCrawford = isPostCrawford,
+            currentDiceSetNumber = currentDiceSetNumber,
+            diceSetHistory = diceSetHistory.toList()
+        )
+    }
+    
+    fun restoreGameState(snapshot: GameStateSnapshot) {
+        player1Score = snapshot.player1Score
+        player2Score = snapshot.player2Score
+        currentRound = snapshot.currentRound
+        player1RoundsWon = snapshot.player1RoundsWon
+        player2RoundsWon = snapshot.player2RoundsWon
+        doublingCubeValue = snapshot.doublingCubeValue
+        doublingCubePosition = snapshot.doublingCubePosition
+        player1CanDouble = snapshot.player1CanDouble
+        player2CanDouble = snapshot.player2CanDouble
+        isCrawfordGame = snapshot.isCrawfordGame
+        crawfordGamePlayed = snapshot.crawfordGamePlayed
+        isPostCrawford = snapshot.isPostCrawford
+        currentDiceSetNumber = snapshot.currentDiceSetNumber
+        diceSetHistory = snapshot.diceSetHistory.toMutableList()
+        
+        // UI'yi yeniden çiz
+        recomposeKey++
     }
 
     // Maç sona erdiğinde yapılacak işlemler
@@ -586,6 +755,10 @@ fun GameScreen(
 
     // ✅ Gerçek round ekleme işlemi (onay sonrası veya maç bitmeyecekse direkt çağrılır)
     fun executeAddRound(playerId: Long, playerName: String, winType: String, score: Int) {
+        // ✅ İşlem öncesi oyun durumunu kaydet
+        val gameSnapshot = captureGameState()
+        gameStateHistory.add(gameSnapshot)
+        
         // === RÖVANŞLI MOD ===
         if (isRematchMode) {
             executeRematchAddRound(playerId, playerName, winType, score)
@@ -659,6 +832,9 @@ fun GameScreen(
         // Crawford kontrolü yap
         handleCrawfordGameEnd()
         checkCrawfordStatus()
+        
+        // ✅ Yeni oyun için zar setini sıfırla
+        resetDiceSetForNewGame()
 
         // Hedef puana ulaşıldıysa maçı bitir
         if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
@@ -720,8 +896,39 @@ fun GameScreen(
         }
     }
 
-    // ✅ Son hamleyi geri al
+    // ✅ Son hamleyi TAM geri al - Snapshot sistemi ile
     fun undoLastRound() {
+        // ✅ Önce snapshot gerisini dene
+        if (gameStateHistory.isNotEmpty()) {
+            val lastSnapshot = gameStateHistory.last()
+            gameStateHistory = gameStateHistory.dropLast(1).toMutableList()
+            restoreGameState(lastSnapshot)
+            
+            // Veritabanından da geri al (eğer varsa)
+            if (isRematchMode && rematchUndoStack.isNotEmpty()) {
+                val lastResultId = rematchUndoStack.last()
+                dbHelper.deleteRematchGameResult(lastResultId)
+                rematchUndoStack = rematchUndoStack.dropLast(1)
+            } else if (!isRematchMode && undoStack.isNotEmpty()) {
+                val lastRoundId = undoStack.last()
+                dbHelper.deleteRound(lastRoundId)
+                undoStack = undoStack.dropLast(1)
+            }
+            
+            // Activity log'a kaydet
+            dbHelper.addActivityLog(
+                actionType = ActionTypes.SCORE_UNDO,
+                description = "Son işlem tamamen geri alındı (Snapshot #${gameStateHistory.size + 1})",
+                player1Name = player1Name,
+                player2Name = player2Name,
+                matchId = if (isRematchMode) -1 else matchId
+            )
+            
+            Toast.makeText(context, "Son işlem tamamen geri alındı", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // === ESKI SİSTEM - Snapshot yoksa kullan ===
         // === RÖVANŞLI MOD UNDO ===
         if (isRematchMode) {
             if (rematchUndoStack.isNotEmpty()) {
@@ -827,6 +1034,10 @@ fun GameScreen(
     // Katlama zarı işlemleri
     fun player1OfferDouble() {
         if (player1CanDouble) {
+            // ✅ Katlama teklifi öncesi oyun durumunu kaydet
+            val gameSnapshot = captureGameState()
+            gameStateHistory.add(gameSnapshot)
+            
             // Tekliften önceki değerleri kaydet
             previousDoublingCubeValue = doublingCubeValue
             previousDoublingCubePosition = doublingCubePosition
@@ -851,6 +1062,10 @@ fun GameScreen(
 
     fun player2OfferDouble() {
         if (player2CanDouble) {
+            // ✅ Katlama teklifi öncesi oyun durumunu kaydet
+            val gameSnapshot = captureGameState()
+            gameStateHistory.add(gameSnapshot)
+            
             // Tekliften önceki değerleri kaydet
             previousDoublingCubeValue = doublingCubeValue
             previousDoublingCubePosition = doublingCubePosition
@@ -874,6 +1089,10 @@ fun GameScreen(
     }
 
     fun player1AcceptDouble() {
+        // ✅ Katlama kabul öncesi oyun durumunu kaydet
+        val gameSnapshot = captureGameState()
+        gameStateHistory.add(gameSnapshot)
+        
         doublingCubePosition = DoublingCubePosition.PLAYER1_CONTROL
         showPlayer1DoublingMenu = false
         player1CanDouble = true
@@ -890,6 +1109,10 @@ fun GameScreen(
     }
 
     fun player2AcceptDouble() {
+        // ✅ Katlama kabul öncesi oyun durumunu kaydet
+        val gameSnapshot = captureGameState()
+        gameStateHistory.add(gameSnapshot)
+        
         doublingCubePosition = DoublingCubePosition.PLAYER2_CONTROL
         showPlayer2DoublingMenu = false
         player2CanDouble = true
@@ -1032,11 +1255,26 @@ fun GameScreen(
             title = { Text("Maçı Sonlandır") },
             text = {
                 Column {
-                    Text("Maçı sonlandırmak istediğinizden emin misiniz?")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("$player1Name: $player1Score puan ($player1RoundsWon el)")
-                    Text("$player2Name: $player2Score puan ($player2RoundsWon el)")
-                    Text("Bu sonuçlar istatistiklere kaydedilecektir.")
+                    if (isRematchMode) {
+                        Text(
+                            "RÖVANŞLI KARŞILAŞMA!",
+                            color = Color(0xFFCE93D8),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Bu bir rövanşlı karşılaşma. Maçı şimdi sonlandırırsanız zar setini kaybedebilirsiniz.")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Sonlandırmak istediğinizden EMİN mİsınız?", fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("$player1Name: $player1Score puan")
+                        Text("$player2Name: $player2Score puan")
+                    } else {
+                        Text("Maçı sonlandırmak istediğinizden emin misiniz?")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("$player1Name: $player1Score puan ($player1RoundsWon el)")
+                        Text("$player2Name: $player2Score puan ($player2RoundsWon el)")
+                        Text("Bu sonuçlar istatistiklere kaydedilecektir.")
+                    }
                 }
             },
             confirmButton = {
@@ -1696,15 +1934,25 @@ fun GameScreen(
                 }
             }
 
-            // Mevcut el bilgisi
-            Text(
-                text = "El: $currentRound",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
+            // Mevcut el ve zar seti bilgisi
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "El: $currentRound",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Zar Seti: ${getCurrentDiceSetId()}",
+                    color = Color(0xFFFFE082),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = if (isTraditionalGame && isScoreAutomatic) 39.dp else if (isTraditionalGame) 24.dp else 4.dp),
-                textAlign = TextAlign.Center
+                    .padding(vertical = if (isTraditionalGame && isScoreAutomatic) 39.dp else if (isTraditionalGame) 24.dp else 4.dp)
             )
 
             // Skor Artırma Butonları - isScoreAutomatic değerine göre farklı butonlar gösteriyoruz
@@ -2698,9 +2946,10 @@ fun GameScreen(
                     if (isRematchMode) {
                         Button(
                             onClick = {
+                                incrementDiceSet() // ✅ Zar setini artır
                                 val intent = Intent(context, RematchDiceDisplayActivity::class.java)
                                 intent.putExtra("encounter_id", encounterId)
-                                context.startActivity(intent)
+                                context.startActivity(intent) // Rövanş modu için ayrı launcher gerekebilir
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF6A1B9A) // Mor
@@ -2726,7 +2975,32 @@ fun GameScreen(
                         }
 
                         Button(
-                            onClick = { showDiceScreen = true },
+                            onClick = {
+                                incrementDiceSet() // ✅ Zar setini artır
+                                // ✅ Activity Launcher ile aç
+                                val intent = Intent(context, DiceActivity::class.java).apply {
+                                    putExtra("game_type", gameType)
+                                    putExtra("use_dice_roller", useDiceRoller)
+                                    putExtra("use_timer", useTimer)
+                                    putExtra("player1_name", player1Name)
+                                    putExtra("player2_name", player2Name)
+                                    putExtra("match_length", targetRounds)
+                                    putExtra("match_id", matchId)
+                                    putExtra("player1_id", player1Id)
+                                    putExtra("player2_id", player2Id)
+                                    putExtra("keep_statistics", keepStatistics)
+                                    putExtra("mark_dice_evaluation", markDiceEvaluation)
+                                    // ✅ KATLAMA SİSTEMİ PARAMETRELERİ
+                                    putExtra("doubling_cube_value", doublingCubeValue)
+                                    putExtra("player1_can_double", player1CanDouble)
+                                    putExtra("player2_can_double", player2CanDouble)
+                                    putExtra("is_crawford_game", isCrawfordGame)
+                                    putExtra("show_player1_doubling_menu", showPlayer1DoublingMenu)
+                                    putExtra("show_player2_doubling_menu", showPlayer2DoublingMenu)
+                                    putExtra("doubling_cube_position", doublingCubePosition.name)
+                                }
+                                diceActivityLauncher.launch(intent)
+                            },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF9C27B0) // Mor renk
                             ),
@@ -2742,6 +3016,23 @@ fun GameScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(buttonText, color = Color.White, fontSize = 12.sp)
                             }
+                        }
+                    }
+                    
+                    // ✅ ZAR SETLERİNİ GÖRÜNTÜLE BUTONU
+                    if (diceSetHistory.isNotEmpty()) {
+                        Button(
+                            onClick = { 
+                                showDiceSetHistoryDialog = true 
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF2196F3) // Açık mavi
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("📋 Zar Setleri", color = Color.White, fontSize = 11.sp)
                         }
                     }
                 }
@@ -2800,7 +3091,14 @@ fun GameScreen(
 
                 // Maçı sonlandırma butonu - Koyu kırmızı
                 Button(
-                    onClick = { showEndMatchConfirmation = true },
+                    onClick = {
+                        // Rövanşlı karşılaşmalarda ek güvenlik sorusu
+                        if (isRematchMode) {
+                            showEndMatchConfirmation = true
+                        } else {
+                            showEndMatchConfirmation = true
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFB71C1C) // Koyu kırmızı (iki ton koyu)
                     ),
@@ -2881,6 +3179,13 @@ fun GameScreen(
                     putExtra("player2_id", player2Id)
                     putExtra("keep_statistics", keepStatistics)
                     putExtra("mark_dice_evaluation", markDiceEvaluation)
+                    // ✅ KATLAMA SİSTEMİ PARAMETRELERİ
+                    putExtra("doubling_cube_value", doublingCubeValue)
+                    putExtra("player1_can_double", player1CanDouble)
+                    putExtra("player2_can_double", player2CanDouble)
+                    putExtra("is_crawford_game", isCrawfordGame)
+                    putExtra("show_player1_doubling_menu", showPlayer1DoublingMenu)
+                    putExtra("show_player2_doubling_menu", showPlayer2DoublingMenu)
                 }
                 context.startActivity(intent)
                 Toast.makeText(context, "Zar ekranı açılıyor...", Toast.LENGTH_SHORT).show()
@@ -2895,6 +3200,100 @@ fun GameScreen(
 
         // State'i hemen sıfırla
         showDiceScreen = false
+    }
+
+    // ✅ ZAR SETİ GEÇMİŞİ DİALOGU
+    if (showDiceSetHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiceSetHistoryDialog = false },
+            title = {
+                Text(
+                    text = "Zar Setleri Geçmişi",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            text = {
+                LazyColumn {
+                    items(diceSetHistory) { setId ->
+                        val index = diceSetHistory.indexOf(setId)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp)
+                                .clickable {
+                                    // ✅ Zar setini rövanşlı ekranda oynat
+                                    showDiceSetHistoryDialog = false
+                                    if (isRematchMode) {
+                                        // Rövanşlı mod - RematchDiceDisplayActivity kullan
+                                        val intent = Intent(context, RematchDiceDisplayActivity::class.java)
+                                        intent.putExtra("encounter_id", encounterId)
+                                        intent.putExtra("replay_dice_set_id", setId)
+                                        context.startActivity(intent)
+                                    } else {
+                                        // Normal mod - DiceActivity kullan
+                                        val intent = Intent(context, DiceActivity::class.java).apply {
+                                            putExtra("game_type", gameType)
+                                            putExtra("use_dice_roller", useDiceRoller)
+                                            putExtra("use_timer", useTimer)
+                                            putExtra("player1_name", player1Name)
+                                            putExtra("player2_name", player2Name)
+                                            putExtra("match_length", targetRounds)
+                                            putExtra("match_id", matchId)
+                                            putExtra("player1_id", player1Id)
+                                            putExtra("player2_id", player2Id)
+                                            putExtra("keep_statistics", keepStatistics)
+                                            putExtra("mark_dice_evaluation", markDiceEvaluation)
+                                            putExtra("doubling_cube_value", doublingCubeValue)
+                                            putExtra("player1_can_double", player1CanDouble)
+                                            putExtra("player2_can_double", player2CanDouble)
+                                            putExtra("is_crawford_game", isCrawfordGame)
+                                            putExtra("show_player1_doubling_menu", showPlayer1DoublingMenu)
+                                            putExtra("show_player2_doubling_menu", showPlayer2DoublingMenu)
+                                            putExtra("doubling_cube_position", doublingCubePosition.name)
+                                            putExtra("replay_dice_set_id", setId)
+                                        }
+                                        diceActivityLauncher.launch(intent)
+                                    }
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF2E2E2E)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Set ${index + 1}: $setId",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "▶️ Oynat",
+                                    color = Color(0xFF4CAF50),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showDiceSetHistoryDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                ) {
+                    Text("Kapat", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
     }
 
     // Aktivite sonlandığında yapılacak işlemler

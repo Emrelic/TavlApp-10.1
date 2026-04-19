@@ -1,14 +1,25 @@
 package com.tavla.tavlapp
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 class DiceActivity : ComponentActivity() {
     private lateinit var dbHelper: DatabaseHelper
@@ -38,6 +49,24 @@ class DiceActivity : ComponentActivity() {
         val useTimer = intent.getBooleanExtra("use_timer", false)
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val markDiceEvaluation = intent.getBooleanExtra("mark_dice_evaluation", false)
+        
+        // ✅ KATLAMA SİSTEMİ PARAMETRELERİ
+        val doublingCubeValue = intent.getIntExtra("doubling_cube_value", 1)
+        val player1CanDouble = intent.getBooleanExtra("player1_can_double", true)
+        val player2CanDouble = intent.getBooleanExtra("player2_can_double", true)
+        val isCrawfordGame = intent.getBooleanExtra("is_crawford_game", false)
+        val showPlayer1DoublingMenu = intent.getBooleanExtra("show_player1_doubling_menu", false)
+        val showPlayer2DoublingMenu = intent.getBooleanExtra("show_player2_doubling_menu", false)
+        val doublingCubePosition = intent.getStringExtra("doubling_cube_position") ?: "CENTER"
+        
+        // ✅ REPLAY MOD PARAMETRESİ
+        val replayDiceSetId = intent.getStringExtra("replay_dice_set_id")
+        
+        // ✅ Result geri göndermek için callback fonksiyonu
+        val sendResult = { resultData: Intent ->
+            setResult(Activity.RESULT_OK, resultData)
+            finish()
+        }
 
         setContent {
             MaterialTheme {
@@ -58,7 +87,16 @@ class DiceActivity : ComponentActivity() {
                         matchId = matchId,
                         player1Id = player1Id,
                         player2Id = player2Id,
-                        onBack = { finish() }
+                        doublingCubeValue = doublingCubeValue,
+                        player1CanDouble = player1CanDouble,
+                        player2CanDouble = player2CanDouble,
+                        isCrawfordGame = isCrawfordGame,
+                        showPlayer1DoublingMenu = showPlayer1DoublingMenu,
+                        showPlayer2DoublingMenu = showPlayer2DoublingMenu,
+                        doublingCubePosition = doublingCubePosition,
+                        replayDiceSetId = replayDiceSetId,
+                        onBack = { finish() },
+                        onDoublingResult = sendResult
                     )
                 }
             }
@@ -80,9 +118,19 @@ fun DiceScreen(
     matchId: Long,
     player1Id: Long,
     player2Id: Long,
-    onBack: () -> Unit
+    doublingCubeValue: Int = 1,
+    player1CanDouble: Boolean = true,
+    player2CanDouble: Boolean = true,
+    isCrawfordGame: Boolean = false,
+    showPlayer1DoublingMenu: Boolean = false,
+    showPlayer2DoublingMenu: Boolean = false,
+    doublingCubePosition: String = "CENTER",
+    replayDiceSetId: String? = null,
+    onBack: () -> Unit,
+    onDoublingResult: (Intent) -> Unit = {}
 ) {
-    SimpleIntegratedScreen(
+    // ✅ ZAR EKRANI KATLAMA SİSTEMİ
+    DiceScreenWithDoubling(
         gameType = gameType,
         player1Name = player1Name,
         player2Name = player2Name,
@@ -95,6 +143,318 @@ fun DiceScreen(
         matchId = matchId,
         player1Id = player1Id,
         player2Id = player2Id,
-        onBack = onBack
+        doublingCubeValue = doublingCubeValue,
+        player1CanDouble = player1CanDouble,
+        player2CanDouble = player2CanDouble,
+        isCrawfordGame = isCrawfordGame,
+        showPlayer1DoublingMenu = showPlayer1DoublingMenu,
+        showPlayer2DoublingMenu = showPlayer2DoublingMenu,
+        doublingCubePosition = doublingCubePosition,
+        replayDiceSetId = replayDiceSetId,
+        onBack = onBack,
+        onDoublingResult = onDoublingResult
     )
+}
+
+// ✅ KATLAMALI ZAR EKRANI
+@Composable
+fun DiceScreenWithDoubling(
+    gameType: String,
+    player1Name: String,
+    player2Name: String,
+    matchLength: Int,
+    keepStatistics: Boolean,
+    useTimer: Boolean,
+    useDiceRoller: Boolean,
+    markDiceEvaluation: Boolean,
+    dbHelper: DatabaseHelper,
+    matchId: Long,
+    player1Id: Long,
+    player2Id: Long,
+    doublingCubeValue: Int,
+    player1CanDouble: Boolean,
+    player2CanDouble: Boolean,
+    isCrawfordGame: Boolean,
+    showPlayer1DoublingMenu: Boolean,
+    showPlayer2DoublingMenu: Boolean,
+    doublingCubePosition: String,
+    replayDiceSetId: String?,
+    onBack: () -> Unit,
+    onDoublingResult: (Intent) -> Unit
+) {
+    val context = LocalContext.current
+    var localDoublingCubeValue by remember { mutableIntStateOf(doublingCubeValue) }
+    var localPlayer1CanDouble by remember { mutableStateOf(player1CanDouble) }
+    var localPlayer2CanDouble by remember { mutableStateOf(player2CanDouble) }
+    var localShowPlayer1Menu by remember { mutableStateOf(showPlayer1DoublingMenu) }
+    var localShowPlayer2Menu by remember { mutableStateOf(showPlayer2DoublingMenu) }
+    
+    // ✅ REPLAY MOD - Eğer replay açıldıysa üst başlık göster
+    val isReplayMode = replayDiceSetId != null
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF1E1E1E))
+            .padding(8.dp)
+    ) {
+        // ✅ REPLAY MOD BAŞLIĞI
+        if (isReplayMode) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF4CAF50)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "▶️ REPLAY MOD: $replayDiceSetId",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        
+        // ✅ DEBUG LOG - Katlama kontrolleri görünme durumu
+        LaunchedEffect(gameType, isCrawfordGame) {
+            Toast.makeText(context, "GameType: $gameType | Crawford: $isCrawfordGame | Görünecek: ${gameType == "Modern" && !isCrawfordGame}", Toast.LENGTH_LONG).show()
+        }
+        
+        // Üst kısım - Katlama kontrolleri - HER ZAMAN GÖSTER (TEST AMAÇLI)
+        if (true) { // gameType == "Modern" && !isCrawfordGame
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2E2E2E), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Sol oyuncu katlama
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = player1Name,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (localShowPlayer1Menu) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Button(
+                                onClick = {
+                                    // ✅ GERÇEK KATLAMA KABULİ - Skorboard'a gönder
+                                    val resultIntent = Intent().apply {
+                                        putExtra("doubling_cube_value", localDoublingCubeValue)
+                                        putExtra("player1_can_double", true)
+                                        putExtra("player2_can_double", false)
+                                        putExtra("doubling_cube_position", "PLAYER1_CONTROL")
+                                        putExtra("accepted_player_id", player1Id)
+                                    }
+                                    onDoublingResult(resultIntent)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
+                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                            ) {
+                                Text("✓", color = Color.White, fontSize = 14.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    // ✅ GERÇEK PES ETME - Player1 pes etti, Player2 kazandı
+                                    val resultIntent = Intent().apply {
+                                        putExtra("doubling_cube_value", localDoublingCubeValue / 2) // Teklif öncesi değer
+                                        putExtra("player1_can_double", true)
+                                        putExtra("player2_can_double", true)
+                                        putExtra("doubling_cube_position", "CENTER")
+                                        putExtra("resigned_player_id", player1Id)
+                                    }
+                                    onDoublingResult(resultIntent)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                            ) {
+                                Text("✗", color = Color.White, fontSize = 14.sp)
+                            }
+                            Button(
+                                onClick = { localShowPlayer1Menu = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                            ) {
+                                Text("↩", color = Color.White, fontSize = 14.sp)
+                            }
+                        }
+                    } else if (localPlayer1CanDouble) {
+                        Button(
+                            onClick = {
+                                if (!isReplayMode) {
+                                    // ✅ GERÇEK KATLAMA TEKLİFİ
+                                    localDoublingCubeValue *= 2
+                                    localPlayer1CanDouble = false
+                                    localShowPlayer2Menu = true
+                                    Toast.makeText(context, "$player1Name katlama teklifi: x$localDoublingCubeValue", Toast.LENGTH_SHORT).show()
+                                    // Teklif durumu anında skorboard'a gönderilmiyor, cevap beklenecek
+                                } else {
+                                    Toast.makeText(context, "Replay modunda katlama teklifi yapılamaz", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                            modifier = Modifier.size(width = 80.dp, height = 35.dp)
+                        ) {
+                            Text("KATLA", color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                }
+                
+                // Orta - Küp değeri
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(Color.White, RoundedCornerShape(8.dp))
+                        .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = localDoublingCubeValue.toString(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
+                
+                // Sağ oyuncu katlama
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = player2Name,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (localShowPlayer2Menu) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Button(
+                                onClick = {
+                                    // ✅ GERÇEK KATLAMA KABULİ - Skorboard'a gönder
+                                    val resultIntent = Intent().apply {
+                                        putExtra("doubling_cube_value", localDoublingCubeValue)
+                                        putExtra("player1_can_double", false)
+                                        putExtra("player2_can_double", true)
+                                        putExtra("doubling_cube_position", "PLAYER2_CONTROL")
+                                        putExtra("accepted_player_id", player2Id)
+                                    }
+                                    onDoublingResult(resultIntent)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
+                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                            ) {
+                                Text("✓", color = Color.White, fontSize = 14.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    // ✅ GERÇEK PES ETME - Player2 pes etti, Player1 kazandı
+                                    val resultIntent = Intent().apply {
+                                        putExtra("doubling_cube_value", localDoublingCubeValue / 2) // Teklif öncesi değer
+                                        putExtra("player1_can_double", true)
+                                        putExtra("player2_can_double", true)
+                                        putExtra("doubling_cube_position", "CENTER")
+                                        putExtra("resigned_player_id", player2Id)
+                                    }
+                                    onDoublingResult(resultIntent)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                            ) {
+                                Text("✗", color = Color.White, fontSize = 14.sp)
+                            }
+                            Button(
+                                onClick = { localShowPlayer2Menu = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                            ) {
+                                Text("↩", color = Color.White, fontSize = 14.sp)
+                            }
+                        }
+                    } else if (localPlayer2CanDouble) {
+                        Button(
+                            onClick = {
+                                if (!isReplayMode) {
+                                    // ✅ GERÇEK KATLAMA TEKLİFİ
+                                    localDoublingCubeValue *= 2
+                                    localPlayer2CanDouble = false
+                                    localShowPlayer1Menu = true
+                                    Toast.makeText(context, "$player2Name katlama teklifi: x$localDoublingCubeValue", Toast.LENGTH_SHORT).show()
+                                    // Teklif durumu anında skorboard'a gönderilmiyor, cevap beklenecek
+                                } else {
+                                    Toast.makeText(context, "Replay modunda katlama teklifi yapılamaz", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                            modifier = Modifier.size(width = 80.dp, height = 35.dp)
+                        ) {
+                            Text("KATLA", color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        
+        // Alt kısım - Esas zar ekranı ve kapat butonu
+        Box(modifier = Modifier.weight(1f)) {
+            SimpleIntegratedScreen(
+                gameType = gameType,
+                player1Name = player1Name,
+                player2Name = player2Name,
+                matchLength = matchLength,
+                keepStatistics = keepStatistics,
+                useTimer = useTimer,
+                useDiceRoller = useDiceRoller,
+                markDiceEvaluation = markDiceEvaluation,
+                dbHelper = dbHelper,
+                matchId = matchId,
+                player1Id = player1Id,
+                player2Id = player2Id,
+                onBack = onBack
+            )
+            
+            // KAPAT butonu - sağ alt köşe
+            Button(
+                onClick = {
+                    if (!isReplayMode) {
+                        // ✅ Normal kapatış - değişiklik yoksa sadece kapat
+                        val resultIntent = Intent().apply {
+                            putExtra("doubling_cube_value", localDoublingCubeValue)
+                            putExtra("player1_can_double", localPlayer1CanDouble)
+                            putExtra("player2_can_double", localPlayer2CanDouble)
+                            putExtra("doubling_cube_position", when {
+                                localPlayer1CanDouble && localPlayer2CanDouble -> "CENTER"
+                                localPlayer1CanDouble -> "PLAYER1_CONTROL"
+                                else -> "PLAYER2_CONTROL"
+                            })
+                        }
+                        onDoublingResult(resultIntent)
+                    } else {
+                        // ✅ Replay modunda sadece kapat (değişiklik yok)
+                        onBack()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF616161)),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(width = 80.dp, height = 40.dp)
+            ) {
+                Text("KAPAT", color = Color.White, fontSize = 12.sp)
+            }
+        }
+    }
 }
