@@ -63,6 +63,13 @@ class DiceActivity : ComponentActivity() {
         // ✅ REPLAY MOD PARAMETRESİ
         val replayDiceSetId = intent.getStringExtra("replay_dice_set_id")
         
+        // ✅ HAMLE POZİSYONU PARAMETRELERİ
+        val resumeTotalMoveCount = intent.getIntExtra("resume_total_move_count", 0)
+        val resumeLeftMoveIndex = intent.getIntExtra("resume_left_move_index", 0)
+        val resumeRightMoveIndex = intent.getIntExtra("resume_right_move_index", 0)
+        val resumeCurrentPlayerTurn = intent.getIntExtra("resume_current_player_turn", 1)
+        val resumeGamePhase = intent.getStringExtra("resume_game_phase") ?: "STARTING_DICE"
+        
         // ✅ Result geri göndermek için callback fonksiyonu
         val sendResult = { resultData: Intent ->
             setResult(Activity.RESULT_OK, resultData)
@@ -96,6 +103,11 @@ class DiceActivity : ComponentActivity() {
                         showPlayer2DoublingMenu = showPlayer2DoublingMenu,
                         doublingCubePosition = doublingCubePosition,
                         replayDiceSetId = replayDiceSetId,
+                        resumeTotalMoveCount = resumeTotalMoveCount,
+                        resumeLeftMoveIndex = resumeLeftMoveIndex,
+                        resumeRightMoveIndex = resumeRightMoveIndex,
+                        resumeCurrentPlayerTurn = resumeCurrentPlayerTurn,
+                        resumeGamePhase = resumeGamePhase,
                         onBack = {
                             // ✅ Geri tuşuyla çıkışta da katlama verisini skorboard'a gönder
                             val resultIntent = Intent().apply {
@@ -137,6 +149,11 @@ fun DiceScreen(
     showPlayer2DoublingMenu: Boolean = false,
     doublingCubePosition: String = "CENTER",
     replayDiceSetId: String? = null,
+    resumeTotalMoveCount: Int = 0,
+    resumeLeftMoveIndex: Int = 0,
+    resumeRightMoveIndex: Int = 0,
+    resumeCurrentPlayerTurn: Int = 1,
+    resumeGamePhase: String = "STARTING_DICE",
     onBack: () -> Unit,
     onDoublingResult: (Intent) -> Unit = {}
 ) {
@@ -162,6 +179,11 @@ fun DiceScreen(
         showPlayer2DoublingMenu = showPlayer2DoublingMenu,
         doublingCubePosition = doublingCubePosition,
         replayDiceSetId = replayDiceSetId,
+        resumeTotalMoveCount = resumeTotalMoveCount,
+        resumeLeftMoveIndex = resumeLeftMoveIndex,
+        resumeRightMoveIndex = resumeRightMoveIndex,
+        resumeCurrentPlayerTurn = resumeCurrentPlayerTurn,
+        resumeGamePhase = resumeGamePhase,
         onBack = onBack,
         onDoublingResult = onDoublingResult
     )
@@ -190,6 +212,11 @@ fun DiceScreenWithDoubling(
     showPlayer2DoublingMenu: Boolean,
     doublingCubePosition: String,
     replayDiceSetId: String?,
+    resumeTotalMoveCount: Int = 0,
+    resumeLeftMoveIndex: Int = 0,
+    resumeRightMoveIndex: Int = 0,
+    resumeCurrentPlayerTurn: Int = 1,
+    resumeGamePhase: String = "STARTING_DICE",
     onBack: () -> Unit,
     onDoublingResult: (Intent) -> Unit
 ) {

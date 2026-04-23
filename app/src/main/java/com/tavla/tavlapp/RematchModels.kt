@@ -96,6 +96,20 @@ data class RematchGameResult(
 )
 
 /**
+ * Zar seti oyun durumu - hangi hamleden devam edileceği bilgisi
+ */
+data class DiceSetGameState(
+    val setId: String,                  // P1-O1-S1 formatındaki ID
+    val totalMoveCount: Int,            // Toplam hamle sayısı
+    val leftMoveIndex: Int,             // Sol oyuncu hamle indeksi
+    val rightMoveIndex: Int,            // Sağ oyuncu hamle indeksi
+    val currentPlayerTurn: Int,         // Sıradaki oyuncu (1 veya 2)
+    val gamePhase: String,              // STARTING_DICE, FIRST_MOVE, PLAYING
+    val lastPlayedDate: Long = System.currentTimeMillis(),
+    val isCompleted: Boolean = false    // El tamamlandı mı?
+)
+
+/**
  * Parti sonucu (11'lik parti)
  */
 data class RematchPartyResult(

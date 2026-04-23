@@ -72,6 +72,7 @@ object ActionTypes {
     // Rovansli Karsilasma islemleri
     const val REMATCH_ENCOUNTER_CREATE = "REMATCH_ENCOUNTER_CREATE"   // Rovansli karsilasma olusturuldu
     const val REMATCH_DICE_GENERATE = "REMATCH_DICE_GENERATE"         // Zar setleri uretildi
+    const val REMATCH_DICE_REVERSE = "REMATCH_DICE_REVERSE"           // Tur 2'de aynı setler ters oynatıldı
     const val REMATCH_MATCH_START = "REMATCH_MATCH_START"             // Rovansli mac basladi
     const val REMATCH_MATCH_END = "REMATCH_MATCH_END"                 // Rovansli mac bitti
     const val REMATCH_ROUND_COMPLETE = "REMATCH_ROUND_COMPLETE"       // Rovansli tur tamamlandi

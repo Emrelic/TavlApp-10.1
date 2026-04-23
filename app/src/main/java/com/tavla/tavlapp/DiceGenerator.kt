@@ -19,6 +19,31 @@ object DiceGenerator {
     fun maxSetsForTargetScore(targetScore: Int): Int = 2 * targetScore - 1
 
     /**
+     * P1-O1-S1 formatında zar seti ID'si oluştur
+     * @param partyIndex Parti numarası (0-based, P1, P2, P3...)
+     * @param gameIndex El numarası (0-based, O1, O2, O3...)
+     * @param setIndex Set numarası (0-based, S1, S2, S3...)
+     * @return "P{parti+1}-O{el+1}-S{set+1}" formatında string
+     */
+    fun generateSetId(partyIndex: Int, gameIndex: Int, setIndex: Int): String {
+        return "P${partyIndex + 1}-O${gameIndex + 1}-S${setIndex + 1}"
+    }
+
+    /**
+     * P1-O1-S1 formatındaki ID'yi parse et
+     * @param setId "P1-O1-S1" formatındaki string
+     * @return Triple(partyIndex, gameIndex, setIndex) - 0-based indeksler
+     */
+    fun parseSetId(setId: String): Triple<Int, Int, Int>? {
+        val regex = "P(\\d+)-O(\\d+)-S(\\d+)".toRegex()
+        val match = regex.find(setId) ?: return null
+        val party = match.groupValues[1].toInt() - 1
+        val game = match.groupValues[2].toInt() - 1
+        val set = match.groupValues[3].toInt() - 1
+        return Triple(party, game, set)
+    }
+
+    /**
      * Baslangic zarlarini uret (iki oyuncu icin farkli degerler)
      * @return Pair(oyuncu1Zari, oyuncu2Zari) - birbirinden farkli 1-6 arasi
      */

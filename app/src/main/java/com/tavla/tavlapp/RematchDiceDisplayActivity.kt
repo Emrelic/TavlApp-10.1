@@ -141,6 +141,9 @@ fun RematchDiceDisplayScreen(
     var rightMoveIndex by remember { mutableStateOf(0) }
     var totalMoveCount by remember { mutableStateOf(0) }
     var currentPlayerTurn by remember { mutableStateOf(1) }
+    
+    // El bitimi puan hesaplama popup
+    var showGameEndScoring by remember { mutableStateOf(false) }
 
     val currentRound = encounter.value?.currentRound ?: 1
     val currentPartyIndex = encounter.value?.currentPartyIndex ?: 0
@@ -164,9 +167,9 @@ fun RematchDiceDisplayScreen(
         rightPlayerId = encounter.value?.player1Id ?: 0L
     }
 
-    // Zar seti yükle
-    LaunchedEffect(encounterId, currentPartyIndex, currentGameIndex) {
-        currentDiceSet = dbHelper.getDiceSetForGame(encounterId, currentPartyIndex, currentGameIndex)
+    // Zar seti yükle (currentRound ile reverse play)
+    LaunchedEffect(encounterId, currentPartyIndex, currentGameIndex, currentRound) {
+        currentDiceSet = dbHelper.getDiceSetForGame(encounterId, currentPartyIndex, currentGameIndex, currentRound)
         gamePhase = GamePhase.STARTING_DICE
         leftMoveIndex = 0
         rightMoveIndex = 0
@@ -499,7 +502,7 @@ fun RematchDiceDisplayScreen(
                                 Text(
                                     text = leftPlayerName,
                                     color = if (currentPlayerTurn == 1) Color.White else Color.White.copy(alpha = 0.35f),
-                                    fontSize = 15.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -521,7 +524,7 @@ fun RematchDiceDisplayScreen(
                                 Text(
                                     text = rightPlayerName,
                                     color = if (currentPlayerTurn == 2) Color.White else Color.White.copy(alpha = 0.35f),
-                                    fontSize = 15.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -612,48 +615,8 @@ fun RematchDiceDisplayScreen(
                 // EL BİTTİ butonu (ortada, vurgulu)
                 Button(
                     onClick = {
-                        var leftDiceTotal = 0
-                        var rightDiceTotal = 0
-                        var leftDoublesCount = 0
-                        var rightDoublesCount = 0
-
-                        val startingTotal = (leftStartingDice ?: 0) + (rightStartingDice ?: 0)
-                        if (firstPlayer == 1) leftDiceTotal += startingTotal
-                        else rightDiceTotal += startingTotal
-
-                        for (i in 0 until leftMoveIndex) {
-                            val pair = leftDice?.getOrNull(i)
-                            if (pair != null) {
-                                if (pair.first == pair.second) {
-                                    leftDiceTotal += pair.first * 4
-                                    leftDoublesCount++
-                                } else {
-                                    leftDiceTotal += pair.first + pair.second
-                                }
-                            }
-                        }
-
-                        for (i in 0 until rightMoveIndex) {
-                            val pair = rightDice?.getOrNull(i)
-                            if (pair != null) {
-                                if (pair.first == pair.second) {
-                                    rightDiceTotal += pair.first * 4
-                                    rightDoublesCount++
-                                } else {
-                                    rightDiceTotal += pair.first + pair.second
-                                }
-                            }
-                        }
-
-                        val prefs = context.getSharedPreferences("rematch_prefs", android.content.Context.MODE_PRIVATE)
-                        prefs.edit()
-                            .putInt("dice_pairs_used_${encounterId}", totalMoveCount)
-                            .putInt("left_dice_total_${encounterId}", leftDiceTotal)
-                            .putInt("right_dice_total_${encounterId}", rightDiceTotal)
-                            .putInt("left_doubles_count_${encounterId}", leftDoublesCount)
-                            .putInt("right_doubles_count_${encounterId}", rightDoublesCount)
-                            .apply()
-                        onDoublingResult(makeDoublingIntent())
+                        // Popup'ı aç - zar istatistikleri hesaplanır ve popup'ta gösterilir
+                        showGameEndScoring = true
                     },
                     enabled = gamePhase == GamePhase.PLAYING || gamePhase == GamePhase.FIRST_MOVE,
                     colors = ButtonDefaults.buttonColors(
@@ -719,6 +682,36 @@ fun RematchDiceDisplayScreen(
                 lineHeight = 22.sp
             )
         }
+    }
+    
+    // El bitimi puan hesaplama popup
+    if (showGameEndScoring) {
+        GameEndScoringDialog(
+            leftPlayerName = leftPlayerName,
+            rightPlayerName = rightPlayerName,
+            doublingCubeValue = cubeValue,
+            onScoreSelected = { winnerIsLeft, scoreType ->
+                // Puanı hesapla
+                val baseScore = when (scoreType) {
+                    "SINGLE" -> cubeValue
+                    "MARS" -> cubeValue * 2
+                    "BACKGAMMON" -> cubeValue * 3
+                    else -> cubeValue
+                }
+                
+                // Intent oluştur ve skorboard'a dön
+                val resultIntent = makeDoublingIntent().apply {
+                    putExtra("game_ended", true)
+                    putExtra("winner_is_left", winnerIsLeft)
+                    putExtra("score_points", baseScore)
+                    putExtra("score_type", scoreType)
+                }
+                
+                showGameEndScoring = false
+                onDoublingResult(resultIntent)
+            },
+            onDismiss = { showGameEndScoring = false }
+        )
     }
 }
 
@@ -856,5 +849,246 @@ fun DiceBox(
                 color = Color.Black
             )
         }
+    }
+}
+
+@Composable
+fun GameEndScoringDialog(
+    leftPlayerName: String,
+    rightPlayerName: String,
+    doublingCubeValue: Int,
+    onScoreSelected: (winnerIsLeft: Boolean, scoreType: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.7f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(450.dp)
+                .shadow(12.dp, RoundedCornerShape(16.dp))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color(0xFF263238), Color(0xFF1A1A1A))
+                    ),
+                    RoundedCornerShape(16.dp)
+                )
+                .border(2.dp, Color(0xFF37474F), RoundedCornerShape(16.dp))
+                .padding(20.dp)
+        ) {
+            // Başlık
+            Text(
+                "EL BİTİMİ PUAN HESAPLAMA",
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+            
+            Text(
+                "Hangi oyuncunun oyunu kazandığını işaretleyiniz",
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
+            )
+            
+            // Ana kartlar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Sol oyuncu kartı
+                Card(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF1976D2), Color(0xFF0D47A1))
+                                ),
+                                RoundedCornerShape(16.dp)
+                            )
+                            .border(2.dp, Color(0xFF42A5F5), RoundedCornerShape(16.dp))
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            leftPlayerName,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Sol taraf butonları (mavi tonları)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ScoringButton(
+                                text = "TEK",
+                                points = doublingCubeValue,
+                                onClick = { onScoreSelected(true, "SINGLE") },
+                                color = Color(0xFF42A5F5),
+                                height = 40.dp
+                            )
+                            ScoringButton(
+                                text = "MARS",
+                                points = doublingCubeValue * 2,
+                                onClick = { onScoreSelected(true, "MARS") },
+                                color = Color(0xFF2196F3),
+                                height = 40.dp
+                            )
+                            ScoringButton(
+                                text = "BACKGAMMON",
+                                points = doublingCubeValue * 3,
+                                onClick = { onScoreSelected(true, "BACKGAMMON") },
+                                color = Color(0xFF1976D2),
+                                height = 40.dp
+                            )
+                        }
+                    }
+                }
+                
+                // Orta katlama küpü (gri tonları)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.width(80.dp).fillMaxHeight()
+                ) {
+                    Text("KÜPE DEĞER", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, textAlign = TextAlign.Center)
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .shadow(8.dp, RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(Color(0xFFECEFF1), Color(0xFFB0BEC5))
+                                ),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .border(2.dp, Color(0xFF90A4AE), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            doublingCubeValue.toString(),
+                            color = Color(0xFF263238),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+                
+                // Sağ oyuncu kartı
+                Card(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color(0xFFD32F2F), Color(0xFF8E0000))
+                                ),
+                                RoundedCornerShape(16.dp)
+                            )
+                            .border(2.dp, Color(0xFFEF5350), RoundedCornerShape(16.dp))
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            rightPlayerName,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Sağ taraf butonları (kırmızı tonları)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ScoringButton(
+                                text = "TEK",
+                                points = doublingCubeValue,
+                                onClick = { onScoreSelected(false, "SINGLE") },
+                                color = Color(0xFFEF5350),
+                                height = 40.dp
+                            )
+                            ScoringButton(
+                                text = "MARS",
+                                points = doublingCubeValue * 2,
+                                onClick = { onScoreSelected(false, "MARS") },
+                                color = Color(0xFFF44336),
+                                height = 40.dp
+                            )
+                            ScoringButton(
+                                text = "BACKGAMMON",
+                                points = doublingCubeValue * 3,
+                                onClick = { onScoreSelected(false, "BACKGAMMON") },
+                                color = Color(0xFFD32F2F),
+                                height = 40.dp
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // İptal butonu (gri tonları)
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF546E7A)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(45.dp)
+            ) {
+                Text("İPTAL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun ScoringButton(
+    text: String,
+    points: Int,
+    onClick: () -> Unit,
+    color: Color,
+    height: androidx.compose.ui.unit.Dp = 32.dp
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = color.copy(alpha = 0.9f)
+        ),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth().height(height),
+        contentPadding = PaddingValues(horizontal = 8.dp)
+    ) {
+        Text(
+            "$text ($points)",
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
     }
 }

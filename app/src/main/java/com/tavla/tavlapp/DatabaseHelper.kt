@@ -2261,9 +2261,10 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     /**
-     * Belirli bir parti ve oyun icin zar setini getir
+     * Belirli bir parti ve oyun icin zar setini getir (round-aware)
+     * Round 2'de aynı setleri ters oynatır
      */
-    fun getDiceSetForGame(encounterId: Long, partyIndex: Int, setIndex: Int): RematchDiceSet? {
+    fun getDiceSetForGame(encounterId: Long, partyIndex: Int, setIndex: Int, currentRound: Int = 1): RematchDiceSet? {
         val db = this.readableDatabase
 
         // Önce party ID'yi bul
@@ -2288,7 +2289,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         """, arrayOf(partyId.toString(), setIndex.toString()))
 
         if (cursor.moveToFirst()) {
-            val diceSet = RematchDiceSet(
+            val originalDiceSet = RematchDiceSet(
                 id = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_ID)),
                 partyId = partyId,
                 setIndex = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_DICE_SET_INDEX)),
@@ -2303,7 +2304,31 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             )
             cursor.close()
             db.close()
-            return diceSet
+            
+            // Round 2'de aynı setleri ters oynat (oyuncu pozisyonlarını değiştir)
+            return if (currentRound == 2) {
+                // Activity log ekle (sadece ilk kez reverse edildiğinde)
+                val setId = DiceGenerator.generateSetId(partyIndex, setIndex, 0)
+                addActivityLog(
+                    actionType = ActionTypes.REMATCH_DICE_REVERSE,
+                    description = "Tur 2: Aynı zar setleri ters oynatıldı (Set: $setId)",
+                    extraData = "original_round=1,reverse_round=2,party_index=$partyIndex,set_index=$setIndex"
+                )
+                
+                RematchDiceSet(
+                    id = originalDiceSet.id,
+                    partyId = originalDiceSet.partyId,
+                    setIndex = originalDiceSet.setIndex,
+                    // Başlangıç zarlarını ters çevir (Player 1 ↔ Player 2)
+                    startingDicePlayer1 = originalDiceSet.startingDicePlayer2,
+                    startingDicePlayer2 = originalDiceSet.startingDicePlayer1,
+                    // Oyuncu zarlarını ters çevir (Player 1 ↔ Player 2)
+                    player1Dice = originalDiceSet.player2Dice,
+                    player2Dice = originalDiceSet.player1Dice
+                )
+            } else {
+                originalDiceSet
+            }
         }
 
         cursor.close()
