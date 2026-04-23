@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -95,7 +96,17 @@ class DiceActivity : ComponentActivity() {
                         showPlayer2DoublingMenu = showPlayer2DoublingMenu,
                         doublingCubePosition = doublingCubePosition,
                         replayDiceSetId = replayDiceSetId,
-                        onBack = { finish() },
+                        onBack = {
+                            // ✅ Geri tuşuyla çıkışta da katlama verisini skorboard'a gönder
+                            val resultIntent = Intent().apply {
+                                putExtra("doubling_cube_value", doublingCubeValue)
+                                putExtra("player1_can_double", player1CanDouble)
+                                putExtra("player2_can_double", player2CanDouble)
+                                putExtra("doubling_cube_position", doublingCubePosition)
+                            }
+                            setResult(Activity.RESULT_OK, resultIntent)
+                            finish()
+                        },
                         onDoublingResult = sendResult
                     )
                 }
@@ -225,34 +236,59 @@ fun DiceScreenWithDoubling(
             }
         }
         
-        // ✅ DEBUG LOG - Katlama kontrolleri görünme durumu
-        LaunchedEffect(gameType, isCrawfordGame) {
-            Toast.makeText(context, "GameType: $gameType | Crawford: $isCrawfordGame | Görünecek: ${gameType == "Modern" && !isCrawfordGame}", Toast.LENGTH_LONG).show()
-        }
-        
-        // Üst kısım - Katlama kontrolleri - HER ZAMAN GÖSTER (TEST AMAÇLI)
-        if (true) { // gameType == "Modern" && !isCrawfordGame
+        // Üst kısım - Katlama kontrolleri (Modern tavla)
+        if (gameType == "Modern") {
+            // Crawford durumu göstergesi
+            if (isCrawfordGame) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFF5722))
+                ) {
+                    Text(
+                        text = "CRAWFORD ELİ - Katlama Devre Dışı",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF2E2E2E), RoundedCornerShape(8.dp))
-                    .padding(8.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Sol oyuncu katlama
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = player1Name,
-                        color = Color.White,
-                        fontSize = 12.sp,
+                        color = if (localPlayer1CanDouble && !isCrawfordGame) Color(0xFF4CAF50) else Color.Gray,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (localShowPlayer1Menu) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (localShowPlayer1Menu && !isCrawfordGame) {
+                        // Player2 katlama teklif etti, Player1 cevap verecek
+                        Text(
+                            text = "Katlama teklifi: x$localDoublingCubeValue",
+                            color = Color(0xFFFFB300),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Button(
                                 onClick = {
-                                    // ✅ GERÇEK KATLAMA KABULİ - Skorboard'a gönder
                                     val resultIntent = Intent().apply {
                                         putExtra("doubling_cube_value", localDoublingCubeValue)
                                         putExtra("player1_can_double", true)
@@ -262,16 +298,16 @@ fun DiceScreenWithDoubling(
                                     }
                                     onDoublingResult(resultIntent)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
-                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                modifier = Modifier.height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp)
                             ) {
-                                Text("✓", color = Color.White, fontSize = 14.sp)
+                                Text("KABUL", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {
-                                    // ✅ GERÇEK PES ETME - Player1 pes etti, Player2 kazandı
                                     val resultIntent = Intent().apply {
-                                        putExtra("doubling_cube_value", localDoublingCubeValue / 2) // Teklif öncesi değer
+                                        putExtra("doubling_cube_value", localDoublingCubeValue / 2)
                                         putExtra("player1_can_double", true)
                                         putExtra("player2_can_double", true)
                                         putExtra("doubling_cube_position", "CENTER")
@@ -279,70 +315,108 @@ fun DiceScreenWithDoubling(
                                     }
                                     onDoublingResult(resultIntent)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                modifier = Modifier.height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp)
                             ) {
-                                Text("✗", color = Color.White, fontSize = 14.sp)
+                                Text("PES", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                             Button(
-                                onClick = { localShowPlayer1Menu = false },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
-                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                                onClick = {
+                                    localShowPlayer1Menu = false
+                                    localDoublingCubeValue /= 2
+                                    localPlayer2CanDouble = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575)),
+                                modifier = Modifier.height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Text("↩", color = Color.White, fontSize = 14.sp)
+                                Text("İPTAL", color = Color.White, fontSize = 11.sp)
                             }
                         }
-                    } else if (localPlayer1CanDouble) {
+                    } else if (localPlayer1CanDouble && !isCrawfordGame) {
                         Button(
                             onClick = {
                                 if (!isReplayMode) {
-                                    // ✅ GERÇEK KATLAMA TEKLİFİ
                                     localDoublingCubeValue *= 2
                                     localPlayer1CanDouble = false
                                     localShowPlayer2Menu = true
                                     Toast.makeText(context, "$player1Name katlama teklifi: x$localDoublingCubeValue", Toast.LENGTH_SHORT).show()
-                                    // Teklif durumu anında skorboard'a gönderilmiyor, cevap beklenecek
                                 } else {
-                                    Toast.makeText(context, "Replay modunda katlama teklifi yapılamaz", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Replay modunda katlama yapılamaz", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
-                            modifier = Modifier.size(width = 80.dp, height = 35.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8F00)),
+                            modifier = Modifier.height(42.dp).fillMaxWidth(0.9f),
+                            contentPadding = PaddingValues(horizontal = 16.dp)
                         ) {
-                            Text("KATLA", color = Color.White, fontSize = 12.sp)
+                            Text("KATLA", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
+                    } else {
+                        Text(
+                            text = if (isCrawfordGame) "Pasif" else if (!localPlayer1CanDouble && !localShowPlayer2Menu) "Küp karşıda" else "",
+                            color = Color.Gray,
+                            fontSize = 11.sp
+                        )
                     }
                 }
-                
-                // Orta - Küp değeri
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .background(Color.White, RoundedCornerShape(8.dp))
-                        .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
+
+                // Orta - Küp değeri ve sahibi
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    // Küp sahibi göstergesi
+                    val cubeOwnerText = when {
+                        localPlayer1CanDouble && localPlayer2CanDouble -> "Ortada"
+                        localPlayer1CanDouble -> player1Name
+                        else -> player2Name
+                    }
+                    Text(
+                        text = cubeOwnerText,
+                        color = Color(0xFFBBBBBB),
+                        fontSize = 10.sp
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(55.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(3.dp, if (isCrawfordGame) Color.Red else Color.Black, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = localDoublingCubeValue.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isCrawfordGame) Color.Red else Color.Black
+                        )
+                    }
+                }
+
+                // Sağ oyuncu katlama
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = localDoublingCubeValue.toString(),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                }
-                
-                // Sağ oyuncu katlama
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
                         text = player2Name,
-                        color = Color.White,
-                        fontSize = 12.sp,
+                        color = if (localPlayer2CanDouble && !isCrawfordGame) Color(0xFF4CAF50) else Color.Gray,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (localShowPlayer2Menu) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (localShowPlayer2Menu && !isCrawfordGame) {
+                        // Player1 katlama teklif etti, Player2 cevap verecek
+                        Text(
+                            text = "Katlama teklifi: x$localDoublingCubeValue",
+                            color = Color(0xFFFFB300),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Button(
                                 onClick = {
-                                    // ✅ GERÇEK KATLAMA KABULİ - Skorboard'a gönder
                                     val resultIntent = Intent().apply {
                                         putExtra("doubling_cube_value", localDoublingCubeValue)
                                         putExtra("player1_can_double", false)
@@ -352,16 +426,16 @@ fun DiceScreenWithDoubling(
                                     }
                                     onDoublingResult(resultIntent)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
-                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                modifier = Modifier.height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp)
                             ) {
-                                Text("✓", color = Color.White, fontSize = 14.sp)
+                                Text("KABUL", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = {
-                                    // ✅ GERÇEK PES ETME - Player2 pes etti, Player1 kazandı
                                     val resultIntent = Intent().apply {
-                                        putExtra("doubling_cube_value", localDoublingCubeValue / 2) // Teklif öncesi değer
+                                        putExtra("doubling_cube_value", localDoublingCubeValue / 2)
                                         putExtra("player1_can_double", true)
                                         putExtra("player2_can_double", true)
                                         putExtra("doubling_cube_position", "CENTER")
@@ -369,43 +443,54 @@ fun DiceScreenWithDoubling(
                                     }
                                     onDoublingResult(resultIntent)
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                modifier = Modifier.height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp)
                             ) {
-                                Text("✗", color = Color.White, fontSize = 14.sp)
+                                Text("PES", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                             Button(
-                                onClick = { localShowPlayer2Menu = false },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
-                                modifier = Modifier.size(width = 60.dp, height = 35.dp)
+                                onClick = {
+                                    localShowPlayer2Menu = false
+                                    localDoublingCubeValue /= 2
+                                    localPlayer1CanDouble = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF757575)),
+                                modifier = Modifier.height(40.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Text("↩", color = Color.White, fontSize = 14.sp)
+                                Text("İPTAL", color = Color.White, fontSize = 11.sp)
                             }
                         }
-                    } else if (localPlayer2CanDouble) {
+                    } else if (localPlayer2CanDouble && !isCrawfordGame) {
                         Button(
                             onClick = {
                                 if (!isReplayMode) {
-                                    // ✅ GERÇEK KATLAMA TEKLİFİ
                                     localDoublingCubeValue *= 2
                                     localPlayer2CanDouble = false
                                     localShowPlayer1Menu = true
                                     Toast.makeText(context, "$player2Name katlama teklifi: x$localDoublingCubeValue", Toast.LENGTH_SHORT).show()
-                                    // Teklif durumu anında skorboard'a gönderilmiyor, cevap beklenecek
                                 } else {
-                                    Toast.makeText(context, "Replay modunda katlama teklifi yapılamaz", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Replay modunda katlama yapılamaz", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
-                            modifier = Modifier.size(width = 80.dp, height = 35.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8F00)),
+                            modifier = Modifier.height(42.dp).fillMaxWidth(0.9f),
+                            contentPadding = PaddingValues(horizontal = 16.dp)
                         ) {
-                            Text("KATLA", color = Color.White, fontSize = 12.sp)
+                            Text("KATLA", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
+                    } else {
+                        Text(
+                            text = if (isCrawfordGame) "Pasif" else if (!localPlayer2CanDouble && !localShowPlayer1Menu) "Küp karşıda" else "",
+                            color = Color.Gray,
+                            fontSize = 11.sp
+                        )
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(4.dp))
         }
         
         // Alt kısım - Esas zar ekranı ve kapat butonu
@@ -423,7 +508,20 @@ fun DiceScreenWithDoubling(
                 matchId = matchId,
                 player1Id = player1Id,
                 player2Id = player2Id,
-                onBack = onBack
+                onBack = {
+                    // ✅ GERİ butonuyla çıkışta da katlama verisini skorboard'a gönder
+                    val resultIntent = Intent().apply {
+                        putExtra("doubling_cube_value", localDoublingCubeValue)
+                        putExtra("player1_can_double", localPlayer1CanDouble)
+                        putExtra("player2_can_double", localPlayer2CanDouble)
+                        putExtra("doubling_cube_position", when {
+                            localPlayer1CanDouble && localPlayer2CanDouble -> "CENTER"
+                            localPlayer1CanDouble -> "PLAYER1_CONTROL"
+                            else -> "PLAYER2_CONTROL"
+                        })
+                    }
+                    onDoublingResult(resultIntent)
+                }
             )
             
             // KAPAT butonu - sağ alt köşe

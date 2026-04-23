@@ -309,6 +309,44 @@ fun GameScreen(
         }
     }
 
+    // ✅ RÖVANŞ ZAR EKRANI RESULT LAUNCHER - Katlama sonuçlarını al
+    val rematchDiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val doublingResult = data?.getIntExtra("doubling_cube_value", doublingCubeValue) ?: doublingCubeValue
+            val player1CanDoubleResult = data?.getBooleanExtra("player1_can_double", player1CanDouble) ?: player1CanDouble
+            val player2CanDoubleResult = data?.getBooleanExtra("player2_can_double", player2CanDouble) ?: player2CanDouble
+            val doublingPositionResult = data?.getStringExtra("doubling_cube_position") ?: doublingCubePosition.name
+            val acceptedPlayerId = data?.getLongExtra("accepted_player_id", -1L) ?: -1L
+            val resignedPlayerId = data?.getLongExtra("resigned_player_id", -1L) ?: -1L
+
+            // Skorboard'u güncelle
+            doublingCubeValue = doublingResult
+            player1CanDouble = player1CanDoubleResult
+            player2CanDouble = player2CanDoubleResult
+
+            doublingCubePosition = when (doublingPositionResult) {
+                "PLAYER1_CONTROL" -> DoublingCubePosition.PLAYER1_CONTROL
+                "PLAYER2_CONTROL" -> DoublingCubePosition.PLAYER2_CONTROL
+                "PLAYER1_OFFER" -> DoublingCubePosition.PLAYER1_OFFER
+                "PLAYER2_OFFER" -> DoublingCubePosition.PLAYER2_OFFER
+                else -> DoublingCubePosition.CENTER
+            }
+
+            if (resignedPlayerId != -1L) {
+                val winnerName = if (resignedPlayerId == player1Id) player2Name else player1Name
+                Toast.makeText(context, "Pes edildi: $winnerName kazandı (x$doublingCubeValue)", Toast.LENGTH_SHORT).show()
+            }
+
+            if (acceptedPlayerId != -1L) {
+                val accepterName = if (acceptedPlayerId == player1Id) player1Name else player2Name
+                Toast.makeText(context, "Katlama kabul: $accepterName (x$doublingCubeValue)", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     // ✅ Maç bitirici skor onay sistemi
     var showMatchWinConfirmation by remember { mutableStateOf(false) }
     var pendingWinnerId by remember { mutableStateOf(-1L) }
@@ -2947,9 +2985,19 @@ fun GameScreen(
                         Button(
                             onClick = {
                                 incrementDiceSet() // ✅ Zar setini artır
-                                val intent = Intent(context, RematchDiceDisplayActivity::class.java)
-                                intent.putExtra("encounter_id", encounterId)
-                                context.startActivity(intent) // Rövanş modu için ayrı launcher gerekebilir
+                                val intent = Intent(context, RematchDiceDisplayActivity::class.java).apply {
+                                    putExtra("encounter_id", encounterId)
+                                    // ✅ KATLAMA SİSTEMİ PARAMETRELERİ
+                                    putExtra("doubling_cube_value", doublingCubeValue)
+                                    putExtra("player1_can_double", player1CanDouble)
+                                    putExtra("player2_can_double", player2CanDouble)
+                                    putExtra("is_crawford_game", isCrawfordGame)
+                                    putExtra("player1_name", player1Name)
+                                    putExtra("player2_name", player2Name)
+                                    putExtra("player1_id", player1Id)
+                                    putExtra("player2_id", player2Id)
+                                }
+                                rematchDiceLauncher.launch(intent)
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF6A1B9A) // Mor
@@ -3226,10 +3274,19 @@ fun GameScreen(
                                     showDiceSetHistoryDialog = false
                                     if (isRematchMode) {
                                         // Rövanşlı mod - RematchDiceDisplayActivity kullan
-                                        val intent = Intent(context, RematchDiceDisplayActivity::class.java)
-                                        intent.putExtra("encounter_id", encounterId)
-                                        intent.putExtra("replay_dice_set_id", setId)
-                                        context.startActivity(intent)
+                                        val intent = Intent(context, RematchDiceDisplayActivity::class.java).apply {
+                                            putExtra("encounter_id", encounterId)
+                                            putExtra("replay_dice_set_id", setId)
+                                            putExtra("doubling_cube_value", doublingCubeValue)
+                                            putExtra("player1_can_double", player1CanDouble)
+                                            putExtra("player2_can_double", player2CanDouble)
+                                            putExtra("is_crawford_game", isCrawfordGame)
+                                            putExtra("player1_name", player1Name)
+                                            putExtra("player2_name", player2Name)
+                                            putExtra("player1_id", player1Id)
+                                            putExtra("player2_id", player2Id)
+                                        }
+                                        rematchDiceLauncher.launch(intent)
                                     } else {
                                         // Normal mod - DiceActivity kullan
                                         val intent = Intent(context, DiceActivity::class.java).apply {
