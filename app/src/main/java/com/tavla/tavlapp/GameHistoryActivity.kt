@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 // Oyun geçmişi ekranı aktivitesi
@@ -361,6 +362,11 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
 
                 "Rövanşlı Karşılaşmalar" -> {
                     // Karşılaşma verileri
+                    // Rövanş silme onay dialog state'leri
+                    var showRematchDeleteDialog by remember { mutableStateOf(false) }
+                    var pendingDeleteEncounterId by remember { mutableStateOf(-1L) }
+                    var pendingDeleteEncounterName by remember { mutableStateOf("") }
+
                     var rematchEncounters by remember(refreshTrigger) {
                         mutableStateOf(dbHelper.getAllRematchEncounters())
                     }
@@ -471,9 +477,54 @@ fun GameHistoryScreen(dbHelper: DatabaseHelper, onBack: () -> Unit) {
                                         onCardClick = {
                                             val intent = Intent(context, RematchProgressActivity::class.java)
                                             context.startActivity(intent)
+                                        },
+                                        onDelete = {
+                                            pendingDeleteEncounterId = encounter.id
+                                            pendingDeleteEncounterName = "${encounter.player1Name} vs ${encounter.player2Name}"
+                                            showRematchDeleteDialog = true
                                         }
                                     )
                                 }
+                            }
+
+                            // Rövanş karşılaşma silme onay dialog'u
+                            if (showRematchDeleteDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showRematchDeleteDialog = false },
+                                    title = { Text("Karşılaşmayı Sil") },
+                                    text = {
+                                        Column {
+                                            Text("Bu karşılaşmayı arşivden çıkarmak istediğinizden emin misiniz?")
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                pendingDeleteEncounterName,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                "Tüm parti sonuçları, zar setleri ve istatistikler silinecektir.",
+                                                fontSize = 12.sp,
+                                                color = Color.Gray
+                                            )
+                                        }
+                                    },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                dbHelper.deleteRematchEncounter(pendingDeleteEncounterId)
+                                                showRematchDeleteDialog = false
+                                                refreshTrigger++
+                                            }
+                                        ) {
+                                            Text("Evet, Sil", color = Color(0xFFF44336))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showRematchDeleteDialog = false }) {
+                                            Text("Vazgeç")
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
@@ -614,7 +665,8 @@ fun RematchEncounterCard(
     stats: List<RematchEncounterStats>,
     onContinue: () -> Unit,
     onCompare: () -> Unit,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    onDelete: () -> Unit = {}
 ) {
     // Durum rengi ve metni
     val (statusColor, statusText) = when (encounter.status) {
@@ -782,25 +834,40 @@ fun RematchEncounterCard(
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isActive) {
-                    OutlinedButton(
-                        onClick = onContinue,
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text("Devam Et", fontSize = 12.sp)
-                    }
+                // Sil butonu (sol taraf)
+                OutlinedButton(
+                    onClick = onDelete,
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF44336)),
+                    border = BorderStroke(1.dp, Color(0xFFF44336).copy(alpha = 0.5f))
+                ) {
+                    Text("Sil", fontSize = 12.sp)
                 }
-                if (canCompare) {
-                    if (isActive) Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(
-                        onClick = onCompare,
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                    ) {
-                        Text("Karşılaştır", fontSize = 12.sp)
+
+                // Sağ taraf butonları
+                Row {
+                    if (isActive) {
+                        OutlinedButton(
+                            onClick = onContinue,
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text("Devam Et", fontSize = 12.sp)
+                        }
+                    }
+                    if (canCompare) {
+                        if (isActive) Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = onCompare,
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text("Karşılaştır", fontSize = 12.sp)
+                        }
                     }
                 }
             }

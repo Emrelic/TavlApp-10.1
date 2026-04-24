@@ -56,14 +56,14 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
     var showPlayer1Menu by remember { mutableStateOf(false) }
     var showPlayer2Menu by remember { mutableStateOf(false) }
 
-    var selectedMatchCount by remember { mutableStateOf("100") }
+    var selectedMatchCount by remember { mutableStateOf("3") }
     var manualMatchCount by remember { mutableStateOf("") }
-    val matchCountOptions = listOf("10", "25", "50", "100", "200")
+    val matchCountOptions = listOf("1", "2", "3", "4", "5")
 
     var selectedTargetScore by remember { mutableStateOf("11") }
     val targetScoreOptions = listOf("3", "5", "7", "9", "11", "13", "15")
 
-    var trackPipCount by remember { mutableStateOf(true) }
+    var trackPipCount by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
 
     LaunchedEffect(playersList.value) {

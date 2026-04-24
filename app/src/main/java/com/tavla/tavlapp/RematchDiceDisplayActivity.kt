@@ -179,6 +179,13 @@ fun RematchDiceDisplayScreen(
         }
     }
 
+    // Parti skorlarını DB'den al
+    val partyScores = remember(encounterId, currentPartyIndex, currentRound) {
+        dbHelper.getPartyScore(encounterId, currentPartyIndex, currentRound)
+    }
+    val leftScore = if (currentRound == 1) partyScores.first else partyScores.second
+    val rightScore = if (currentRound == 1) partyScores.second else partyScores.first
+
     val leftStartingDice = currentDiceSet?.startingDicePlayer1
     val rightStartingDice = currentDiceSet?.startingDicePlayer2
     val leftDice = currentDiceSet?.player1Dice
@@ -207,6 +214,11 @@ fun RematchDiceDisplayScreen(
     var rightCanDouble by remember { mutableStateOf(
         if (leftIsP1) player2CanDouble else player1CanDouble
     )}
+    // İptal için önceki durum
+    var prevCubeValue by remember { mutableIntStateOf(doublingCubeValue) }
+    var prevCubePos by remember { mutableStateOf(CubePos.CENTER) }
+    var prevLeftCanDouble by remember { mutableStateOf(true) }
+    var prevRightCanDouble by remember { mutableStateOf(true) }
     var cubePos by remember { mutableStateOf(
         when {
             leftCanDouble && rightCanDouble -> CubePos.CENTER
@@ -298,158 +310,214 @@ fun RematchDiceDisplayScreen(
             modifier = Modifier.weight(1f).fillMaxHeight()
         ) {
             // ✅ ÜST BAR: KATLAMA ZARI ALANI (sıra rengine bürünür)
-            if (!isCrawfordGame) {
-                val cubeSize = 38.dp
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .background(turnBarBrush)
-                ) {
-                    val barWidth = maxWidth
-
-                    // Animasyonlu küp pozisyonu (butonlarla çakışmayan)
-                    val xFraction by animateFloatAsState(
-                        targetValue = when (cubePos) {
-                            CubePos.LEFT_CTRL -> 0.16f
-                            CubePos.LEFT_OFFER -> 0.30f
-                            CubePos.CENTER -> 0.5f
-                            CubePos.RIGHT_OFFER -> 0.70f
-                            CubePos.RIGHT_CTRL -> 0.84f
-                        },
-                        animationSpec = tween(450),
-                        label = "cubeX"
-                    )
-
-                    // SOL TARAF butonları
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        when (cubePos) {
-                            CubePos.CENTER, CubePos.LEFT_CTRL -> {
-                                if (leftCanDouble) {
-                                    Button(
-                                        onClick = {
-                                            cubeValue *= 2; leftCanDouble = false
-                                            cubePos = CubePos.LEFT_OFFER
-                                            Toast.makeText(context, "$leftPlayerName katlama teklifi: x$cubeValue", Toast.LENGTH_SHORT).show()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
-                                        modifier = Modifier.height(34.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) { Text("KATLA", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-                                }
-                            }
-                            CubePos.RIGHT_OFFER -> {
-                                Button(
-                                    onClick = { leftCanDouble = true; rightCanDouble = false; cubePos = CubePos.LEFT_CTRL
-                                        Toast.makeText(context, "$leftPlayerName kabul: x$cubeValue", Toast.LENGTH_SHORT).show() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                                    modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 8.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("KABUL", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
-                                Button(
-                                    onClick = { cubeValue /= 2; cubePos = CubePos.CENTER
-                                        onDoublingResult(makeDoublingIntent(resigned = leftPlayerId)) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
-                                    modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 8.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("PES", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
-                                Button(
-                                    onClick = { cubeValue /= 2; leftCanDouble = true; rightCanDouble = true; cubePos = CubePos.CENTER },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
-                                    modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 6.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("\u0130PTAL", fontSize = 9.sp) }
-                            }
-                            else -> {}
-                        }
-                    }
-
-                    // SAĞ TARAF butonları
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        when (cubePos) {
-                            CubePos.CENTER, CubePos.RIGHT_CTRL -> {
-                                if (rightCanDouble) {
-                                    Button(
-                                        onClick = {
-                                            cubeValue *= 2; rightCanDouble = false
-                                            cubePos = CubePos.RIGHT_OFFER
-                                            Toast.makeText(context, "$rightPlayerName katlama teklifi: x$cubeValue", Toast.LENGTH_SHORT).show()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
-                                        modifier = Modifier.height(34.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) { Text("KATLA", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-                                }
-                            }
-                            CubePos.LEFT_OFFER -> {
-                                Button(
-                                    onClick = { cubeValue /= 2; leftCanDouble = true; rightCanDouble = true; cubePos = CubePos.CENTER },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
-                                    modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 6.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("\u0130PTAL", fontSize = 9.sp) }
-                                Button(
-                                    onClick = { cubeValue /= 2; cubePos = CubePos.CENTER
-                                        onDoublingResult(makeDoublingIntent(resigned = rightPlayerId)) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
-                                    modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 8.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("PES", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
-                                Button(
-                                    onClick = { rightCanDouble = true; leftCanDouble = false; cubePos = CubePos.RIGHT_CTRL
-                                        Toast.makeText(context, "$rightPlayerName kabul: x$cubeValue", Toast.LENGTH_SHORT).show() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                                    modifier = Modifier.height(34.dp), contentPadding = PaddingValues(horizontal = 8.dp),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("KABUL", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
-                            }
-                            else -> {}
-                        }
-                    }
-
-                    // Küp kutusu (EN SON çizilir - butonların üstünde değil yanında)
-                    val xOffset = barWidth * xFraction - cubeSize / 2
+            run {
+                // Küp kutusu composable
+                @Composable
+                fun CubeBox(value: Int, alpha: Float = 1f) {
                     Box(
                         modifier = Modifier
-                            .offset(x = xOffset, y = (52.dp - cubeSize) / 2)
-                            .size(cubeSize)
+                            .size(42.dp)
                             .shadow(4.dp, RoundedCornerShape(6.dp))
                             .background(
-                                if (cubePos == CubePos.CENTER && cubeValue == 1)
-                                    Brush.verticalGradient(listOf(Color(0xFFE0E0E0).copy(alpha = 0.4f), Color(0xFFD0D0D0).copy(alpha = 0.3f)))
+                                if (value == 1)
+                                    Brush.verticalGradient(listOf(Color(0xFFE0E0E0).copy(alpha = 0.5f), Color(0xFFD0D0D0).copy(alpha = 0.4f)))
                                 else
                                     Brush.verticalGradient(listOf(Color(0xFFFFFFF0), Color(0xFFE8E0D0))),
                                 RoundedCornerShape(6.dp)
                             )
-                            .border(1.5.dp, Color(0xFF8B7355), RoundedCornerShape(6.dp)),
+                            .border(1.5.dp, Color(0xFF8B7355).copy(alpha = alpha), RoundedCornerShape(6.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = cubeValue.toString(),
-                            fontSize = 16.sp,
+                            text = value.toString(),
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (cubePos == CubePos.CENTER && cubeValue == 1)
-                                Color.Gray.copy(alpha = 0.4f) else Color(0xFF2D1B00)
+                            color = if (value == 1) Color.Gray.copy(alpha = 0.5f) else Color(0xFF2D1B00)
                         )
                     }
                 }
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                        .background(Brush.verticalGradient(listOf(Color(0xFFE64A19), Color(0xFFBF360C)))),
-                    contentAlignment = Alignment.Center
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .background(turnBarBrush)
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("CRAWFORD EL\u0130 \u2014 Katlama Devre D\u0131\u015F\u0131", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    // SOL TARAF
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isCrawfordGame) {
+                            Button(
+                                onClick = {}, enabled = false,
+                                colors = ButtonDefaults.buttonColors(
+                                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f),
+                                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                ),
+                                modifier = Modifier.height(42.dp).widthIn(min = 160.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("CRAWFORD", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        } else {
+                            when (cubePos) {
+                                CubePos.CENTER -> {
+                                    if (leftCanDouble) {
+                                        Button(
+                                            onClick = {
+                                                prevCubeValue = cubeValue; prevCubePos = cubePos; prevLeftCanDouble = leftCanDouble; prevRightCanDouble = rightCanDouble
+                                                cubeValue *= 2; leftCanDouble = false
+                                                cubePos = CubePos.LEFT_OFFER
+                                                Toast.makeText(context, "$leftPlayerName katlama teklifi: x$cubeValue", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2)),
+                                            modifier = Modifier.height(42.dp).widthIn(min = 160.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) { Text("KATLA", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    }
+                                }
+                                CubePos.LEFT_CTRL -> {
+                                    // Sol kabul etmiş: KATLA butonu + küp hemen yanında
+                                    if (leftCanDouble) {
+                                        Button(
+                                            onClick = {
+                                                prevCubeValue = cubeValue; prevCubePos = cubePos; prevLeftCanDouble = leftCanDouble; prevRightCanDouble = rightCanDouble
+                                                cubeValue *= 2; leftCanDouble = false
+                                                cubePos = CubePos.LEFT_OFFER
+                                                Toast.makeText(context, "$leftPlayerName katlama teklifi: x$cubeValue", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2)),
+                                            modifier = Modifier.height(42.dp).widthIn(min = 160.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) { Text("KATLA", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    CubeBox(cubeValue)
+                                }
+                                CubePos.RIGHT_OFFER -> {
+                                    // Sağ teklif etti, sol cevap veriyor
+                                    Button(
+                                        onClick = { leftCanDouble = true; rightCanDouble = false; cubePos = CubePos.LEFT_CTRL
+                                            Toast.makeText(context, "$leftPlayerName kabul: x$cubeValue", Toast.LENGTH_SHORT).show() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                        modifier = Modifier.height(44.dp).widthIn(min = 104.dp), contentPadding = PaddingValues(horizontal = 14.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) { Text("KABUL", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    Button(
+                                        onClick = { cubeValue /= 2; cubePos = CubePos.CENTER
+                                            onDoublingResult(makeDoublingIntent(resigned = leftPlayerId)) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                        modifier = Modifier.height(44.dp).widthIn(min = 93.dp), contentPadding = PaddingValues(horizontal = 14.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) { Text("PES", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    Button(
+                                        onClick = { cubeValue = prevCubeValue; cubePos = prevCubePos; leftCanDouble = prevLeftCanDouble; rightCanDouble = prevRightCanDouble },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
+                                        modifier = Modifier.height(44.dp).widthIn(min = 93.dp), contentPadding = PaddingValues(horizontal = 10.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) { Text("\u0130PTAL", fontSize = 10.sp) }
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+
+                    // ORTA ALAN
+                    Spacer(modifier = Modifier.weight(1f))
+                    // Küp ortada: başlangıçta (CENTER, value=1) veya teklif aşamasında (OFFER)
+                    if (!isCrawfordGame) {
+                        when (cubePos) {
+                            CubePos.CENTER -> CubeBox(cubeValue)
+                            CubePos.LEFT_OFFER, CubePos.RIGHT_OFFER -> CubeBox(cubeValue)
+                            else -> {}
+                        }
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // SAĞ TARAF
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isCrawfordGame) {
+                            Button(
+                                onClick = {}, enabled = false,
+                                colors = ButtonDefaults.buttonColors(
+                                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f),
+                                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                ),
+                                modifier = Modifier.height(42.dp).widthIn(min = 160.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("CRAWFORD", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        } else {
+                            when (cubePos) {
+                                CubePos.CENTER -> {
+                                    if (rightCanDouble) {
+                                        Button(
+                                            onClick = {
+                                                prevCubeValue = cubeValue; prevCubePos = cubePos; prevLeftCanDouble = leftCanDouble; prevRightCanDouble = rightCanDouble
+                                                cubeValue *= 2; rightCanDouble = false
+                                                cubePos = CubePos.RIGHT_OFFER
+                                                Toast.makeText(context, "$rightPlayerName katlama teklifi: x$cubeValue", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2)),
+                                            modifier = Modifier.height(42.dp).widthIn(min = 160.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) { Text("KATLA", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    }
+                                }
+                                CubePos.RIGHT_CTRL -> {
+                                    // Sağ kabul etmiş: küp hemen yanında + KATLA butonu
+                                    CubeBox(cubeValue)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    if (rightCanDouble) {
+                                        Button(
+                                            onClick = {
+                                                prevCubeValue = cubeValue; prevCubePos = cubePos; prevLeftCanDouble = leftCanDouble; prevRightCanDouble = rightCanDouble
+                                                cubeValue *= 2; rightCanDouble = false
+                                                cubePos = CubePos.RIGHT_OFFER
+                                                Toast.makeText(context, "$rightPlayerName katlama teklifi: x$cubeValue", Toast.LENGTH_SHORT).show()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2)),
+                                            modifier = Modifier.height(42.dp).widthIn(min = 160.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) { Text("KATLA", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    }
+                                }
+                                CubePos.LEFT_OFFER -> {
+                                    // Sol teklif etti, sağ cevap veriyor
+                                    Button(
+                                        onClick = { cubeValue = prevCubeValue; cubePos = prevCubePos; leftCanDouble = prevLeftCanDouble; rightCanDouble = prevRightCanDouble },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
+                                        modifier = Modifier.height(44.dp).widthIn(min = 93.dp), contentPadding = PaddingValues(horizontal = 10.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) { Text("\u0130PTAL", fontSize = 10.sp) }
+                                    Button(
+                                        onClick = { cubeValue /= 2; cubePos = CubePos.CENTER
+                                            onDoublingResult(makeDoublingIntent(resigned = rightPlayerId)) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                        modifier = Modifier.height(44.dp).widthIn(min = 93.dp), contentPadding = PaddingValues(horizontal = 14.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) { Text("PES", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    Button(
+                                        onClick = { rightCanDouble = true; leftCanDouble = false; cubePos = CubePos.RIGHT_CTRL
+                                            Toast.makeText(context, "$rightPlayerName kabul: x$cubeValue", Toast.LENGTH_SHORT).show() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                        modifier = Modifier.height(44.dp).widthIn(min = 104.dp), contentPadding = PaddingValues(horizontal = 14.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) { Text("KABUL", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
                 }
             }
 
@@ -502,7 +570,7 @@ fun RematchDiceDisplayScreen(
                                 Text(
                                     text = leftPlayerName,
                                     color = if (currentPlayerTurn == 1) Color.White else Color.White.copy(alpha = 0.35f),
-                                    fontSize = 20.sp,
+                                    fontSize = 30.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -524,7 +592,7 @@ fun RematchDiceDisplayScreen(
                                 Text(
                                     text = rightPlayerName,
                                     color = if (currentPlayerTurn == 2) Color.White else Color.White.copy(alpha = 0.35f),
-                                    fontSize = 20.sp,
+                                    fontSize = 30.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -538,14 +606,63 @@ fun RematchDiceDisplayScreen(
                                 fontWeight = FontWeight.Medium
                             )
 
-                            // Zarlar ortada (büyük - 150dp)
+                            // Zarlar - oyuncu isim çerçevesinin hemen altında
                             Row(
-                                modifier = Modifier.align(Alignment.Center),
+                                modifier = Modifier.align(Alignment.TopCenter).padding(top = 58.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(36.dp)
                             ) {
-                                DiceBox(currentDicePair?.first ?: 0, 150.dp)
-                                DiceBox(currentDicePair?.second ?: 0, 150.dp)
+                                DiceBox(currentDicePair?.first ?: 0, 180.dp)
+                                DiceBox(currentDicePair?.second ?: 0, 180.dp)
                             }
+
+                            // Hamle ve Tur bilgisi - alt butonların hemen üstünde
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                Text(
+                                    text = when (gamePhase) {
+                                        GamePhase.STARTING_DICE -> "Ba\u015Flang\u0131\u00E7"
+                                        GamePhase.FIRST_MOVE -> "\u0130lk Hamle"
+                                        GamePhase.PLAYING -> "Hamle: $totalMoveCount"
+                                    },
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = "Tur: ${currentRound}/2",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+
+                            // Sol skor (oyuncu 1) - SOL ALT KÖŞE
+                            // Bir rakam genişliği soldan, yarım rakam genişliği alttan uzak
+                            Text(
+                                text = "$leftScore",
+                                color = Color(0xFF64B5F6),
+                                fontSize = 80.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 48.dp, bottom = 24.dp)
+                            )
+
+                            // Sağ skor (oyuncu 2) - SAĞ ALT KÖŞE
+                            Text(
+                                text = "$rightScore",
+                                color = Color(0xFFEF9A9A),
+                                fontSize = 80.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 48.dp, bottom = 24.dp)
+                            )
                         }
                     }
                 }
@@ -560,17 +677,6 @@ fun RematchDiceDisplayScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Tur bilgisi (en solda, sabit genişlik)
-                Text(
-                    "Tur\n${currentRound}/2",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 13.sp,
-                    modifier = Modifier.width(32.dp)
-                )
-
                 // ÖNCEKİ butonu
                 Button(
                     onClick = {
@@ -605,7 +711,7 @@ fun RematchDiceDisplayScreen(
                         containerColor = Color.White.copy(alpha = 0.15f),
                         disabledContainerColor = Color.White.copy(alpha = 0.05f)
                     ),
-                    modifier = Modifier.weight(1f).height(42.dp),
+                    modifier = Modifier.weight(1.5f).height(42.dp),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
@@ -615,13 +721,12 @@ fun RematchDiceDisplayScreen(
                 // EL BİTTİ butonu (ortada, vurgulu)
                 Button(
                     onClick = {
-                        // Popup'ı aç - zar istatistikleri hesaplanır ve popup'ta gösterilir
                         showGameEndScoring = true
                     },
                     enabled = gamePhase == GamePhase.PLAYING || gamePhase == GamePhase.FIRST_MOVE,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB71C1C),
-                        disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.3f)
+                        containerColor = Color(0xFF6A1B9A),
+                        disabledContainerColor = Color(0xFF6A1B9A).copy(alpha = 0.3f)
                     ),
                     modifier = Modifier.weight(1.3f).height(42.dp),
                     shape = RoundedCornerShape(10.dp),
@@ -636,27 +741,12 @@ fun RematchDiceDisplayScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = 0.15f)
                     ),
-                    modifier = Modifier.weight(1f).height(42.dp),
+                    modifier = Modifier.weight(1.5f).height(42.dp),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Text("SKOR \u25B6", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                 }
-
-                // Hamle bilgisi (en sağda, sabit genişlik)
-                Text(
-                    when (gamePhase) {
-                        GamePhase.STARTING_DICE -> "Ba\u015F\nlang\u0131\u00E7"
-                        GamePhase.FIRST_MOVE -> "\u0130lk\nHamle"
-                        GamePhase.PLAYING -> "Hamle\n$totalMoveCount"
-                    },
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 13.sp,
-                    modifier = Modifier.width(38.dp)
-                )
             }
         }
 
@@ -739,7 +829,7 @@ fun StartingDiceDisplay(
         ) {
             Text(leftPlayerName, color = Color(0xFF64B5F6), fontWeight = FontWeight.Bold, fontSize = 24.sp)
             if (firstPlayer == 1) {
-                Text("BA\u015ELIHOR", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("BA\u015ELIYOR", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
             Spacer(modifier = Modifier.height(16.dp))
             DiceBox(value = leftDice ?: 0, size = 150.dp, backgroundColor = Color.White)
@@ -753,7 +843,7 @@ fun StartingDiceDisplay(
         ) {
             Text(rightPlayerName, color = Color(0xFFEF9A9A), fontWeight = FontWeight.Bold, fontSize = 24.sp)
             if (firstPlayer == 2) {
-                Text("BA\u015ELIHOR", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("BA\u015ELIYOR", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
             Spacer(modifier = Modifier.height(16.dp))
             DiceBox(value = rightDice ?: 0, size = 150.dp, backgroundColor = Color.White)
@@ -868,7 +958,7 @@ fun GameEndScoringDialog(
     ) {
         Column(
             modifier = Modifier
-                .width(450.dp)
+                .width(518.dp)
                 .shadow(12.dp, RoundedCornerShape(16.dp))
                 .background(
                     Brush.verticalGradient(
@@ -877,7 +967,7 @@ fun GameEndScoringDialog(
                     RoundedCornerShape(16.dp)
                 )
                 .border(2.dp, Color(0xFF37474F), RoundedCornerShape(16.dp))
-                .padding(20.dp)
+                .padding(23.dp)
         ) {
             // Başlık
             Text(
@@ -901,8 +991,8 @@ fun GameEndScoringDialog(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    .height(230.dp),
+                horizontalArrangement = Arrangement.spacedBy(23.dp)
             ) {
                 // Sol oyuncu kartı
                 Card(
@@ -941,21 +1031,21 @@ fun GameEndScoringDialog(
                                 points = doublingCubeValue,
                                 onClick = { onScoreSelected(true, "SINGLE") },
                                 color = Color(0xFF42A5F5),
-                                height = 40.dp
+                                height = 46.dp
                             )
                             ScoringButton(
                                 text = "MARS",
                                 points = doublingCubeValue * 2,
                                 onClick = { onScoreSelected(true, "MARS") },
                                 color = Color(0xFF2196F3),
-                                height = 40.dp
+                                height = 46.dp
                             )
                             ScoringButton(
                                 text = "BACKGAMMON",
                                 points = doublingCubeValue * 3,
                                 onClick = { onScoreSelected(true, "BACKGAMMON") },
                                 color = Color(0xFF1976D2),
-                                height = 40.dp
+                                height = 46.dp
                             )
                         }
                     }
@@ -965,13 +1055,13 @@ fun GameEndScoringDialog(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.width(80.dp).fillMaxHeight()
+                    modifier = Modifier.width(92.dp).fillMaxHeight()
                 ) {
-                    Text("KÜPE DEĞER", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, textAlign = TextAlign.Center)
-                    
+                    Text("KÜPE DEĞER", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp, textAlign = TextAlign.Center)
+
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
+                            .size(69.dp)
                             .shadow(8.dp, RoundedCornerShape(12.dp))
                             .background(
                                 Brush.radialGradient(
@@ -1028,21 +1118,21 @@ fun GameEndScoringDialog(
                                 points = doublingCubeValue,
                                 onClick = { onScoreSelected(false, "SINGLE") },
                                 color = Color(0xFFEF5350),
-                                height = 40.dp
+                                height = 46.dp
                             )
                             ScoringButton(
                                 text = "MARS",
                                 points = doublingCubeValue * 2,
                                 onClick = { onScoreSelected(false, "MARS") },
                                 color = Color(0xFFF44336),
-                                height = 40.dp
+                                height = 46.dp
                             )
                             ScoringButton(
                                 text = "BACKGAMMON",
                                 points = doublingCubeValue * 3,
                                 onClick = { onScoreSelected(false, "BACKGAMMON") },
                                 color = Color(0xFFD32F2F),
-                                height = 40.dp
+                                height = 46.dp
                             )
                         }
                     }
@@ -1058,9 +1148,9 @@ fun GameEndScoringDialog(
                     containerColor = Color(0xFF546E7A)
                 ),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().height(45.dp)
+                modifier = Modifier.fillMaxWidth().height(52.dp)
             ) {
-                Text("İPTAL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("İPTAL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -1072,7 +1162,7 @@ fun ScoringButton(
     points: Int,
     onClick: () -> Unit,
     color: Color,
-    height: androidx.compose.ui.unit.Dp = 32.dp
+    height: androidx.compose.ui.unit.Dp = 37.dp
 ) {
     Button(
         onClick = onClick,
@@ -1081,12 +1171,12 @@ fun ScoringButton(
         ),
         shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxWidth().height(height),
-        contentPadding = PaddingValues(horizontal = 8.dp)
+        contentPadding = PaddingValues(horizontal = 9.dp)
     ) {
         Text(
             "$text ($points)",
             color = Color.White,
-            fontSize = 12.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )

@@ -269,7 +269,14 @@ fun GameScreen(
     )
     
     var gameStateHistory by remember { mutableStateOf(mutableListOf<GameStateSnapshot>()) }
-    
+
+    // ✅ Zar ekranından gelen el bitimi flag'leri (delayed processing - launcher'lardan önce tanımlanmalı)
+    var pendingDiceGameEnd by remember { mutableStateOf(false) }
+    var pendingDiceWinnerIsLeft by remember { mutableStateOf(false) }
+    var pendingDiceScorePoints by remember { mutableIntStateOf(0) }
+    var pendingDiceScoreType by remember { mutableStateOf("") }
+    var pendingDiceIsRematch by remember { mutableStateOf(false) }
+
     // ✅ ZAR EKRANI RESULT LAUNCHER - Katlama sonuçlarını al
     val diceActivityLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -311,69 +318,14 @@ fun GameScreen(
                 else -> DoublingCubePosition.CENTER
             }
             
-            // ✅ El bitimi popup'tan tam kapsamlı skor işleme
+            // ✅ El bitimi popup'tan skor işleme (non-rematch mod - flag ile delayed processing)
             if (gameEnded && scorePoints > 0) {
-                val winnerName: String
-                val winnerId: Long
-                val winnerScore: Int
-                val loserScore: Int
-                
-                if (winnerIsLeft) {
-                    // Sol oyuncu kazandı
-                    winnerName = player1Name
-                    winnerId = player1Id
-                    player1Score += scorePoints
-                    winnerScore = player1Score
-                    loserScore = player2Score
-                } else {
-                    // Sağ oyuncu kazandı
-                    winnerName = player2Name
-                    winnerId = player2Id
-                    player2Score += scorePoints
-                    winnerScore = player2Score
-                    loserScore = if (winnerIsLeft) player2Score else player1Score
-                }
-                
-                // ✅ 1. Skorboard güncelleme simülasyonu (popup'tan gelen veri işleme)
-                currentDiceSetNumber++ // Yeni el için zar seti arttır
-                val setId = "P1-O${currentRound + 1}-S$currentDiceSetNumber"
-                if (!diceSetHistory.contains(setId)) {
-                    diceSetHistory.add(setId)
-                }
-                
-                // ✅ 2. Activity Log - popup işlemi kaydı
-                val actionType = when (scoreType) {
-                    "SINGLE" -> ActionTypes.SCORE_SINGLE
-                    "MARS" -> ActionTypes.SCORE_MARS
-                    "BACKGAMMON" -> ActionTypes.SCORE_BACKGAMMON
-                    else -> ActionTypes.SCORE_SINGLE
-                }
-                
-                dbHelper.addActivityLog(
-                    actionType = actionType,
-                    description = "El bitimi popup: $winnerName kazandı ($scoreType, $setId, +$scorePoints puan)",
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    matchId = if (isRematchMode) -1 else matchId,
-                    extraData = "score_source=popup,dice_set=$setId,doubling_cube=$doublingCubeValue,win_type=$scoreType"
-                )
-                
-                // ✅ 3. Kullanıcı bildirimi
-                Toast.makeText(context, "🎲 $winnerName kazandı: $scoreType (+$scorePoints puan) • Set: $setId", Toast.LENGTH_LONG).show()
-                
-                // ✅ 4. Parti bitişi kontrol et
-                if (player1Score >= targetRounds || player2Score >= targetRounds) {
-                    val winner = if (player1Score >= targetRounds) player1Name else player2Name
-                    Toast.makeText(context, "🏆 Parti bitti! $winner $targetRounds puana ulaştı!", Toast.LENGTH_LONG).show()
-                }
-                
-                // ✅ 8. Katlama zarını sıfırla (yeni el için)
-                doublingCubeValue = 1
-                doublingCubePosition = DoublingCubePosition.CENTER
-                player1CanDouble = true
-                player2CanDouble = true
+                pendingDiceGameEnd = true
+                pendingDiceWinnerIsLeft = winnerIsLeft
+                pendingDiceScorePoints = scorePoints
+                pendingDiceScoreType = scoreType
             }
-            
+
             // ✅ Hamle pozisyonu kaydetme (el tamamlanmadıysa)
             if (!gameEnded && playedSetId.isNotEmpty() && totalMoveCount > 0) {
                 val gameState = DiceSetGameState(
@@ -387,58 +339,16 @@ fun GameScreen(
                     isCompleted = false
                 )
                 diceSetGameStates[playedSetId] = gameState
-                
-                // Activity log kaydet
-                dbHelper.addActivityLog(
-                    actionType = ActionTypes.DICE_SCREEN_CLOSE,
-                    description = "Zar ekranından çıkıldı: $playedSetId hamle $totalMoveCount'de kaldı",
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    matchId = if (isRematchMode) -1 else matchId,
-                    extraData = "set_id=$playedSetId,total_moves=$totalMoveCount,left_moves=$leftMoveIndex,right_moves=$rightMoveIndex,current_player=$currentPlayerTurn,phase=$gamePhase"
-                )
             }
-            
-            // PES durumunda otomatik skor ekleme
-            if (resignedPlayerId != -1L) {
-                val winnerName = if (resignedPlayerId == player1Id) player2Name else player1Name
-                val winnerId = if (resignedPlayerId == player1Id) player2Id else player1Id
-                
-                // Pes eden oyuncu kaybeder, karşı oyuncu katlama zarı değeri kadar puan alır
-                val scorePoints = doublingCubeValue
-                
-                if (resignedPlayerId == player1Id) {
-                    // Player1 pes etti, Player2 kazandı
-                    player2Score += scorePoints
-                } else {
-                    // Player2 pes etti, Player1 kazandı
-                    player1Score += scorePoints
-                }
-                
-                // Activity log ekle
-                dbHelper.addActivityLog(
-                    actionType = ActionTypes.DOUBLE_REJECT,
-                    description = "Zar ekranında pes: $winnerName kazandı (+$scorePoints puan)",
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    matchId = if (isRematchMode) -1 else matchId
-                )
-                
-                Toast.makeText(context, "Zar ekranında pes edildi: $winnerName kazandı (+$scorePoints puan)", Toast.LENGTH_SHORT).show()
-                
-                // Parti bitişi kontrolü
-                if (player1Score >= targetRounds || player2Score >= targetRounds) {
-                    val winner = if (player1Score >= targetRounds) player1Name else player2Name
-                    Toast.makeText(context, "🏆 Parti bitti! $winner $targetRounds puana ulaştı!", Toast.LENGTH_LONG).show()
-                }
-                
-                // Katlama zarını sıfırla
-                doublingCubeValue = 1
-                doublingCubePosition = DoublingCubePosition.CENTER
-                player1CanDouble = true
-                player2CanDouble = true
+
+            // PES durumunda - flag ile delayed processing
+            if (resignedPlayerId != -1L && !gameEnded) {
+                pendingDiceGameEnd = true
+                pendingDiceWinnerIsLeft = resignedPlayerId != player1Id // winner is the other player
+                pendingDiceScorePoints = doublingCubeValue
+                pendingDiceScoreType = "SINGLE"
             }
-            
+
             if (acceptedPlayerId != -1L) {
                 val accepterName = if (acceptedPlayerId == player1Id) player1Name else player2Name
                 Toast.makeText(context, "Zar ekranında katlama kabul edildi: $accepterName (x$doublingCubeValue)", Toast.LENGTH_SHORT).show()
@@ -486,63 +396,15 @@ fun GameScreen(
                 else -> DoublingCubePosition.CENTER
             }
             
-            // ✅ Rövanş el bitimi popup'tan tam kapsamlı skor işleme  
+            // ✅ Rövanş el bitimi - flag ile delayed processing
             if (gameEnded && scorePoints > 0) {
-                val winnerName: String
-                val winnerId: Long
-                
-                if (winnerIsLeft) {
-                    // Sol oyuncu kazandı
-                    winnerName = player1Name
-                    winnerId = player1Id
-                    player1Score += scorePoints
-                } else {
-                    // Sağ oyuncu kazandı
-                    winnerName = player2Name
-                    winnerId = player2Id
-                    player2Score += scorePoints
-                }
-                
-                // ✅ 1. Rövanş skorboard güncelleme simülasyonu (popup'tan gelen veri işleme)
-                currentDiceSetNumber++ // Yeni el için zar seti arttır
-                val setId = "P1-O${currentRound + 1}-S$currentDiceSetNumber"
-                if (!diceSetHistory.contains(setId)) {
-                    diceSetHistory.add(setId)
-                }
-                
-                // ✅ 2. Rövanş Activity Log
-                val actionType = when (scoreType) {
-                    "SINGLE" -> ActionTypes.SCORE_SINGLE
-                    "MARS" -> ActionTypes.SCORE_MARS
-                    "BACKGAMMON" -> ActionTypes.SCORE_BACKGAMMON
-                    else -> ActionTypes.SCORE_SINGLE
-                }
-                
-                dbHelper.addActivityLog(
-                    actionType = actionType,
-                    description = "Rövanş el bitimi popup: $winnerName kazandı ($scoreType, $setId, +$scorePoints puan)",
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    matchId = -1L, // Rövanş modu için -1
-                    extraData = "score_source=rematch_popup,dice_set=$setId,doubling_cube=$doublingCubeValue,win_type=$scoreType"
-                )
-                
-                // ✅ 3. Kullanıcı bildirimi
-                Toast.makeText(context, "🎯 Rövanş: $winnerName kazandı ($scoreType, +$scorePoints) • Set: $setId", Toast.LENGTH_LONG).show()
-                
-                // ✅ 4. Rövanş parti bitişi kontrol
-                if (player1Score >= targetRounds || player2Score >= targetRounds) {
-                    val winner = if (player1Score >= targetRounds) player1Name else player2Name
-                    Toast.makeText(context, "🏆 Rövanş Parti bitti! $winner $targetRounds puana ulaştı!", Toast.LENGTH_LONG).show()
-                }
-                
-                // ✅ 8. Katlama zarını sıfırla
-                doublingCubeValue = 1
-                doublingCubePosition = DoublingCubePosition.CENTER
-                player1CanDouble = true
-                player2CanDouble = true
+                pendingDiceGameEnd = true
+                pendingDiceWinnerIsLeft = winnerIsLeft
+                pendingDiceScorePoints = scorePoints
+                pendingDiceScoreType = scoreType
+                pendingDiceIsRematch = true
             }
-            
+
             // ✅ Rövanş hamle pozisyonu kaydetme (el tamamlanmadıysa)
             if (!gameEnded && playedSetId.isNotEmpty() && totalMoveCount > 0) {
                 val gameState = DiceSetGameState(
@@ -556,56 +418,15 @@ fun GameScreen(
                     isCompleted = false
                 )
                 diceSetGameStates[playedSetId] = gameState
-                
-                // Activity log kaydet
-                dbHelper.addActivityLog(
-                    actionType = ActionTypes.DICE_SCREEN_CLOSE,
-                    description = "Rövanş zar ekranından çıkıldı: $playedSetId hamle $totalMoveCount'de kaldı",
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    matchId = -1L,
-                    extraData = "set_id=$playedSetId,total_moves=$totalMoveCount,left_moves=$leftMoveIndex,right_moves=$rightMoveIndex,current_player=$currentPlayerTurn,phase=$gamePhase"
-                )
             }
 
-            // Rövanş modunda PES durumunda otomatik skor ekleme
-            if (resignedPlayerId != -1L) {
-                val winnerName = if (resignedPlayerId == player1Id) player2Name else player1Name
-                val winnerId = if (resignedPlayerId == player1Id) player2Id else player1Id
-                
-                // Pes eden oyuncu kaybeder, karşı oyuncu katlama zarı değeri kadar puan alır
-                val scorePoints = doublingCubeValue
-                
-                if (resignedPlayerId == player1Id) {
-                    // Player1 pes etti, Player2 kazandı
-                    player2Score += scorePoints
-                } else {
-                    // Player2 pes etti, Player1 kazandı
-                    player1Score += scorePoints
-                }
-                
-                // Activity log ekle
-                dbHelper.addActivityLog(
-                    actionType = ActionTypes.DOUBLE_REJECT,
-                    description = "Rövanş zar ekranında pes: $winnerName kazandı (+$scorePoints puan)",
-                    player1Name = player1Name,
-                    player2Name = player2Name,
-                    matchId = if (isRematchMode) -1 else matchId
-                )
-                
-                Toast.makeText(context, "Pes edildi: $winnerName kazandı (+$scorePoints puan)", Toast.LENGTH_SHORT).show()
-                
-                // Parti bitişi kontrolü (rövanş modunda)
-                if (player1Score >= targetRounds || player2Score >= targetRounds) {
-                    val winner = if (player1Score >= targetRounds) player1Name else player2Name
-                    Toast.makeText(context, "🏆 Parti bitti! $winner $targetRounds puana ulaştı!", Toast.LENGTH_LONG).show()
-                }
-                
-                // Katlama zarını sıfırla
-                doublingCubeValue = 1
-                doublingCubePosition = DoublingCubePosition.CENTER
-                player1CanDouble = true
-                player2CanDouble = true
+            // Rövanş modunda PES durumunda - flag ile delayed processing
+            if (resignedPlayerId != -1L && !gameEnded) {
+                pendingDiceGameEnd = true
+                pendingDiceWinnerIsLeft = resignedPlayerId != player1Id
+                pendingDiceScorePoints = doublingCubeValue
+                pendingDiceScoreType = "SINGLE"
+                pendingDiceIsRematch = true
             }
 
             if (acceptedPlayerId != -1L) {
@@ -889,9 +710,11 @@ fun GameScreen(
 
     // Maç sona erdiğinde yapılacak işlemler
     fun endMatch() {
-        // Rövanşlı modda endMatch çağrılmaz (handleRematchPartyEnd kullanılır)
+        // Rövanşlı modda onay dialog'u göster
         if (isRematchMode) {
-            showEndMatchConfirmation = true
+            if (!showEndMatchConfirmation) {
+                showEndMatchConfirmation = true
+            }
             return
         }
         val winnerId = dbHelper.finishMatch(matchId)
@@ -1109,6 +932,52 @@ fun GameScreen(
         } else {
             rematchGameIndex++
             dbHelper.updateEncounterProgress(encounterId, rematchPartyIndex, rematchGameIndex)
+        }
+    }
+
+    // ✅ Zar ekranından gelen el bitimi/pes işlemlerini delayed olarak işle
+    LaunchedEffect(pendingDiceGameEnd) {
+        if (pendingDiceGameEnd) {
+            pendingDiceGameEnd = false
+            if (pendingDiceIsRematch) {
+                val winnerId: Long
+                val winnerName: String
+                if (pendingDiceWinnerIsLeft) {
+                    if (rematchCurrentRound == 1) {
+                        winnerId = player1Id; winnerName = player1Name
+                    } else {
+                        winnerId = player2Id; winnerName = player2Name
+                    }
+                } else {
+                    if (rematchCurrentRound == 1) {
+                        winnerId = player2Id; winnerName = player2Name
+                    } else {
+                        winnerId = player1Id; winnerName = player1Name
+                    }
+                }
+                val rawScore = when (pendingDiceScoreType) {
+                    "SINGLE" -> 1
+                    "MARS" -> 2
+                    "BACKGAMMON" -> 3
+                    else -> 1
+                }
+                executeRematchAddRound(winnerId, winnerName, pendingDiceScoreType, rawScore)
+            } else {
+                if (pendingDiceWinnerIsLeft) {
+                    player1Score += pendingDiceScorePoints
+                } else {
+                    player2Score += pendingDiceScorePoints
+                }
+                doublingCubeValue = 1
+                doublingCubePosition = DoublingCubePosition.CENTER
+                player1CanDouble = true
+                player2CanDouble = true
+                handleCrawfordGameEnd()
+                checkCrawfordStatus()
+                val winnerName = if (pendingDiceWinnerIsLeft) player1Name else player2Name
+                Toast.makeText(context, "$winnerName kazandı: ${pendingDiceScoreType} (+${pendingDiceScorePoints} puan)", Toast.LENGTH_LONG).show()
+            }
+            pendingDiceIsRematch = false
         }
     }
 
@@ -1718,7 +1587,11 @@ fun GameScreen(
                 TextButton(
                     onClick = {
                         showEndMatchConfirmation = false
-                        endMatch() // Onaylandığında maçı sonlandır
+                        if (isRematchMode) {
+                            handleRematchPartyEnd()
+                        } else {
+                            endMatch()
+                        }
                     }
                 ) {
                     Text("Evet, Sonlandır")
@@ -2096,26 +1969,48 @@ fun GameScreen(
                             !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
-                            player1CanDouble &&
-                            !isCrawfordGame
+                            player1CanDouble
                         ) {
-                            Button(
-                                onClick = { player1OfferDouble() },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFB300)
-                                ),
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(45.dp)
-                            ) {
-                                Text(
-                                    text = "KATLA",
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            if (isCrawfordGame) {
+                                Button(
+                                    onClick = {},
+                                    enabled = false,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        disabledContainerColor = Color.Gray.copy(alpha = 0.3f),
+                                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                    ),
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(45.dp)
+                                ) {
+                                    Text(
+                                        text = "CRAWFORD",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = { player1OfferDouble() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFB300)
+                                    ),
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(45.dp)
+                                ) {
+                                    Text(
+                                        text = "KATLA",
+                                        color = Color.White,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
 
@@ -2325,26 +2220,48 @@ fun GameScreen(
                             !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
                                     doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
-                            player2CanDouble &&
-                            !isCrawfordGame
+                            player2CanDouble
                         ) {
-                            Button(
-                                onClick = { player2OfferDouble() },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFB300)
-                                ),
-                                contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(45.dp)
-                            ) {
-                                Text(
-                                    text = "KATLA",
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            if (isCrawfordGame) {
+                                Button(
+                                    onClick = {},
+                                    enabled = false,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        disabledContainerColor = Color.Gray.copy(alpha = 0.3f),
+                                        disabledContentColor = Color.White.copy(alpha = 0.5f)
+                                    ),
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(45.dp)
+                                ) {
+                                    Text(
+                                        text = "CRAWFORD",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            } else {
+                                Button(
+                                    onClick = { player2OfferDouble() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFB300)
+                                    ),
+                                    contentPadding = PaddingValues(0.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(45.dp)
+                                ) {
+                                    Text(
+                                        text = "KATLA",
+                                        color = Color.White,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
 
@@ -3332,7 +3249,7 @@ fun GameScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Geri al butonu - Her modda göster
@@ -3340,9 +3257,10 @@ fun GameScreen(
                     onClick = { undoLastRound() },
                     enabled = if (isRematchMode) rematchUndoStack.isNotEmpty() else undoStack.size > 0,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0D47A1), // Koyu mavi (Blue 900)
-                        disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.5f) // Soluk koyu mavi (pasif)
+                        containerColor = Color(0xFF0D47A1),
+                        disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.5f)
                     ),
+                    shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp)
@@ -3394,8 +3312,9 @@ fun GameScreen(
                             
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2E7D32) // Yeşil renk
+                            containerColor = Color(0xFF2E7D32)
                         ),
+                        shape = RoundedCornerShape(6.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
@@ -3412,7 +3331,6 @@ fun GameScreen(
                     if (isRematchMode) {
                         Button(
                             onClick = {
-                                incrementDiceSet() // ✅ Zar setini artır
                                 val intent = Intent(context, RematchDiceDisplayActivity::class.java).apply {
                                     putExtra("encounter_id", encounterId)
                                     // ✅ KATLAMA SİSTEMİ PARAMETRELERİ
@@ -3428,8 +3346,9 @@ fun GameScreen(
                                 rematchDiceLauncher.launch(intent)
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF6A1B9A) // Mor
+                                containerColor = Color(0xFF6A1B9A)
                             ),
+                            shape = RoundedCornerShape(6.dp),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(50.dp)
@@ -3478,8 +3397,9 @@ fun GameScreen(
                                 diceActivityLauncher.launch(intent)
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF9C27B0) // Mor renk
+                                containerColor = Color(0xFF9C27B0)
                             ),
+                            shape = RoundedCornerShape(6.dp),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(50.dp)
@@ -3502,8 +3422,9 @@ fun GameScreen(
                                 showDiceSetHistoryDialog = true 
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF2196F3) // Açık mavi
+                                containerColor = Color(0xFF2196F3)
                             ),
+                            shape = RoundedCornerShape(6.dp),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(50.dp)
@@ -3517,8 +3438,9 @@ fun GameScreen(
                 Button(
                     onClick = { showActivityLogDialog = true },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF616161) // Gri
+                        containerColor = Color(0xFF616161)
                     ),
+                    shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp)
@@ -3555,8 +3477,9 @@ fun GameScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1976D2) // Mavi renk
+                            containerColor = Color(0xFF1976D2)
                         ),
+                        shape = RoundedCornerShape(6.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
@@ -3576,8 +3499,9 @@ fun GameScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB71C1C) // Koyu kırmızı (iki ton koyu)
+                        containerColor = Color(0xFFB71C1C)
                     ),
+                    shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp)
@@ -3680,6 +3604,10 @@ fun GameScreen(
 
     // ✅ ZAR SETİ GEÇMİŞİ DİALOGU - Yeniden Tasarım
     if (showDiceSetHistoryDialog) {
+        // Rövanş modunda: DB'den tüm zar setlerini al (mevcut parti için)
+        val maxSets = if (isRematchMode) DiceGenerator.maxSetsForTargetScore(matchTargetScore) else diceSetHistory.size
+        val currentSetIndex = if (isRematchMode) rematchGameIndex else 0
+
         AlertDialog(
             onDismissRequest = { showDiceSetHistoryDialog = false },
             title = {
@@ -3690,264 +3618,168 @@ fun GameScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "🎲 Zar Setleri",
+                            text = "Zar Setleri",
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
                             fontSize = 18.sp
                         )
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF1976D2).copy(alpha = 0.8f)
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                text = "${diceSetHistory.size} adet",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    if (isRematchMode) {
-                        Card(
-                            modifier = Modifier.padding(top = 8.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF0D47A1).copy(alpha = 0.6f)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "📊 21 Zar Seti Ön-üretilmiş • P1-O1-S1 Format • Round 2 Reverse Play",
-                                modifier = Modifier.padding(8.dp),
-                                fontSize = 11.sp,
-                                color = Color(0xFFBBDEFB),
-                                fontWeight = FontWeight.Medium
-                            )
+                        if (isRematchMode) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF1976D2).copy(alpha = 0.8f)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "Parti ${rematchPartyIndex + 1} | El ${currentSetIndex + 1}/$maxSets",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
             },
             text = {
                 LazyColumn {
-                    items(diceSetHistory) { setId ->
-                        val index = diceSetHistory.indexOf(setId)
-                        val isCurrentSet = setId == getCurrentDiceSetId()
-                        val parsedId = DiceGenerator.parseSetId(setId)
-                        val displayText = if (parsedId != null) {
-                            val (partyIdx, gameIdx, setIdx) = parsedId
-                            "$setId (Parti ${partyIdx+1}, El ${gameIdx+1}, Set ${setIdx+1})"
-                        } else {
-                            setId
-                        }
-                        
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isCurrentSet) 
-                                    Color(0xFF1976D2).copy(alpha = 0.9f) else Color(0xFF424242).copy(alpha = 0.8f)
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp)
-                                .clickable {
-                                    // ✅ Zar setini rövanşlı ekranda oynat
-                                    showDiceSetHistoryDialog = false
-                                    if (isRematchMode) {
-                                        // Rövanşlı mod - RematchDiceDisplayActivity kullan
-                                        val intent = Intent(context, RematchDiceDisplayActivity::class.java).apply {
-                                            putExtra("encounter_id", encounterId)
-                                            putExtra("replay_dice_set_id", setId)
-                                            putExtra("doubling_cube_value", doublingCubeValue)
-                                            putExtra("player1_can_double", player1CanDouble)
-                                            putExtra("player2_can_double", player2CanDouble)
-                                            putExtra("is_crawford_game", isCrawfordGame)
-                                            putExtra("player1_name", player1Name)
-                                            putExtra("player2_name", player2Name)
-                                            putExtra("player1_id", player1Id)
-                                            putExtra("player2_id", player2Id)
-                                            
-                                            // Hamle pozisyonu bilgilerini ekle
-                                            val gameState = diceSetGameStates[setId]
-                                            if (gameState != null) {
-                                                putExtra("resume_total_move_count", gameState.totalMoveCount)
-                                                putExtra("resume_left_move_index", gameState.leftMoveIndex)
-                                                putExtra("resume_right_move_index", gameState.rightMoveIndex)
-                                                putExtra("resume_current_player_turn", gameState.currentPlayerTurn)
-                                                putExtra("resume_game_phase", gameState.gamePhase)
-                                            }
-                                        }
-                                        rematchDiceLauncher.launch(intent)
-                                    } else {
-                                        // Normal mod - DiceActivity kullan
-                                        val intent = Intent(context, DiceActivity::class.java).apply {
-                                            putExtra("game_type", gameType)
-                                            putExtra("use_dice_roller", useDiceRoller)
-                                            putExtra("use_timer", useTimer)
-                                            putExtra("player1_name", player1Name)
-                                            putExtra("player2_name", player2Name)
-                                            putExtra("match_length", targetRounds)
-                                            putExtra("match_id", matchId)
-                                            putExtra("player1_id", player1Id)
-                                            putExtra("player2_id", player2Id)
-                                            putExtra("keep_statistics", keepStatistics)
-                                            putExtra("mark_dice_evaluation", markDiceEvaluation)
-                                            putExtra("doubling_cube_value", doublingCubeValue)
-                                            putExtra("player1_can_double", player1CanDouble)
-                                            putExtra("player2_can_double", player2CanDouble)
-                                            putExtra("is_crawford_game", isCrawfordGame)
-                                            putExtra("show_player1_doubling_menu", showPlayer1DoublingMenu)
-                                            putExtra("show_player2_doubling_menu", showPlayer2DoublingMenu)
-                                            putExtra("doubling_cube_position", doublingCubePosition.name)
-                                            putExtra("replay_dice_set_id", setId)
-                                            
-                                            // Hamle pozisyonu bilgilerini ekle
-                                            val gameState = diceSetGameStates[setId]
-                                            if (gameState != null) {
-                                                putExtra("resume_total_move_count", gameState.totalMoveCount)
-                                                putExtra("resume_left_move_index", gameState.leftMoveIndex)
-                                                putExtra("resume_right_move_index", gameState.rightMoveIndex)
-                                                putExtra("resume_current_player_turn", gameState.currentPlayerTurn)
-                                                putExtra("resume_game_phase", gameState.gamePhase)
-                                            }
-                                        }
-                                        diceActivityLauncher.launch(intent)
+                    if (isRematchMode) {
+                        // Rövanş modu: DB'deki tüm setleri göster
+                        items(maxSets) { setIdx ->
+                            val isCurrentSet = setIdx == currentSetIndex
+                            val isPlayed = setIdx < currentSetIndex  // Oynanmış setler
+                            val isFuture = setIdx > currentSetIndex  // Henüz oynanmamış
+                            val setLabel = "S${setIdx + 1}"
+
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = when {
+                                        isCurrentSet -> Color(0xFF1976D2).copy(alpha = 0.9f)
+                                        isPlayed -> Color(0xFF2E7D32).copy(alpha = 0.7f)
+                                        else -> Color(0xFF424242).copy(alpha = 0.4f)
                                     }
-                                },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(vertical = 2.dp)
+                                    .then(
+                                        if (!isFuture) Modifier.clickable {
+                                            showDiceSetHistoryDialog = false
+                                            val intent = Intent(context, RematchDiceDisplayActivity::class.java).apply {
+                                                putExtra("encounter_id", encounterId)
+                                                putExtra("doubling_cube_value", if (isCurrentSet) doublingCubeValue else 1)
+                                                putExtra("player1_can_double", true)
+                                                putExtra("player2_can_double", true)
+                                                putExtra("is_crawford_game", isCrawfordGame)
+                                                putExtra("player1_name", player1Name)
+                                                putExtra("player2_name", player2Name)
+                                                putExtra("player1_id", player1Id)
+                                                putExtra("player2_id", player2Id)
+                                                // Replay modu: setIndex override
+                                                putExtra("replay_set_index", setIdx)
+                                            }
+                                            rematchDiceLauncher.launch(intent)
+                                        } else Modifier
+                                    ),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     // Set numarası badge
                                     Card(
                                         colors = CardDefaults.cardColors(
-                                            containerColor = if (isCurrentSet) 
-                                                Color(0xFFFFEB3B).copy(alpha = 0.9f) 
-                                            else Color(0xFF9E9E9E).copy(alpha = 0.7f)
+                                            containerColor = when {
+                                                isCurrentSet -> Color(0xFFFFEB3B)
+                                                isPlayed -> Color(0xFF4CAF50)
+                                                else -> Color(0xFF616161)
+                                            }
                                         ),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.size(32.dp)
+                                        shape = RoundedCornerShape(6.dp),
+                                        modifier = Modifier.size(30.dp)
                                     ) {
                                         Box(
                                             modifier = Modifier.fillMaxSize(),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
-                                                text = "${index + 1}",
+                                                text = "${setIdx + 1}",
                                                 color = if (isCurrentSet) Color.Black else Color.White,
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.ExtraBold
                                             )
                                         }
                                     }
-                                    
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    
-                                    // Set bilgileri
-                                    Column {
+
+                                    Spacer(modifier = Modifier.width(10.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = setId,
-                                            color = if (isCurrentSet) Color.Yellow else Color.White,
+                                            text = setLabel,
+                                            color = when {
+                                                isCurrentSet -> Color.Yellow
+                                                isFuture -> Color.White.copy(alpha = 0.35f)
+                                                else -> Color.White
+                                            },
                                             fontSize = 14.sp,
                                             fontWeight = if (isCurrentSet) FontWeight.Bold else FontWeight.Medium
                                         )
-                                        if (parsedId != null) {
-                                            val (partyIdx, gameIdx, setIdx) = parsedId
-                                            Text(
-                                                text = "P${partyIdx+1} • O${gameIdx+1} • S${setIdx+1}",
-                                                color = Color(0xFF90CAF9),
-                                                fontSize = 10.sp
-                                            )
-                                        }
-                                        if (isCurrentSet) {
-                                            Text(
-                                                text = "⚡ Aktif Set",
-                                                color = Color(0xFFFFEB3B),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                        
-                                        // Hamle pozisyonu bilgisi
-                                        val gameState = diceSetGameStates[setId]
-                                        if (gameState != null && gameState.totalMoveCount > 0) {
-                                            Text(
-                                                text = if (gameState.isCompleted) {
-                                                    "✓ Tamamlandı (${gameState.totalMoveCount} hamle)"
-                                                } else {
-                                                    "📍 ${gameState.totalMoveCount}. hamlede kaldı"
-                                                },
-                                                color = if (gameState.isCompleted) Color(0xFF4CAF50) else Color(0xFFFF9800),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                // Oynat butonu
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = Color(0xFF4CAF50).copy(alpha = 0.8f)
-                                    ),
-                                    shape = RoundedCornerShape(20.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
                                         Text(
-                                            text = "▶️",
-                                            fontSize = 12.sp
+                                            text = when {
+                                                isCurrentSet -> "Aktif"
+                                                isPlayed -> "Oynandi"
+                                                else -> "Bekliyor"
+                                            },
+                                            color = when {
+                                                isCurrentSet -> Color(0xFFFFEB3B)
+                                                isPlayed -> Color(0xFF81C784)
+                                                else -> Color.White.copy(alpha = 0.3f)
+                                            },
+                                            fontSize = 10.sp
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                    }
+
+                                    if (!isFuture) {
                                         Text(
                                             text = "Oynat",
-                                            color = Color.White,
-                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                    } else {
+                        // Normal mod: eski davranış
+                        items(diceSetHistory) { setId ->
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF424242).copy(alpha = 0.8f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = setId,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
                     }
                 }
             },
             confirmButton = {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF44336).copy(alpha = 0.8f)
-                    ),
-                    shape = RoundedCornerShape(25.dp),
-                    modifier = Modifier.clickable { showDiceSetHistoryDialog = false }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🚪",
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Kapat", 
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
+                TextButton(onClick = { showDiceSetHistoryDialog = false }) {
+                    Text("Kapat", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = Color(0xFF1E1E1E)
