@@ -1,9 +1,11 @@
 package com.tavla.tavlapp
 
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +22,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,6 +34,13 @@ class RematchSetupActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Tam ekran - Android status bar gizle
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
         dbHelper = DatabaseHelper(this)
 
         setContent {
@@ -66,6 +78,13 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
     var trackPipCount by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
 
+    // ✅ SAAT AYARLARI
+    var useTimer by remember { mutableStateOf(false) }
+    var showTimerSettingsDialog by remember { mutableStateOf(false) }
+    var timerMode by remember { mutableStateOf("DELAY") } // DELAY veya FISCHER
+    var reserveTimeSeconds by remember { mutableIntStateOf(120) } // Varsayılan 2 dakika
+    var delayTimeSeconds by remember { mutableIntStateOf(12) } // Varsayılan 12 saniye
+
     LaunchedEffect(playersList.value) {
         if (playersList.value.isNotEmpty() && selectedPlayer1 == null && selectedPlayer2 == null) {
             val lastMatches = dbHelper.getAllMatches()
@@ -90,21 +109,21 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         // Baslik
         Text(
             text = "Rovansli Karsilasma",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 18.sp,
             color = Color(0xFF6A1B9A)
         )
 
         // Oyuncu secimi
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Oyuncu 1
             Column(modifier = Modifier.weight(1f)) {
@@ -113,15 +132,16 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
                     OutlinedTextField(
                         value = selectedPlayer1?.name ?: "",
                         onValueChange = { },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(58.dp),
                         readOnly = true,
-                        placeholder = { Text("Sec", fontSize = 12.sp) },
+                        placeholder = { Text("Sec", fontSize = 14.sp) },
                         trailingIcon = {
                             IconButton(onClick = { showPlayer1Menu = true }) {
                                 Icon(Icons.Default.ArrowDropDown, "Dropdown")
                             }
                         },
-                        singleLine = true
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     )
                     DropdownMenu(
                         expanded = showPlayer1Menu,
@@ -147,15 +167,16 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
                     OutlinedTextField(
                         value = selectedPlayer2?.name ?: "",
                         onValueChange = { },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(58.dp),
                         readOnly = true,
-                        placeholder = { Text("Sec", fontSize = 12.sp) },
+                        placeholder = { Text("Sec", fontSize = 14.sp) },
                         trailingIcon = {
                             IconButton(onClick = { showPlayer2Menu = true }) {
                                 Icon(Icons.Default.ArrowDropDown, "Dropdown")
                             }
                         },
-                        singleLine = true
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     )
                     DropdownMenu(
                         expanded = showPlayer2Menu,
@@ -178,12 +199,11 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
         // Ayarlar satirlari
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Sol: Parti Sayisi
             Column(modifier = Modifier.weight(1f)) {
-                Text("Parti Sayisi", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text("Parti Sayisi", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -232,8 +252,7 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
 
             // Sag: Hedef Puan
             Column(modifier = Modifier.weight(1f)) {
-                Text("Hedef Puan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(4.dp))
+                Text("Hedef Puan", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -261,17 +280,161 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
             }
         }
 
-        // Pip sayisi toggle
+        // Pip + Saat toggle'ları aynı satırda
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Pip Sayisi Islensin", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Switch(
-                checked = trackPipCount,
-                onCheckedChange = { trackPipCount = it },
-                colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF6A1B9A))
+            // Pip sayisi
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Pip Sayisi", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Switch(
+                    checked = trackPipCount,
+                    onCheckedChange = { trackPipCount = it },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF6A1B9A)),
+                    modifier = Modifier.height(28.dp)
+                )
+            }
+
+            // Saat Kullan
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Saat Kullan", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    if (useTimer) {
+                        val modeLabel = if (timerMode == "DELAY") "Delay" else "Fischer"
+                        Text(
+                            text = "$modeLabel ${reserveTimeSeconds}s+${delayTimeSeconds}s",
+                            fontSize = 9.sp,
+                            color = Color(0xFF6A1B9A),
+                            modifier = Modifier.clickable { showTimerSettingsDialog = true }
+                        )
+                    }
+                }
+                Switch(
+                    checked = useTimer,
+                    onCheckedChange = {
+                        useTimer = it
+                        if (it) showTimerSettingsDialog = true
+                    },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF6A1B9A)),
+                    modifier = Modifier.height(28.dp)
+                )
+            }
+        }
+
+        // ✅ Saat Ayarları Dialog
+        if (showTimerSettingsDialog) {
+            var tempMode by remember { mutableStateOf(timerMode) }
+            var tempReserve by remember { mutableStateOf(reserveTimeSeconds.toString()) }
+            var tempDelay by remember { mutableStateOf(delayTimeSeconds.toString()) }
+
+            AlertDialog(
+                onDismissRequest = { showTimerSettingsDialog = false },
+                title = { Text("Saat Ayarlari", fontWeight = FontWeight.ExtraBold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Şablon presetler
+                        Text("Sablonlar:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                Triple("Hizli", 60, 8),
+                                Triple("Normal", 120, 12),
+                                Triple("Yavas", 180, 15)
+                            ).forEach { (label, res, del) ->
+                                OutlinedButton(
+                                    onClick = {
+                                        tempReserve = res.toString()
+                                        tempDelay = del.toString()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(4.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (tempReserve == res.toString() && tempDelay == del.toString())
+                                            Color(0xFF6A1B9A).copy(alpha = 0.15f) else Color.Transparent
+                                    )
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("${res}sn+${del}sn", fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        Divider()
+
+                        // Saat modu
+                        Text("Saat Modu:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("DELAY" to "Delay (FIBO)", "FISCHER" to "Fischer").forEach { (mode, label) ->
+                                FilterChip(
+                                    selected = tempMode == mode,
+                                    onClick = { tempMode = mode },
+                                    label = { Text(label, fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF6A1B9A),
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                        Divider()
+
+                        // Elle ayar
+                        Text("Elle Ayar:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Rezerv (saniye)", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                OutlinedTextField(
+                                    value = tempReserve,
+                                    onValueChange = { tempReserve = it.filter { c -> c.isDigit() } },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Hamle suresi (saniye)", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                OutlinedTextField(
+                                    value = tempDelay,
+                                    onValueChange = { tempDelay = it.filter { c -> c.isDigit() } },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            timerMode = tempMode
+                            reserveTimeSeconds = tempReserve.toIntOrNull() ?: 120
+                            delayTimeSeconds = tempDelay.toIntOrNull() ?: 12
+                            showTimerSettingsDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    ) { Text("Tamam") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTimerSettingsDialog = false }) {
+                        Text("Iptal")
+                    }
+                }
             )
         }
 
@@ -356,6 +519,11 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
                                 intent.putExtra("player2_name", selectedPlayer2?.name ?: "")
                                 intent.putExtra("total_parties", actualMatchCount)
                                 intent.putExtra("rounds", actualTargetScore)
+                                // ✅ Saat parametreleri
+                                intent.putExtra("use_timer", useTimer)
+                                intent.putExtra("timer_mode", timerMode)
+                                intent.putExtra("reserve_time", reserveTimeSeconds)
+                                intent.putExtra("delay_time", delayTimeSeconds)
                                 context.startActivity(intent)
                                 (context as? ComponentActivity)?.finish()
                             } else {
@@ -373,24 +541,26 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .height(42.dp),
             enabled = !isGenerating && selectedPlayer1 != null && selectedPlayer2 != null,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(0.dp)
         ) {
             Text(
                 text = if (isGenerating) "URETILIYOR..." else "KARSILASMAYA BASLA",
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
+                fontSize = 14.sp
             )
         }
 
         OutlinedButton(
             onClick = { (context as? ComponentActivity)?.finish() },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isGenerating
+            modifier = Modifier.fillMaxWidth().height(34.dp),
+            enabled = !isGenerating,
+            contentPadding = PaddingValues(0.dp)
         ) {
-            Text("Iptal")
+            Text("Iptal", fontSize = 12.sp)
         }
     }
 }

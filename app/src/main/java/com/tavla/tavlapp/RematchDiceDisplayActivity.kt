@@ -62,6 +62,25 @@ class RematchDiceDisplayActivity : ComponentActivity() {
         val player1Id = intent.getLongExtra("player1_id", -1L)
         val player2Id = intent.getLongExtra("player2_id", -1L)
 
+        // ✅ Replay ve resume parametreleri
+        val replaySetIndex = intent.getIntExtra("replay_set_index", -1)
+        val resumeTotalMoveCount = intent.getIntExtra("resume_total_move_count", 0)
+        val resumeLeftMoveIndex = intent.getIntExtra("resume_left_move_index", 0)
+        val resumeRightMoveIndex = intent.getIntExtra("resume_right_move_index", 0)
+        val resumePlayerTurn = intent.getIntExtra("resume_player_turn", 1)
+        val resumeGamePhase = intent.getStringExtra("resume_game_phase") ?: ""
+
+        // ✅ Saat parametreleri
+        val useTimer = intent.getBooleanExtra("use_timer", false)
+        val timerMode = intent.getStringExtra("timer_mode") ?: "DELAY"
+        val reserveTime = intent.getIntExtra("reserve_time", 120)
+        val delayTime = intent.getIntExtra("delay_time", 12)
+        // ✅ Timer state restore (skorboard'dan dönüşte)
+        val savedLeftReserveMs = intent.getLongExtra("timer_left_reserve_ms", -1L)
+        val savedRightReserveMs = intent.getLongExtra("timer_right_reserve_ms", -1L)
+        val savedLeftMoveMs = intent.getLongExtra("timer_left_move_ms", -1L)
+        val savedRightMoveMs = intent.getLongExtra("timer_right_move_ms", -1L)
+
         if (encounterId == -1L) {
             Toast.makeText(this, "Karsilasma bulunamadi", Toast.LENGTH_SHORT).show()
             finish()
@@ -90,16 +109,21 @@ class RematchDiceDisplayActivity : ComponentActivity() {
                         player2Name = player2Name,
                         player1Id = player1Id,
                         player2Id = player2Id,
-                        onBack = {
-                            val resultIntent = Intent().apply {
-                                putExtra("doubling_cube_value", doublingCubeValue)
-                                putExtra("player1_can_double", player1CanDouble)
-                                putExtra("player2_can_double", player2CanDouble)
-                                putExtra("doubling_cube_position", "CENTER")
-                            }
-                            setResult(Activity.RESULT_OK, resultIntent)
-                            finish()
-                        },
+                        replaySetIndex = replaySetIndex,
+                        resumeTotalMoveCount = resumeTotalMoveCount,
+                        resumeLeftMoveIndex = resumeLeftMoveIndex,
+                        resumeRightMoveIndex = resumeRightMoveIndex,
+                        resumePlayerTurn = resumePlayerTurn,
+                        resumeGamePhase = resumeGamePhase,
+                        useTimer = useTimer,
+                        timerMode = timerMode,
+                        reserveTimeSeconds = reserveTime,
+                        delayTimeSeconds = delayTime,
+                        savedLeftReserveMs = savedLeftReserveMs,
+                        savedRightReserveMs = savedRightReserveMs,
+                        savedLeftMoveMs = savedLeftMoveMs,
+                        savedRightMoveMs = savedRightMoveMs,
+                        onBack = sendResult,
                         onDoublingResult = sendResult
                     )
                 }
@@ -129,7 +153,21 @@ fun RematchDiceDisplayScreen(
     player2Name: String = "",
     player1Id: Long = -1L,
     player2Id: Long = -1L,
-    onBack: () -> Unit,
+    replaySetIndex: Int = -1,
+    resumeTotalMoveCount: Int = 0,
+    resumeLeftMoveIndex: Int = 0,
+    resumeRightMoveIndex: Int = 0,
+    resumePlayerTurn: Int = 1,
+    resumeGamePhase: String = "",
+    useTimer: Boolean = false,
+    timerMode: String = "DELAY",
+    reserveTimeSeconds: Int = 120,
+    delayTimeSeconds: Int = 12,
+    savedLeftReserveMs: Long = -1L,
+    savedRightReserveMs: Long = -1L,
+    savedLeftMoveMs: Long = -1L,
+    savedRightMoveMs: Long = -1L,
+    onBack: (Intent) -> Unit,
     onDoublingResult: (Intent) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -145,10 +183,27 @@ fun RematchDiceDisplayScreen(
     // El bitimi puan hesaplama popup
     var showGameEndScoring by remember { mutableStateOf(false) }
 
+    // ✅ SAAT SİSTEMİ STATE (saved değerler varsa restore et)
+    var leftReserveMs by remember { mutableStateOf(if (savedLeftReserveMs >= 0) savedLeftReserveMs else reserveTimeSeconds * 1000L) }
+    var rightReserveMs by remember { mutableStateOf(if (savedRightReserveMs >= 0) savedRightReserveMs else reserveTimeSeconds * 1000L) }
+    var leftMoveTimeMs by remember { mutableStateOf(if (savedLeftMoveMs >= 0) savedLeftMoveMs else delayTimeSeconds * 1000L) }
+    var rightMoveTimeMs by remember { mutableStateOf(if (savedRightMoveMs >= 0) savedRightMoveMs else delayTimeSeconds * 1000L) }
+    var timerRunning by remember { mutableStateOf(false) }
+    var timerPaused by remember { mutableStateOf(false) } // Manuel durdurma (DURDURULDU göstergesi)
+    var showTimeExpiredDialog by remember { mutableStateOf(false) }
+    var timeExpiredPlayerName by remember { mutableStateOf("") }
+    var timeExpiredIsLeft by remember { mutableStateOf(false) }
+
     val currentRound = encounter.value?.currentRound ?: 1
     val currentPartyIndex = encounter.value?.currentPartyIndex ?: 0
     val currentGameIndex = encounter.value?.currentGameIndex ?: 0
     val totalParties = encounter.value?.totalParties ?: 100
+
+    // ✅ Replay: setIndex override
+    val effectiveGameIndex = if (replaySetIndex >= 0) replaySetIndex else currentGameIndex
+    // ✅ Replay modunda timer kapalı (eski setleri izlerken sayım olmamalı)
+    val isReplayMode = replaySetIndex >= 0 && replaySetIndex != currentGameIndex
+    val effectiveUseTimer = useTimer && !isReplayMode
 
     val leftPlayerName: String
     val rightPlayerName: String
@@ -167,15 +222,33 @@ fun RematchDiceDisplayScreen(
         rightPlayerId = encounter.value?.player1Id ?: 0L
     }
 
-    // Zar seti yükle (currentRound ile reverse play)
-    LaunchedEffect(encounterId, currentPartyIndex, currentGameIndex, currentRound) {
-        currentDiceSet = dbHelper.getDiceSetForGame(encounterId, currentPartyIndex, currentGameIndex, currentRound)
-        gamePhase = GamePhase.STARTING_DICE
-        leftMoveIndex = 0
-        rightMoveIndex = 0
-        totalMoveCount = 0
-        currentDiceSet?.let { diceSet ->
-            currentPlayerTurn = diceSet.getFirstPlayer()
+    // Zar seti yükle (currentRound ile reverse play, replaySetIndex desteği)
+    LaunchedEffect(encounterId, currentPartyIndex, effectiveGameIndex, currentRound) {
+        currentDiceSet = dbHelper.getDiceSetForGame(encounterId, currentPartyIndex, effectiveGameIndex, currentRound)
+        // ✅ Resume: Kaldığı yerden devam et
+        if (resumeTotalMoveCount > 0 && resumeGamePhase.isNotEmpty()) {
+            gamePhase = when (resumeGamePhase) {
+                "FIRST_MOVE" -> GamePhase.FIRST_MOVE
+                "PLAYING" -> GamePhase.PLAYING
+                else -> GamePhase.STARTING_DICE
+            }
+            leftMoveIndex = resumeLeftMoveIndex
+            rightMoveIndex = resumeRightMoveIndex
+            totalMoveCount = resumeTotalMoveCount
+            currentPlayerTurn = resumePlayerTurn
+            // ✅ Resume'da timer paused başlasın (sırası olan basınca devam eder)
+            if (effectiveUseTimer) {
+                timerRunning = false
+                timerPaused = true
+            }
+        } else {
+            gamePhase = GamePhase.STARTING_DICE
+            leftMoveIndex = 0
+            rightMoveIndex = 0
+            totalMoveCount = 0
+            currentDiceSet?.let { diceSet ->
+                currentPlayerTurn = diceSet.getFirstPlayer()
+            }
         }
     }
 
@@ -244,6 +317,58 @@ fun RematchDiceDisplayScreen(
             putExtra("doubling_cube_position", pos)
             if (accepted != -1L) putExtra("accepted_player_id", accepted)
             if (resigned != -1L) putExtra("resigned_player_id", resigned)
+            // ✅ Hamle pozisyonu verisi
+            putExtra("total_move_count", totalMoveCount)
+            putExtra("left_move_index", leftMoveIndex)
+            putExtra("right_move_index", rightMoveIndex)
+            putExtra("current_player_turn", currentPlayerTurn)
+            putExtra("game_phase", gamePhase.name)
+            putExtra("played_set_id", "S${effectiveGameIndex + 1}")
+            // ✅ Timer state verisi (skorboard'a gidip gelince korunsun)
+            putExtra("timer_left_reserve_ms", leftReserveMs)
+            putExtra("timer_right_reserve_ms", rightReserveMs)
+            putExtra("timer_left_move_ms", leftMoveTimeMs)
+            putExtra("timer_right_move_ms", rightMoveTimeMs)
+        }
+    }
+
+    // ✅ SAAT COUNTDOWN EFFECT
+    LaunchedEffect(timerRunning, currentPlayerTurn, gamePhase) {
+        if (!effectiveUseTimer || !timerRunning || gamePhase == GamePhase.STARTING_DICE) return@LaunchedEffect
+        val tickMs = 100L
+        while (timerRunning) {
+            kotlinx.coroutines.delay(tickMs)
+            if (!timerRunning) break
+
+            val isLeft = currentPlayerTurn == 1
+            if (isLeft) {
+                if (leftMoveTimeMs > 0) {
+                    leftMoveTimeMs -= tickMs
+                } else {
+                    // Delay/increment bitti, rezervden düş
+                    leftReserveMs -= tickMs
+                    if (leftReserveMs <= 0) {
+                        leftReserveMs = 0
+                        timerRunning = false
+                        timeExpiredPlayerName = leftPlayerName
+                        timeExpiredIsLeft = true
+                        showTimeExpiredDialog = true
+                    }
+                }
+            } else {
+                if (rightMoveTimeMs > 0) {
+                    rightMoveTimeMs -= tickMs
+                } else {
+                    rightReserveMs -= tickMs
+                    if (rightReserveMs <= 0) {
+                        rightReserveMs = 0
+                        timerRunning = false
+                        timeExpiredPlayerName = rightPlayerName
+                        timeExpiredIsLeft = false
+                        showTimeExpiredDialog = true
+                    }
+                }
+            }
         }
     }
 
@@ -253,23 +378,58 @@ fun RematchDiceDisplayScreen(
             GamePhase.STARTING_DICE -> {
                 gamePhase = GamePhase.FIRST_MOVE
                 totalMoveCount = 1
+                // Saat başlat
+                if (effectiveUseTimer) {
+                    timerRunning = true
+                    leftMoveTimeMs = delayTimeSeconds * 1000L
+                    rightMoveTimeMs = delayTimeSeconds * 1000L
+                }
             }
             GamePhase.FIRST_MOVE -> {
                 gamePhase = GamePhase.PLAYING
                 val secondPlayer = if (firstPlayer == 1) 2 else 1
                 currentPlayerTurn = secondPlayer
                 totalMoveCount = 2
+                // Saat: Hamle geçişi - süre ayarla
+                if (effectiveUseTimer) {
+                    val prevIsLeft = firstPlayer == 1
+                    if (timerMode == "FISCHER") {
+                        val unusedMs = if (prevIsLeft) leftMoveTimeMs else rightMoveTimeMs
+                        if (prevIsLeft) leftReserveMs += maxOf(0, unusedMs)
+                        else rightReserveMs += maxOf(0, unusedMs)
+                    }
+                    // Önceki oyuncunun süresini sıfırla, yeni oyuncuya delay ver
+                    leftMoveTimeMs = delayTimeSeconds * 1000L
+                    rightMoveTimeMs = delayTimeSeconds * 1000L
+                }
             }
             GamePhase.PLAYING -> {
                 val prevPlayer = currentPlayerTurn
                 currentPlayerTurn = if (currentPlayerTurn == 1) 2 else 1
                 if (prevPlayer == 1) leftMoveIndex++ else rightMoveIndex++
                 totalMoveCount++
+                // Saat: Hamle geçişi
+                if (effectiveUseTimer) {
+                    val prevIsLeft = prevPlayer == 1
+                    if (timerMode == "FISCHER") {
+                        val unusedMs = if (prevIsLeft) leftMoveTimeMs else rightMoveTimeMs
+                        if (prevIsLeft) leftReserveMs += maxOf(0, unusedMs)
+                        else rightReserveMs += maxOf(0, unusedMs)
+                    }
+                    // Her iki tarafın hamle süresini resetle
+                    leftMoveTimeMs = delayTimeSeconds * 1000L
+                    rightMoveTimeMs = delayTimeSeconds * 1000L
+                }
             }
         }
     }
 
     val nextDiceEnabled = leftMoveIndex < DiceGenerator.DICE_PAIRS_PER_SET && rightMoveIndex < DiceGenerator.DICE_PAIRS_PER_SET
+
+    // ✅ Yanlış taraf basım uyarı dialog state
+    var showWrongTurnDialog by remember { mutableStateOf(false) }
+    var wrongTurnPlayerName by remember { mutableStateOf("") }
+
 
     // Sıra renkleri (barlar + arka plan için)
     val turnColorMain = if (currentPlayerTurn == 1) Color(0xFF1565C0) else Color(0xFFC62828)
@@ -282,27 +442,87 @@ fun RematchDiceDisplayScreen(
             .fillMaxSize()
             .background(Color(0xFF1A1A1A))
     ) {
-        // SOL ZAR AT BUTONU
+        // SOL ZAR AT BUTONU (Mavi - Player 1)
         Button(
-            onClick = advanceToNextDice,
+            onClick = {
+                // ✅ Paused durumda: sırası olan kişi basarsa resume
+                if (effectiveUseTimer && timerPaused && gamePhase != GamePhase.STARTING_DICE) {
+                    if (currentPlayerTurn == 1) {
+                        timerPaused = false
+                        timerRunning = true
+                    }
+                    return@Button
+                }
+                if (gamePhase == GamePhase.STARTING_DICE) {
+                    advanceToNextDice()
+                } else if (currentPlayerTurn == 1) {
+                    advanceToNextDice()
+                } else {
+                    // Yanlış kişi bastı - timer otomatik dur
+                    if (effectiveUseTimer) timerRunning = false
+                    wrongTurnPlayerName = leftPlayerName
+                    showWrongTurnDialog = true
+                }
+            },
             enabled = nextDiceEnabled,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF1565C0),
                 disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.4f)
             ),
             shape = RoundedCornerShape(0.dp),
-            modifier = Modifier.fillMaxHeight().width(64.dp)
+            modifier = Modifier.fillMaxHeight().width(64.dp),
+            contentPadding = PaddingValues(0.dp)
         ) {
-            Text(
-                text = when (gamePhase) {
-                    GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
-                    else -> "Z\nA\nR\n\nA\nT"
-                },
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp
-            )
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // ✅ Timer üst: Rezerv süre (90° döndürülmüş, sol oyuncu okusun)
+                if (effectiveUseTimer && gamePhase != GamePhase.STARTING_DICE) {
+                    val leftReserveSec = (leftReserveMs / 1000).coerceAtLeast(0)
+                    val isLowReserve = leftReserveSec < 30
+                    Spacer(modifier = Modifier.weight(2f))
+                    Text(
+                        text = formatTimerDisplay(leftReserveSec),
+                        modifier = Modifier.rotate(90f),
+                        color = if (isLowReserve) Color(0xFFFF5252) else Color.White.copy(alpha = 0.8f),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.weight(3f))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                // ZAR AT yazısı (orijinal)
+                Text(
+                    text = when (gamePhase) {
+                        GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        else -> "Z\nA\nR\n\nA\nT"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                // ✅ Timer alt: Hamle süresi (90° döndürülmüş, sol oyuncu okusun)
+                if (effectiveUseTimer && gamePhase != GamePhase.STARTING_DICE) {
+                    val leftMoveSec = (leftMoveTimeMs / 1000).coerceAtLeast(0)
+                    Spacer(modifier = Modifier.weight(3f))
+                    Text(
+                        text = "${leftMoveSec}s",
+                        modifier = Modifier.rotate(90f),
+                        color = if (currentPlayerTurn == 1) Color(0xFFFFEB3B) else Color.White.copy(alpha = 0.4f),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.weight(2f))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
 
         // ORTA İÇERİK
@@ -639,6 +859,15 @@ fun RematchDiceDisplayScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
+                                // ✅ DURDURULDU göstergesi
+                                if (effectiveUseTimer && timerPaused) {
+                                    Text(
+                                        text = "⏸ DURDURULDU",
+                                        color = Color(0xFFFFAB00),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 14.sp
+                                    )
+                                }
                             }
 
                             // Sol skor (oyuncu 1) - SOL ALT KÖŞE
@@ -680,11 +909,22 @@ fun RematchDiceDisplayScreen(
                 // ÖNCEKİ butonu
                 Button(
                     onClick = {
+                        // Timer durumunu koru - geri alırken timer duraklatılsın
+                        if (effectiveUseTimer && timerRunning) {
+                            timerRunning = false
+                            timerPaused = true
+                        }
                         when (gamePhase) {
                             GamePhase.STARTING_DICE -> { }
                             GamePhase.FIRST_MOVE -> {
                                 gamePhase = GamePhase.STARTING_DICE
                                 totalMoveCount = 0
+                                // Timer sıfırla
+                                if (effectiveUseTimer) {
+                                    timerPaused = false
+                                    leftMoveTimeMs = delayTimeSeconds * 1000L
+                                    rightMoveTimeMs = delayTimeSeconds * 1000L
+                                }
                             }
                             GamePhase.PLAYING -> {
                                 val secondPlayer = if (firstPlayer == 1) 2 else 1
@@ -721,6 +961,7 @@ fun RematchDiceDisplayScreen(
                 // EL BİTTİ butonu (ortada, vurgulu)
                 Button(
                     onClick = {
+                        timerRunning = false
                         showGameEndScoring = true
                     },
                     enabled = gamePhase == GamePhase.PLAYING || gamePhase == GamePhase.FIRST_MOVE,
@@ -737,7 +978,10 @@ fun RematchDiceDisplayScreen(
 
                 // SKORBOARD butonu
                 Button(
-                    onClick = { onDoublingResult(makeDoublingIntent()) },
+                    onClick = {
+                        timerRunning = false
+                        onDoublingResult(makeDoublingIntent())
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = 0.15f)
                     ),
@@ -750,27 +994,87 @@ fun RematchDiceDisplayScreen(
             }
         }
 
-        // SAĞ ZAR AT BUTONU
+        // SAĞ ZAR AT BUTONU (Kırmızı - Player 2)
         Button(
-            onClick = advanceToNextDice,
+            onClick = {
+                // ✅ Paused durumda: sırası olan kişi basarsa resume
+                if (effectiveUseTimer && timerPaused && gamePhase != GamePhase.STARTING_DICE) {
+                    if (currentPlayerTurn == 2) {
+                        timerPaused = false
+                        timerRunning = true
+                    }
+                    return@Button
+                }
+                if (gamePhase == GamePhase.STARTING_DICE) {
+                    advanceToNextDice()
+                } else if (currentPlayerTurn == 2) {
+                    advanceToNextDice()
+                } else {
+                    // Yanlış kişi bastı - timer otomatik dur
+                    if (effectiveUseTimer) timerRunning = false
+                    wrongTurnPlayerName = rightPlayerName
+                    showWrongTurnDialog = true
+                }
+            },
             enabled = nextDiceEnabled,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFFC62828),
                 disabledContainerColor = Color(0xFFC62828).copy(alpha = 0.4f)
             ),
             shape = RoundedCornerShape(0.dp),
-            modifier = Modifier.fillMaxHeight().width(64.dp)
+            modifier = Modifier.fillMaxHeight().width(64.dp),
+            contentPadding = PaddingValues(0.dp)
         ) {
-            Text(
-                text = when (gamePhase) {
-                    GamePhase.STARTING_DICE -> "B\nA\u015E\nL\nA"
-                    else -> "Z\nA\nR\n\nA\nT"
-                },
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp
-            )
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // ✅ Timer üst: Rezerv süre (-90° döndürülmüş, sağ oyuncu okusun)
+                if (effectiveUseTimer && gamePhase != GamePhase.STARTING_DICE) {
+                    val rightReserveSec = (rightReserveMs / 1000).coerceAtLeast(0)
+                    val isLowReserve = rightReserveSec < 30
+                    Spacer(modifier = Modifier.weight(2f))
+                    Text(
+                        text = formatTimerDisplay(rightReserveSec),
+                        modifier = Modifier.rotate(-90f),
+                        color = if (isLowReserve) Color(0xFFFF5252) else Color.White.copy(alpha = 0.8f),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.weight(3f))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                // ZAR AT yazısı (orijinal)
+                Text(
+                    text = when (gamePhase) {
+                        GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        else -> "Z\nA\nR\n\nA\nT"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp
+                )
+                // ✅ Timer alt: Hamle süresi (-90° döndürülmüş, sağ oyuncu okusun)
+                if (effectiveUseTimer && gamePhase != GamePhase.STARTING_DICE) {
+                    val rightMoveSec = (rightMoveTimeMs / 1000).coerceAtLeast(0)
+                    Spacer(modifier = Modifier.weight(3f))
+                    Text(
+                        text = "${rightMoveSec}s",
+                        modifier = Modifier.rotate(-90f),
+                        color = if (currentPlayerTurn == 2) Color(0xFFFFEB3B) else Color.White.copy(alpha = 0.4f),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.weight(2f))
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
     
@@ -803,6 +1107,179 @@ fun RematchDiceDisplayScreen(
             onDismiss = { showGameEndScoring = false }
         )
     }
+
+    // ✅ Yanlış taraf basım uyarı dialog
+    if (showWrongTurnDialog) {
+        val siraKimde = if (currentPlayerTurn == 1) leftPlayerName else rightPlayerName
+        val siraRenk = if (currentPlayerTurn == 1) Color(0xFF1565C0) else Color(0xFFC62828)
+        val siraRenkKoyu = if (currentPlayerTurn == 1) Color(0xFF0D47A1) else Color(0xFF8E0000)
+        val siraRenkAcik = if (currentPlayerTurn == 1) Color(0xFF64B5F6) else Color(0xFFEF9A9A)
+
+        AlertDialog(
+            onDismissRequest = { showWrongTurnDialog = false },
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "⏳",
+                        fontSize = 36.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "SIRA SENDE DEGIL",
+                        fontWeight = FontWeight.ExtraBold,
+                        color = siraRenkAcik,
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Sırası olan oyuncu vurgusu
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = siraRenk),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "Sira",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = siraKimde,
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "Bey'de",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "$wrongTurnPlayerName Bey, lutfen bekleyiniz.",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // DEVAM butonu - timer devam eder
+                    Button(
+                        onClick = {
+                            showWrongTurnDialog = false
+                            if (effectiveUseTimer) {
+                                timerPaused = false
+                                timerRunning = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = siraRenkKoyu),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                    ) {
+                        Text("DEVAM", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                    // SÜREYI DURDUR butonu - timer duraklatılmış kalır
+                    if (effectiveUseTimer) {
+                        OutlinedButton(
+                            onClick = {
+                                showWrongTurnDialog = false
+                                timerRunning = false
+                                timerPaused = true
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().height(38.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFFFAB00)
+                            )
+                        ) {
+                            Text("SUREYI DURDUR", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            },
+            containerColor = Color(0xFF1A1A1A),
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 8.dp
+        )
+    }
+
+    // ✅ Süre bitti dialog - turnuva kuralı: küp x1 kaybı
+    if (showTimeExpiredDialog) {
+        val winnerName = if (timeExpiredIsLeft) rightPlayerName else leftPlayerName
+        AlertDialog(
+            onDismissRequest = { },
+            title = {
+                Text(
+                    text = "SURE BITTI!",
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFFFF5252),
+                    fontSize = 22.sp
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "$timeExpiredPlayerName suresi doldu!",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Turnuva kurali: $winnerName eli kazanir (x1 puan)",
+                        color = Color(0xFFFFEB3B),
+                        fontSize = 14.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showTimeExpiredDialog = false
+                        // Küp x1 ile eli kaybet
+                        val resultIntent = makeDoublingIntent().apply {
+                            putExtra("game_ended", true)
+                            putExtra("winner_is_left", !timeExpiredIsLeft)
+                            putExtra("score_points", 1) // Küp x1
+                            putExtra("score_type", "SINGLE")
+                        }
+                        onDoublingResult(resultIntent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("TAMAM", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            },
+            containerColor = Color(0xFF2E2E2E)
+        )
+    }
+}
+
+// ✅ Timer format yardımcısı
+fun formatTimerDisplay(seconds: Long): String {
+    val min = seconds / 60
+    val sec = seconds % 60
+    return "${min}:${sec.toString().padStart(2, '0')}"
 }
 
 enum class GamePhase {

@@ -116,6 +116,9 @@ class GameScoreActivity : ComponentActivity() {
         val isScoreAutomatic = intent.getBooleanExtra("is_score_automatic", true)
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
+        val timerMode = intent.getStringExtra("timer_mode") ?: "DELAY"
+        val reserveTime = intent.getIntExtra("reserve_time", 120)
+        val delayTime = intent.getIntExtra("delay_time", 12)
         val keepStatistics = intent.getBooleanExtra("keep_statistics", false)
         val markDiceEvaluation = intent.getBooleanExtra("mark_dice_evaluation", false)
         val processPartialDice = intent.getBooleanExtra("process_partial_dice", false)
@@ -152,6 +155,9 @@ class GameScoreActivity : ComponentActivity() {
                         isScoreAutomatic = isScoreAutomatic,
                         useDiceRoller = useDiceRoller,
                         useTimer = useTimer,
+                        timerMode = timerMode,
+                        reserveTime = reserveTime,
+                        delayTime = delayTime,
                         keepStatistics = keepStatistics,
                         markDiceEvaluation = markDiceEvaluation,
                         processPartialDice = processPartialDice,
@@ -180,6 +186,9 @@ fun GameScreen(
     isScoreAutomatic: Boolean,
     useDiceRoller: Boolean,
     useTimer: Boolean,
+    timerMode: String = "DELAY",
+    reserveTime: Int = 120,
+    delayTime: Int = 12,
     keepStatistics: Boolean,
     markDiceEvaluation: Boolean,
     processPartialDice: Boolean,
@@ -248,6 +257,12 @@ fun GameScreen(
     
     // ✅ ZAR SETİ REPLAY SİSTEMİ
     var showDiceSetHistoryDialog by remember { mutableStateOf(false) }
+
+    // ✅ Timer state (skorboard'a gidip gelirken korunması için)
+    var savedTimerLeftReserveMs by remember { mutableStateOf(-1L) }
+    var savedTimerRightReserveMs by remember { mutableStateOf(-1L) }
+    var savedTimerLeftMoveMs by remember { mutableStateOf(-1L) }
+    var savedTimerRightMoveMs by remember { mutableStateOf(-1L) }
     
     // ✅ TAM GERİ ALMA SİSTEMİ - GameState Snapshot
     data class GameStateSnapshot(
@@ -383,6 +398,12 @@ fun GameScreen(
             val gamePhase = data?.getStringExtra("game_phase") ?: "STARTING_DICE"
             val playedSetId = data?.getStringExtra("played_set_id") ?: ""
 
+            // ✅ Timer state kaydet
+            savedTimerLeftReserveMs = data?.getLongExtra("timer_left_reserve_ms", -1L) ?: -1L
+            savedTimerRightReserveMs = data?.getLongExtra("timer_right_reserve_ms", -1L) ?: -1L
+            savedTimerLeftMoveMs = data?.getLongExtra("timer_left_move_ms", -1L) ?: -1L
+            savedTimerRightMoveMs = data?.getLongExtra("timer_right_move_ms", -1L) ?: -1L
+
             // Skorboard'u güncelle
             doublingCubeValue = doublingResult
             player1CanDouble = player1CanDoubleResult
@@ -481,7 +502,7 @@ fun GameScreen(
 
     // Otomatik zar ekranı açma ve mevcut zar setini initialize et
     LaunchedEffect(useDiceRoller, useTimer) {
-        if (useDiceRoller || useTimer) {
+        if ((useDiceRoller || useTimer) && !isRematchMode) {
             showDiceScreen = true
         }
         // ✅ Oyun başladığında mevcut seti ekle
@@ -3342,6 +3363,16 @@ fun GameScreen(
                                     putExtra("player2_name", player2Name)
                                     putExtra("player1_id", player1Id)
                                     putExtra("player2_id", player2Id)
+                                    // ✅ SAAT PARAMETRELERİ
+                                    putExtra("use_timer", useTimer)
+                                    putExtra("timer_mode", timerMode)
+                                    putExtra("reserve_time", reserveTime)
+                                    putExtra("delay_time", delayTime)
+                                    // ✅ Timer state restore
+                                    putExtra("timer_left_reserve_ms", savedTimerLeftReserveMs)
+                                    putExtra("timer_right_reserve_ms", savedTimerRightReserveMs)
+                                    putExtra("timer_left_move_ms", savedTimerLeftMoveMs)
+                                    putExtra("timer_right_move_ms", savedTimerRightMoveMs)
                                 }
                                 rematchDiceLauncher.launch(intent)
                             },
@@ -3652,6 +3683,10 @@ fun GameScreen(
                             val isFuture = setIdx > currentSetIndex  // Henüz oynanmamış
                             val setLabel = "S${setIdx + 1}"
 
+                            // ✅ Kayıtlı hamle pozisyonu kontrolü
+                            val savedState = diceSetGameStates["S${setIdx + 1}"]
+                            val hasResumePoint = savedState != null && savedState.totalMoveCount > 0 && !savedState.isCompleted
+
                             Card(
                                 colors = CardDefaults.cardColors(
                                     containerColor = when {
@@ -3678,6 +3713,11 @@ fun GameScreen(
                                                 putExtra("player2_id", player2Id)
                                                 // Replay modu: setIndex override
                                                 putExtra("replay_set_index", setIdx)
+                                                // ✅ SAAT PARAMETRELERİ
+                                                putExtra("use_timer", useTimer)
+                                                putExtra("timer_mode", timerMode)
+                                                putExtra("reserve_time", reserveTime)
+                                                putExtra("delay_time", delayTime)
                                             }
                                             rematchDiceLauncher.launch(intent)
                                         } else Modifier
@@ -3728,24 +3768,85 @@ fun GameScreen(
                                             fontSize = 14.sp,
                                             fontWeight = if (isCurrentSet) FontWeight.Bold else FontWeight.Medium
                                         )
+                                        // ✅ Hamle bilgisi gösterimi
+                                        if (hasResumePoint) {
+                                            Text(
+                                                text = when {
+                                                    isCurrentSet -> "Aktif | Hamle: ${savedState!!.totalMoveCount}"
+                                                    isPlayed -> "Oynandi | Hamle: ${savedState!!.totalMoveCount}"
+                                                    else -> "Bekliyor"
+                                                },
+                                                color = when {
+                                                    isCurrentSet -> Color(0xFFFFEB3B)
+                                                    isPlayed -> Color(0xFF81C784)
+                                                    else -> Color.White.copy(alpha = 0.3f)
+                                                },
+                                                fontSize = 10.sp
+                                            )
+                                        } else {
+                                            Text(
+                                                text = when {
+                                                    isCurrentSet -> "Aktif"
+                                                    isPlayed -> "Oynandi"
+                                                    else -> "Bekliyor"
+                                                },
+                                                color = when {
+                                                    isCurrentSet -> Color(0xFFFFEB3B)
+                                                    isPlayed -> Color(0xFF81C784)
+                                                    else -> Color.White.copy(alpha = 0.3f)
+                                                },
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    }
+
+                                    // ✅ Kaldığı Yerden İlerle butonu
+                                    if (hasResumePoint && !isFuture) {
                                         Text(
-                                            text = when {
-                                                isCurrentSet -> "Aktif"
-                                                isPlayed -> "Oynandi"
-                                                else -> "Bekliyor"
-                                            },
-                                            color = when {
-                                                isCurrentSet -> Color(0xFFFFEB3B)
-                                                isPlayed -> Color(0xFF81C784)
-                                                else -> Color.White.copy(alpha = 0.3f)
-                                            },
-                                            fontSize = 10.sp
+                                            text = "${savedState!!.totalMoveCount}. hamleye git",
+                                            color = Color(0xFFFFAB00),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier
+                                                .clickable {
+                                                    showDiceSetHistoryDialog = false
+                                                    val intent = Intent(context, RematchDiceDisplayActivity::class.java).apply {
+                                                        putExtra("encounter_id", encounterId)
+                                                        putExtra("doubling_cube_value", if (isCurrentSet) doublingCubeValue else 1)
+                                                        putExtra("player1_can_double", true)
+                                                        putExtra("player2_can_double", true)
+                                                        putExtra("is_crawford_game", isCrawfordGame)
+                                                        putExtra("player1_name", player1Name)
+                                                        putExtra("player2_name", player2Name)
+                                                        putExtra("player1_id", player1Id)
+                                                        putExtra("player2_id", player2Id)
+                                                        putExtra("replay_set_index", setIdx)
+                                                        // ✅ Resume parametreleri
+                                                        putExtra("resume_total_move_count", savedState.totalMoveCount)
+                                                        putExtra("resume_left_move_index", savedState.leftMoveIndex)
+                                                        putExtra("resume_right_move_index", savedState.rightMoveIndex)
+                                                        putExtra("resume_player_turn", savedState.currentPlayerTurn)
+                                                        putExtra("resume_game_phase", savedState.gamePhase)
+                                                        // ✅ SAAT PARAMETRELERİ
+                                                        putExtra("use_timer", useTimer)
+                                                        putExtra("timer_mode", timerMode)
+                                                        putExtra("reserve_time", reserveTime)
+                                                        putExtra("delay_time", delayTime)
+                                                    }
+                                                    rematchDiceLauncher.launch(intent)
+                                                }
+                                                .background(
+                                                    color = Color(0xFFFF6F00).copy(alpha = 0.2f),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                )
+                                                .padding(horizontal = 6.dp, vertical = 3.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(6.dp))
                                     }
 
                                     if (!isFuture) {
                                         Text(
-                                            text = "Oynat",
+                                            text = if (hasResumePoint) "Bastan" else "Oynat",
                                             color = Color.White.copy(alpha = 0.7f),
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
