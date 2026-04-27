@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,12 +12,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -41,7 +44,7 @@ class NewGameActivity : ComponentActivity() {
             TavlaAppTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = Color(0xFF16213E)
                 ) {
                     NewGameScreen(dbHelper)
                 }
@@ -144,7 +147,10 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
         // Başlık
         Text(
             text = "Yeni Oyun Ayarları",
-            style = MaterialTheme.typography.headlineMedium,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color(0xFFE8D5B7),
+            letterSpacing = 2.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
@@ -160,12 +166,20 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     onValueChange = { },
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
-                    placeholder = { Text("Oyuncu 1 Seç") },
+                    placeholder = { Text("Oyuncu 1 Seç", color = Color(0xFFBFA47A).copy(alpha = 0.5f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color(0xFFE8D5B7),
+                        focusedBorderColor = Color(0xFF1565C0),
+                        unfocusedBorderColor = Color(0xFF5D4037),
+                        cursorColor = Color(0xFFE8D5B7)
+                    ),
                     trailingIcon = {
                         IconButton(onClick = { showPlayer1Menu = true }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Dropdown"
+                                contentDescription = "Dropdown",
+                                tint = Color(0xFFBFA47A)
                             )
                         }
                     }
@@ -209,12 +223,20 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     onValueChange = { },
                     modifier = Modifier.fillMaxWidth(),
                     readOnly = true,
-                    placeholder = { Text("Oyuncu 2 Seç") },
+                    placeholder = { Text("Oyuncu 2 Seç", color = Color(0xFFBFA47A).copy(alpha = 0.5f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color(0xFFE8D5B7),
+                        focusedBorderColor = Color(0xFFC62828),
+                        unfocusedBorderColor = Color(0xFF5D4037),
+                        cursorColor = Color(0xFFE8D5B7)
+                    ),
                     trailingIcon = {
                         IconButton(onClick = { showPlayer2Menu = true }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Dropdown"
+                                contentDescription = "Dropdown",
+                                tint = Color(0xFFBFA47A)
                             )
                         }
                     }
@@ -270,7 +292,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -281,7 +305,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "Tavla Türü",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     
@@ -320,7 +346,8 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             )
                             Text(
                                 text = "Geleneksel",
-                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 12.sp,
+                                color = Color.White,
                                 modifier = Modifier.padding(start = 4.dp)
                             )
                         }
@@ -350,7 +377,8 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             )
                             Text(
                                 text = "Modern",
-                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 12.sp,
+                                color = Color.White,
                                 modifier = Modifier.padding(start = 4.dp)
                             )
                         }
@@ -364,7 +392,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -375,7 +405,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "El Sayısı",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     
@@ -392,12 +424,18 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             modifier = Modifier.width(90.dp),
                             readOnly = true,
                             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                color = Color.White
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF1565C0),
+                                unfocusedBorderColor = Color(0xFF5D4037)
                             ),
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
                                     contentDescription = "Dropdown",
+                                    tint = Color(0xFFBFA47A),
                                     modifier = Modifier.clickable { showRoundsMenu = true }
                                 )
                             }
@@ -432,7 +470,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -443,20 +483,23 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "Skor Modu",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
-                    
+
                     // İçerik alanı - ortalanmış
                     Column(
                         modifier = Modifier.fillMaxHeight(),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                    
+
                     Text(
                         text = if (isScoreAutomatic) "Otomatik" else "Manuel",
-                        style = MaterialTheme.typography.bodyMedium
+                        fontSize = 12.sp,
+                        color = Color.White
                     )
                     
                     Spacer(modifier = Modifier.height(8.dp))
@@ -481,7 +524,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -492,7 +537,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "Zar Atıcı Kullanımı",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     
@@ -522,7 +569,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -533,7 +582,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "Süre Tutucu Kullanımı",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     
@@ -563,7 +614,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -574,7 +627,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "İstatistikler Tutulsun",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
 
@@ -604,7 +659,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 modifier = Modifier
                     .weight(1f)
                     .height(120.dp),
-                border = BorderStroke(1.dp, Color.Gray)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                border = BorderStroke(1.dp, Color(0xFF5D4037))
             ) {
                 Column(
                     modifier = Modifier
@@ -615,7 +672,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // Başlık - Sabit pozisyon
                     Text(
                         text = "Zar Değerlendirmesi İşaretlensin",
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE8D5B7),
                         modifier = Modifier.padding(top = 4.dp)
                     )
 
@@ -646,7 +705,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     modifier = Modifier
                         .weight(1f)
                         .height(120.dp),
-                    border = BorderStroke(1.dp, Color.Gray)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                    border = BorderStroke(1.dp, Color(0xFF5D4037))
                 ) {
                     Column(
                         modifier = Modifier
@@ -657,7 +718,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         // Başlık - Sabit pozisyon
                         Text(
                             text = "Saat ve Zar Atım İçin Tek Buton Kullan",
-                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE8D5B7),
                             modifier = Modifier.padding(top = 4.dp),
                             textAlign = TextAlign.Center
                         )
@@ -698,9 +761,11 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     // İptal et
                     (context as ComponentActivity).finish()
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF37474F))
             ) {
-                Text("İptal")
+                Text("İptal", color = Color.White, fontWeight = FontWeight.Bold)
             }
 
             Button(
@@ -750,9 +815,11 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     }
                     context.startActivity(intent)
                 },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))
             ) {
-                Text("Oyunu Başlat")
+                Text("Oyunu Başlat", color = Color.White, fontWeight = FontWeight.Bold)
             }
 
             // Rovansli Karsilasma butonu
@@ -761,12 +828,13 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     val intent = Intent(context, RematchSetupActivity::class.java)
                     context.startActivity(intent)
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF6A1B9A)
                 )
             ) {
-                Text("Rovansli", color = Color.White, fontSize = 12.sp)
+                Text("Rövanşlı", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
 
@@ -777,7 +845,10 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color(0xFF5D4037))
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -785,15 +856,24 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     ) {
                         Text(
                             text = "Yeni Oyuncu Ekle",
-                            style = MaterialTheme.typography.headlineSmall
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE8D5B7)
                         )
-                        
+
                         OutlinedTextField(
                             value = newPlayerName,
                             onValueChange = { newPlayerName = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Oyuncu adı girin") },
-                            singleLine = true
+                            placeholder = { Text("Oyuncu adı girin", color = Color(0xFFBFA47A).copy(alpha = 0.5f)) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color(0xFFE8D5B7),
+                                focusedBorderColor = Color(0xFF1565C0),
+                                unfocusedBorderColor = Color(0xFF5D4037),
+                                cursorColor = Color(0xFFE8D5B7)
+                            )
                         )
                         
                         Row(
@@ -801,16 +881,20 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = { 
+                                onClick = {
                                     showNewPlayerDialog = false
                                     newPlayerName = ""
                                 },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF37474F))
                             ) {
-                                Text("Vazgeç")
+                                Text("Vazgeç", color = Color.White)
                             }
                             
                             Button(
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
                                 onClick = {
                                     val name = newPlayerName.trim()
                                     if (name.isNotEmpty()) {
@@ -846,7 +930,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Kaydet")
+                                Text("Kaydet", color = Color.White)
                             }
                         }
                     }
@@ -865,7 +949,9 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         .fillMaxWidth()
                         .padding(16.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F8FF))
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2744)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color(0xFF5D4037))
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -873,34 +959,36 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "🎲 Ek Zar İşleme Ayarı",
-                            style = MaterialTheme.typography.titleLarge,
+                            text = "Ek Zar İşleme Ayarı",
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1976D2)
+                            color = Color(0xFFE8D5B7)
                         )
-                        
+
                         Text(
                             text = "Fiziki zar kullanırken kısmi zar geleler ve artık zarlar da işlensin mi?",
-                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Center,
-                            color = Color(0xFF424242)
+                            color = Color.White.copy(alpha = 0.8f)
                         )
-                        
+
                         // Açıklama
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF16213E)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFF5D4037).copy(alpha = 0.5f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(
                                     text = "• İşle: Tüm zar detayları kayıt edilir",
                                     fontSize = 12.sp,
-                                    color = Color(0xFF2E7D32)
+                                    color = Color(0xFFBFA47A)
                                 )
                                 Text(
                                     text = "• İşleme: Sadece temel istatistikler",
                                     fontSize = 12.sp,
-                                    color = Color(0xFF2E7D32)
+                                    color = Color(0xFFBFA47A)
                                 )
                             }
                         }
@@ -915,24 +1003,26 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                                     showPartialDiceDialog = false
                                 },
                                 modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFF9800)
+                                    containerColor = Color(0xFF37474F)
                                 )
                             ) {
-                                Text("İşleme", fontWeight = FontWeight.Bold)
+                                Text("İşleme", fontWeight = FontWeight.Bold, color = Color.White)
                             }
-                            
+
                             Button(
                                 onClick = {
                                     processPartialDice = true
                                     showPartialDiceDialog = false
                                 },
                                 modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50)
+                                    containerColor = Color(0xFF1565C0)
                                 )
                             ) {
-                                Text("İşle", fontWeight = FontWeight.Bold)
+                                Text("İşle", fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }

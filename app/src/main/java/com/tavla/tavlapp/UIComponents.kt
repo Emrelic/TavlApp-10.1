@@ -3,6 +3,8 @@ package com.tavla.tavlapp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -13,12 +15,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * Ortak UI bileşenleri için yardımcı sınıf
- */
+// Tema renkleri (paylasilir)
+object AppColors {
+    val BgDark = Color(0xFF16213E)
+    val BgCard = Color(0xFF1A2744)
+    val GoldLight = Color(0xFFE8D5B7)
+    val GoldDark = Color(0xFFBFA47A)
+    val BorderBrown = Color(0xFF5D4037)
+    val TextWhite = Color.White
+    val TextMuted = Color.White.copy(alpha = 0.6f)
+}
+
 object UIComponents {
 
     @Composable
@@ -27,7 +38,6 @@ object UIComponents {
         val player2Name = players[match.player2Id]?.name ?: "Bilinmeyen"
         val winnerName = players[match.winnerId]?.name ?: "Bilinmeyen"
 
-        // Tarih formatını düzenle
         val date = try {
             val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -41,70 +51,77 @@ object UIComponents {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
-                .clickable { onItemClick(match.id) }
+                .clickable { onItemClick(match.id) },
+            colors = CardDefaults.cardColors(containerColor = AppColors.BgCard),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, AppColors.BorderBrown)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Maç başlığı ve tarih
+            Column(modifier = Modifier.padding(14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Maç #${match.id}",
-                        style = MaterialTheme.typography.titleMedium
+                        text = "Mac #${match.id}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.GoldLight
                     )
                     Text(
                         text = date,
-                        style = MaterialTheme.typography.bodyMedium
+                        fontSize = 11.sp,
+                        color = AppColors.GoldDark
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Oyuncu isimleri ve skorları
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.Start
-                    ) {
+                    Column(horizontalAlignment = Alignment.Start) {
                         Text(
                             text = player1Name,
-                            fontWeight = if (match.winnerId == match.player1Id) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (match.winnerId == match.player1Id) FontWeight.Bold else FontWeight.Normal,
+                            color = AppColors.TextWhite,
+                            fontSize = 13.sp
                         )
-                        Text(text = "${match.player1Score} puan")
-                        Text(text = "${match.player1RoundsWon} el")
+                        Text(text = "${match.player1Score} puan", color = AppColors.TextMuted, fontSize = 11.sp)
+                        Text(text = "${match.player1RoundsWon} el", color = AppColors.TextMuted, fontSize = 11.sp)
                     }
 
                     Text(
                         text = "vs",
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        color = AppColors.GoldDark,
+                        fontSize = 12.sp
                     )
 
-                    Column(
-                        horizontalAlignment = Alignment.End
-                    ) {
+                    Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = player2Name,
-                            fontWeight = if (match.winnerId == match.player2Id) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (match.winnerId == match.player2Id) FontWeight.Bold else FontWeight.Normal,
+                            color = AppColors.TextWhite,
+                            fontSize = 13.sp
                         )
-                        Text(text = "${match.player2Score} puan")
-                        Text(text = "${match.player2RoundsWon} el")
+                        Text(text = "${match.player2Score} puan", color = AppColors.TextMuted, fontSize = 11.sp)
+                        Text(text = "${match.player2RoundsWon} el", color = AppColors.TextMuted, fontSize = 11.sp)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Oyun tipi ve kazanan bilgisi
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = "${match.gameType} Tavla")
+                    Text(text = "${match.gameType} Tavla", color = AppColors.GoldDark, fontSize = 11.sp)
                     Text(
                         text = "Kazanan: $winnerName",
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4CAF50),
+                        fontSize = 12.sp
                     )
                 }
             }
@@ -124,7 +141,6 @@ object UIComponents {
         val player2Name = players[match.player2Id]?.name ?: "Bilinmeyen"
         val winnerName = players[match.winnerId]?.name ?: "Bilinmeyen"
 
-        // Tarih formatını düzenle
         val date = try {
             val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -134,108 +150,121 @@ object UIComponents {
             match.date
         }
 
+        val cardBg = when {
+            isSelected && isDeleteMode -> Color(0xFF6A1B9A).copy(alpha = 0.4f)
+            else -> AppColors.BgCard
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
-                .clickable { onItemClick(match.id) }
+                .clickable { onItemClick(match.id) },
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, if (isSelected && isDeleteMode) Color(0xFF6A1B9A) else AppColors.BorderBrown)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
-                    .background(if (isSelected && isDeleteMode) Color.LightGray.copy(alpha = 0.3f) else Color.Transparent),
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Silme modu aktifse checkbox göster
                 if (isDeleteMode) {
                     Checkbox(
                         checked = isSelected,
                         onCheckedChange = { onItemClick(match.id) },
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 8.dp),
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF6A1B9A),
+                            uncheckedColor = AppColors.GoldDark,
+                            checkmarkColor = Color.White
+                        )
                     )
                 }
 
-                // Maç bilgileri
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(8.dp)
+                        .padding(horizontal = 4.dp)
                 ) {
-                    // Maç başlığı ve tarih
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Maç #${match.id}",
-                            style = MaterialTheme.typography.titleMedium
+                            text = "Mac #${match.id}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.GoldLight
                         )
                         Text(
                             text = date,
-                            style = MaterialTheme.typography.bodyMedium
+                            fontSize = 11.sp,
+                            color = AppColors.GoldDark
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    // Oyuncu isimleri ve skorları
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.Start
-                        ) {
+                        Column(horizontalAlignment = Alignment.Start) {
                             Text(
                                 text = player1Name,
-                                fontWeight = if (match.winnerId == match.player1Id) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (match.winnerId == match.player1Id) FontWeight.Bold else FontWeight.Normal,
+                                color = AppColors.TextWhite,
+                                fontSize = 13.sp
                             )
-                            Text(text = "${match.player1Score} puan")
-                            Text(text = "${match.player1RoundsWon} el")
+                            Text(text = "${match.player1Score} puan", color = AppColors.TextMuted, fontSize = 11.sp)
+                            Text(text = "${match.player1RoundsWon} el", color = AppColors.TextMuted, fontSize = 11.sp)
                         }
-
                         Text(
                             text = "vs",
-                            modifier = Modifier.padding(horizontal = 8.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                            color = AppColors.GoldDark,
+                            fontSize = 12.sp
                         )
-
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
+                        Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 text = player2Name,
-                                fontWeight = if (match.winnerId == match.player2Id) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (match.winnerId == match.player2Id) FontWeight.Bold else FontWeight.Normal,
+                                color = AppColors.TextWhite,
+                                fontSize = 13.sp
                             )
-                            Text(text = "${match.player2Score} puan")
-                            Text(text = "${match.player2RoundsWon} el")
+                            Text(text = "${match.player2Score} puan", color = AppColors.TextMuted, fontSize = 11.sp)
+                            Text(text = "${match.player2RoundsWon} el", color = AppColors.TextMuted, fontSize = 11.sp)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    // Oyun tipi ve kazanan bilgisi
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(text = "${match.gameType} Tavla")
+                        Text(text = "${match.gameType} Tavla", color = AppColors.GoldDark, fontSize = 11.sp)
                         Text(
                             text = "Kazanan: $winnerName",
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4CAF50),
+                            fontSize = 12.sp
                         )
                     }
                 }
 
-                // Normal modda ise silme butonu göster
                 if (!isDeleteMode) {
                     IconButton(
-                        onClick = { onDeleteClick(match.id) }
+                        onClick = { onDeleteClick(match.id) },
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Sil",
-                            tint = Color.Red
+                            tint = Color(0xFFF44336).copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -249,7 +278,10 @@ object UIComponents {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
-                .clickable { onItemClick(player.id) }
+                .clickable { onItemClick(player.id) },
+            colors = CardDefaults.cardColors(containerColor = AppColors.BgCard),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, AppColors.BorderBrown)
         ) {
             Row(
                 modifier = Modifier
@@ -260,13 +292,15 @@ object UIComponents {
             ) {
                 Text(
                     text = player.name,
-                    style = MaterialTheme.typography.titleMedium
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AppColors.GoldLight
                 )
-
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,
-                    contentDescription = "Görüntüle",
-                    modifier = Modifier.padding(start = 8.dp)
+                    contentDescription = "Goruntule",
+                    modifier = Modifier.padding(start = 8.dp),
+                    tint = AppColors.GoldDark
                 )
             }
         }
