@@ -77,22 +77,22 @@ fun RematchComparisonScreen(
     val context = LocalContext.current
 
     var encounter by remember { mutableStateOf<RematchEncounter?>(null) }
-    var comparisonData by remember { mutableStateOf<PartyComparisonData?>(null) }
+    var allPartiesData by remember { mutableStateOf<List<PartyComparisonData>>(emptyList()) }
 
-    LaunchedEffect(encounterId, partyIndex) {
+    LaunchedEffect(encounterId) {
         encounter = dbHelper.getRematchEncounter(encounterId)
-        comparisonData = dbHelper.getPartyComparisonData(encounterId, partyIndex)
+        allPartiesData = dbHelper.getAllPartiesComparisonData(encounterId)
     }
 
     val enc = encounter ?: return
-    val data = comparisonData ?: return
+    if (allPartiesData.isEmpty()) return
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(8.dp)
     ) {
-        // ===== UST PANEL: Ozet + Buton (kompakt tek satir) =====
+        // ===== UST PANEL: Karşılaşma Özeti + Buton =====
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -101,77 +101,59 @@ fun RematchComparisonScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Parti baslik
+            // Karşılaşma başlık
             Text(
-                text = "Parti ${partyIndex + 1}",
+                text = "${enc.player1Name} vs ${enc.player2Name}",
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
                 color = Color(0xFFCE93D8)
             )
 
-            // Tur 1 ozet
+            // Tüm partiler özeti
+            val totalR1Won = allPartiesData.count { it.round1PartyResult?.winnerId != null }
+            val totalR2Won = allPartiesData.count { it.round2PartyResult?.winnerId != null }
+            
             Box(
                 modifier = Modifier
                     .background(Color(0xFF1565C0).copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
-                if (data.round1PartyResult != null) {
-                    val r1 = data.round1PartyResult!!
-                    val w1 = if (r1.winnerId == enc.player1Id) enc.player1Name else enc.player2Name
-                    Text(
-                        text = "T1: $w1 ${r1.player1Score}-${r1.player2Score} (${r1.totalGamesPlayed}el)",
-                        fontSize = 12.sp,
-                        color = Color(0xFF90CAF9),
-                        fontWeight = FontWeight.Bold
-                    )
-                } else {
-                    Text("T1: --", fontSize = 12.sp, color = Color.Gray)
-                }
+                Text(
+                    text = "Tur 1: ${totalR1Won}/${enc.totalParties} parti",
+                    fontSize = 12.sp,
+                    color = Color(0xFF90CAF9),
+                    fontWeight = FontWeight.Bold
+                )
             }
 
-            // Tur 2 ozet
             Box(
                 modifier = Modifier
                     .background(Color(0xFFC62828).copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
-                if (data.round2PartyResult != null) {
-                    val r2 = data.round2PartyResult!!
-                    val w2 = if (r2.winnerId == enc.player1Id) enc.player1Name else enc.player2Name
-                    Text(
-                        text = "T2: $w2 ${r2.player1Score}-${r2.player2Score} (${r2.totalGamesPlayed}el)",
-                        fontSize = 12.sp,
-                        color = Color(0xFFEF9A9A),
-                        fontWeight = FontWeight.Bold
-                    )
-                } else {
-                    Text("T2: --", fontSize = 12.sp, color = Color.Gray)
-                }
-            }
-
-            // Istatistik kisaltmalari
-            val bothPlayed = data.sameWinnerCount + data.differentWinnerCount
-            if (bothPlayed > 0) {
                 Text(
-                    text = "Ayni:${data.sameWinnerCount} Fark:${data.differentWinnerCount}",
-                    fontSize = 10.sp,
-                    color = Color(0xFFB0BEC5)
+                    text = "Tur 2: ${totalR2Won}/${enc.totalParties} parti",
+                    fontSize = 12.sp,
+                    color = Color(0xFFEF9A9A),
+                    fontWeight = FontWeight.Bold
                 )
             }
 
-            // Zar istatistikleri ozet
+            // Durum
             Text(
-                text = "Zar T1:${data.round1TotalDicePairs} T2:${data.round2TotalDicePairs}",
+                text = when (enc.status) {
+                    RematchStatus.ACTIVE -> "DEVAM EDİYOR"
+                    RematchStatus.COMPLETED -> "TAMAMLANDI"
+                    else -> "BİLİNMEYEN"
+                },
                 fontSize = 10.sp,
-                color = Color(0xFFB0BEC5)
+                color = when (enc.status) {
+                    RematchStatus.ACTIVE -> Color(0xFFFFAB40)
+                    RematchStatus.COMPLETED -> Color(0xFF4CAF50)
+                    else -> Color.Gray
+                },
+                fontWeight = FontWeight.Bold
             )
-            if (data.round1TotalDoubles > 0 || data.round2TotalDoubles > 0) {
-                Text(
-                    text = "Care T1:${data.round1TotalDoubles} T2:${data.round2TotalDoubles}",
-                    fontSize = 10.sp,
-                    color = Color(0xFFFFAB40)
-                )
-            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -205,72 +187,81 @@ fun RematchComparisonScreen(
 
         // ===== TABLO: Tam genislik, weight-based kolonlar =====
 
-        // Tablo baslik - Tur etiketleri
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF311B92))
-                .padding(vertical = 2.dp)
-        ) {
-            Box(modifier = Modifier.weight(W_NUM)) // # bosluk
-            Box(
-                modifier = Modifier.weight(W_ROUND_TOTAL),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("TUR 1 - ${enc.player1Name} (sol) / ${enc.player2Name} (sag)", color = Color(0xFF90CAF9), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-            Box(modifier = Modifier.width(2.dp))
-            Box(
-                modifier = Modifier.weight(W_ROUND_TOTAL),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("TUR 2 - ${enc.player2Name} (sol) / ${enc.player1Name} (sag)", color = Color(0xFFEF9A9A), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        // Tablo baslik - Kolon isimleri
+        // Tablo baslik - Kolon isimleri (parti, oyun, tur1, tur2)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF4A148C))
                 .padding(vertical = 4.dp)
         ) {
-            HeaderCell("#", W_NUM)
-            // Tur 1
-            HeaderCell("Kazanan", W_WINNER)
-            HeaderCell("Puan", W_SCORE)
-            HeaderCell("Kup", W_CUBE)
-            HeaderCell("El", W_DICE_CNT)
-            HeaderCell("Care", W_DOUBLES)
-            HeaderCell("Toplam", W_TOTAL)
-            HeaderCell("Kvt", W_POWER)
-            HeaderCell("Pip", W_PIP)
-            // Ayirici
-            Box(modifier = Modifier
-                .width(2.dp)
-                .height(16.dp)
-                .background(Color.White.copy(alpha = 0.4f)))
-            // Tur 2
-            HeaderCell("Kazanan", W_WINNER)
-            HeaderCell("Puan", W_SCORE)
-            HeaderCell("Kup", W_CUBE)
-            HeaderCell("El", W_DICE_CNT)
-            HeaderCell("Care", W_DOUBLES)
-            HeaderCell("Toplam", W_TOTAL)
-            HeaderCell("Kvt", W_POWER)
-            HeaderCell("Pip", W_PIP)
+            HeaderCell("Parti", 0.08f)
+            HeaderCell("Oyun", 0.06f)
+            
+            // Tur 1 başlık
+            Box(
+                modifier = Modifier.weight(0.43f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("TUR 1 - ${enc.player1Name}", color = Color(0xFF90CAF9), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+            
+            // Ayırıcı
+            Box(modifier = Modifier.width(1.dp).background(Color.White.copy(alpha = 0.4f)))
+            
+            // Tur 2 başlık  
+            Box(
+                modifier = Modifier.weight(0.43f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("TUR 2 - ${enc.player2Name}", color = Color(0xFFEF9A9A), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
-        // Tablo icerik
+        // Alt başlık satırı
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF311B92))
+                .padding(vertical = 2.dp)
+        ) {
+            Box(modifier = Modifier.weight(0.08f)) // Parti boşluk
+            Box(modifier = Modifier.weight(0.06f)) // Oyun boşluk
+            
+            // Tur 1 alt başlıklar
+            HeaderCell("Kazanan", 0.12f)
+            HeaderCell("Puan", 0.06f)
+            HeaderCell("Küp", 0.08f)
+            HeaderCell("Zar", 0.06f)
+            HeaderCell("Çare", 0.06f)
+            HeaderCell("Pip", 0.05f)
+            
+            Box(modifier = Modifier.width(1.dp)) // Ayırıcı
+            
+            // Tur 2 alt başlıklar  
+            HeaderCell("Kazanan", 0.12f)
+            HeaderCell("Puan", 0.06f)
+            HeaderCell("Küp", 0.08f)
+            HeaderCell("Zar", 0.06f)
+            HeaderCell("Çare", 0.06f)
+            HeaderCell("Pip", 0.05f)
+        }
+
+        // Tablo icerik - Tüm partilerin tüm oyunları
         LazyColumn(
             modifier = Modifier.fillMaxSize()
         ) {
-            items(data.gameComparisons) { row ->
-                ComparisonRow(
-                    row = row,
-                    encounter = enc,
-                    gameNumber = row.setIndex + 1
-                )
+            allPartiesData.forEachIndexed { partyIndex, partyData ->
+                val allGameRows = mutableListOf<GameComparisonRow>()
+                allGameRows.addAll(partyData.gameComparisons)
+                
+                items(allGameRows) { gameRow ->
+                    AllPartiesComparisonRow(
+                        partyIndex = partyIndex + 1,
+                        gameRow = gameRow,
+                        encounter = enc,
+                        gameNumber = gameRow.setIndex + 1
+                    )
+                }
             }
         }
     }
@@ -299,6 +290,68 @@ fun RowScope.HeaderCell(text: String, weight: Float) {
         modifier = Modifier.weight(weight),
         maxLines = 1
     )
+}
+
+@Composable
+fun AllPartiesComparisonRow(
+    partyIndex: Int,
+    gameRow: GameComparisonRow,
+    encounter: RematchEncounter,
+    gameNumber: Int
+) {
+    val r1 = gameRow.round1Result
+    val r2 = gameRow.round2Result
+
+    val bgColor = when {
+        r1 == null || r2 == null -> Color(0xFF212121)
+        r1.winnerId == r2.winnerId -> Color(0xFF1B3D1B) // Koyu yeşil - aynı kazanan
+        else -> Color(0xFF3D2E1B) // Koyu turuncu - farklı kazanan
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bgColor)
+            .border(0.5.dp, Color(0xFF424242))
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Parti numarası
+        Text(
+            text = "$partyIndex",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFCE93D8),
+            modifier = Modifier.weight(0.08f),
+            maxLines = 1
+        )
+
+        // Oyun numarası
+        Text(
+            text = "$gameNumber",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFB0BEC5),
+            modifier = Modifier.weight(0.06f),
+            maxLines = 1
+        )
+
+        // Tur 1 verileri
+        CompactRoundCells(r1, encounter)
+
+        // Ayırıcı
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(16.dp)
+                .background(Color(0xFF6A1B9A).copy(alpha = 0.5f))
+        )
+
+        // Tur 2 verileri
+        CompactRoundCells(r2, encounter)
+    }
 }
 
 @Composable
@@ -488,5 +541,104 @@ fun RowScope.RoundCells(
         Text("--", fontSize = 10.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(W_TOTAL), maxLines = 1)
         Text("--", fontSize = 10.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(W_POWER), maxLines = 1)
         Text("--", fontSize = 10.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(W_PIP), maxLines = 1)
+    }
+}
+
+@Composable
+fun RowScope.CompactRoundCells(
+    result: RematchGameResult?,
+    encounter: RematchEncounter
+) {
+    if (result != null) {
+        // Kazanan (kompakt)
+        val winnerName = when (result.winnerId) {
+            encounter.player1Id -> encounter.player1Name
+            encounter.player2Id -> encounter.player2Name
+            else -> "?"
+        }
+        val shortName = if (winnerName.length > 6) winnerName.take(6) + "." else winnerName
+        val winIcon = when (result.winType) {
+            WinTypes.MARS -> "M"
+            WinTypes.BACKGAMMON -> "B"
+            WinTypes.RESIGN -> "P"
+            else -> ""
+        }
+        val winColor = when (result.winType) {
+            WinTypes.MARS -> Color(0xFFFF8A65)
+            WinTypes.BACKGAMMON -> Color(0xFFFF5252)
+            WinTypes.RESIGN -> Color(0xFFFFD54F)
+            else -> Color(0xFFE0E0E0)
+        }
+
+        Text(
+            text = if (winIcon.isNotEmpty()) "$shortName $winIcon" else shortName,
+            fontSize = 9.sp,
+            textAlign = TextAlign.Center,
+            color = winColor,
+            modifier = Modifier.weight(0.12f),
+            maxLines = 1
+        )
+
+        // Puan
+        Text(
+            text = "${result.finalScore ?: "-"}",
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = Color(0xFF81C784),
+            modifier = Modifier.weight(0.06f),
+            maxLines = 1
+        )
+
+        // Küp bilgisi (kompakt)
+        val cubeStr = if (result.cubeValue > 1) "x${result.cubeValue}" else "-"
+        Text(
+            text = cubeStr,
+            fontSize = 8.sp,
+            textAlign = TextAlign.Center,
+            color = if (result.cubeValue > 1) Color(0xFFCE93D8) else Color(0xFF616161),
+            modifier = Modifier.weight(0.08f),
+            maxLines = 1
+        )
+
+        // Zar çiftleri
+        Text(
+            text = "${result.dicePairsUsed ?: "-"}",
+            fontSize = 9.sp,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFE0E0E0),
+            modifier = Modifier.weight(0.06f),
+            maxLines = 1
+        )
+
+        // Çare
+        val totalDoubles = result.leftDoublesCount + result.rightDoublesCount
+        Text(
+            text = if (totalDoubles > 0) "$totalDoubles" else "-",
+            fontSize = 9.sp,
+            textAlign = TextAlign.Center,
+            color = if (totalDoubles > 0) Color(0xFFFFAB40) else Color(0xFF616161),
+            modifier = Modifier.weight(0.06f),
+            maxLines = 1
+        )
+
+        // Pip
+        Text(
+            text = if ((result.loserPipCount ?: 0) > 0) "${result.loserPipCount}" else "-",
+            fontSize = 9.sp,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFE0E0E0),
+            modifier = Modifier.weight(0.05f),
+            maxLines = 1
+        )
+    } else {
+        // Oynanmadı
+        val emptyColor = Color(0xFF424242)
+        Text("--", fontSize = 9.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(0.12f), maxLines = 1)
+        Text("--", fontSize = 9.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(0.06f), maxLines = 1)
+        Text("--", fontSize = 8.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(0.08f), maxLines = 1)
+        Text("--", fontSize = 9.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(0.06f), maxLines = 1)
+        Text("--", fontSize = 9.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(0.06f), maxLines = 1)
+        Text("--", fontSize = 9.sp, textAlign = TextAlign.Center, color = emptyColor, modifier = Modifier.weight(0.05f), maxLines = 1)
     }
 }

@@ -116,6 +116,7 @@ class GameScoreActivity : ComponentActivity() {
         val isScoreAutomatic = intent.getBooleanExtra("is_score_automatic", true)
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
+        val useSingleButtonForTimerAndDice = intent.getBooleanExtra("use_single_button_for_timer_and_dice", false)
         val timerMode = intent.getStringExtra("timer_mode") ?: "DELAY"
         val reserveTime = intent.getIntExtra("reserve_time", 120)
         val delayTime = intent.getIntExtra("delay_time", 12)
@@ -155,6 +156,7 @@ class GameScoreActivity : ComponentActivity() {
                         isScoreAutomatic = isScoreAutomatic,
                         useDiceRoller = useDiceRoller,
                         useTimer = useTimer,
+                        useSingleButtonForTimerAndDice = useSingleButtonForTimerAndDice,
                         timerMode = timerMode,
                         reserveTime = reserveTime,
                         delayTime = delayTime,
@@ -186,6 +188,7 @@ fun GameScreen(
     isScoreAutomatic: Boolean,
     useDiceRoller: Boolean,
     useTimer: Boolean,
+    useSingleButtonForTimerAndDice: Boolean,
     timerMode: String = "DELAY",
     reserveTime: Int = 120,
     delayTime: Int = 12,
@@ -818,20 +821,33 @@ fun GameScreen(
         )
 
         val nextPartyIndex = rematchPartyIndex + 1
+        val halfParties = totalParties / 2 // 3 partili sistem için halfParties = 1.5 → 1, ama 6 partili için 3
 
-        if (nextPartyIndex >= totalParties) {
-            if (rematchCurrentRound == 1) {
-                dbHelper.completeFirstRound(encounterId)
-                dbHelper.advanceToRematchRound(encounterId)
-                showRoundEndDialog = true
-            } else {
-                dbHelper.completeEncounter(encounterId)
-                showEncounterEndDialog = true
-            }
+        if (nextPartyIndex >= totalParties * 2) {
+            // 6 parti bitti (3 normal + 3 rövanş), karşılaşma bitir
+            dbHelper.completeEncounter(encounterId)
+            showEncounterEndDialog = true
+        } else if (nextPartyIndex >= totalParties && rematchCurrentRound == 1) {
+            // İlk round bitti (3 parti), Round 2'ye geç ama parti oynanmaya devam
+            dbHelper.completeFirstRound(encounterId)
+            dbHelper.advanceToRematchRound(encounterId)
+            rematchCurrentRound = 2
+            rematchPartyIndex = 0  // Rövanş partilerini 0'dan başlat
+            rematchGameIndex = 0
+            
+            partyEndInfo = "İlk Round bitti! Rövanş Round başlıyor (zarlar değişti).\nParti 1 (Rövanş) başlıyor."
+            player1Score = 0
+            player2Score = 0
+            currentRound = 0
+            player1RoundsWon = 0
+            player2RoundsWon = 0
+            rematchUndoStack = emptyList()
         } else {
+            // Normal parti geçişi
             dbHelper.updateEncounterProgress(encounterId, nextPartyIndex, 0)
 
-            if (rematchCurrentRound == 2) {
+            // ✅ 6 parti bittiğinde karşılaştırma tablosu göster (4 parti sonunda değil)
+            if (nextPartyIndex >= totalParties * 2) {
                 val intent = Intent(context, RematchComparisonActivity::class.java)
                 intent.putExtra("encounter_id", encounterId)
                 intent.putExtra("party_index", rematchPartyIndex)
@@ -842,6 +858,8 @@ fun GameScreen(
             player1Score = 0
             player2Score = 0
             currentRound = 0
+            player1RoundsWon = 0
+            player2RoundsWon = 0
             rematchPartyIndex = nextPartyIndex
             rematchGameIndex = 0
             rematchUndoStack = emptyList()
@@ -1481,23 +1499,6 @@ fun GameScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Maç Sonucu")
-                    if (isCrawfordGame) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.Red.copy(alpha = 0.8f)
-                            ),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = "CRAWFORD ELİ",
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                     if (isPostCrawford) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Card(
@@ -1845,6 +1846,8 @@ fun GameScreen(
                     player1Score = 0
                     player2Score = 0
                     currentRound = 0
+                    player1RoundsWon = 0
+                    player2RoundsWon = 0
                     rematchCurrentRound = 2
                     rematchPartyIndex = 0
                     rematchGameIndex = 0
@@ -2104,33 +2107,6 @@ fun GameScreen(
                         )
                     }
                     
-                    // Crawford durumu göstergesi (skorboard üstünde)
-                    if (isCrawfordGame || isPostCrawford || crawfordGamePlayed) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = when {
-                                    isCrawfordGame -> Color.Red.copy(alpha = 0.9f)
-                                    isPostCrawford -> Color(0xFF4CAF50).copy(alpha = 0.9f)
-                                    else -> Color(0xFF2196F3).copy(alpha = 0.7f)
-                                }
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = when {
-                                    isCrawfordGame -> "⚠️ CRAWFORD ELİ"
-                                    isPostCrawford -> "🔄 POST-CRAWFORD"
-                                    crawfordGamePlayed -> "✅ CRAWFORD OYNANDI"
-                                    else -> "📊 CRAWFORD"
-                                },
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                     
                     Spacer(modifier = Modifier.height(2.dp))
                     // Hedef puan kutusu
@@ -2164,7 +2140,8 @@ fun GameScreen(
                         text = "$targetRounds",
                         color = Color.White,
                         style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.offset(y = 25.dp)
                     )
                     }
                 }
@@ -3365,6 +3342,7 @@ fun GameScreen(
                                     putExtra("player2_id", player2Id)
                                     // ✅ SAAT PARAMETRELERİ
                                     putExtra("use_timer", useTimer)
+                                    putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                                     putExtra("timer_mode", timerMode)
                                     putExtra("reserve_time", reserveTime)
                                     putExtra("delay_time", delayTime)
@@ -3385,6 +3363,27 @@ fun GameScreen(
                                 .height(50.dp)
                         ) {
                             Text("🎲 Zarlar", color = Color.White, fontSize = 12.sp)
+                        }
+                        
+                        // ✅ Karşılaştırma Tablosu Butonu - Rövanş modunda
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, RematchComparisonActivity::class.java).apply {
+                                    putExtra("encounter_id", encounterId)
+                                    putExtra("player1_name", player1Name)
+                                    putExtra("player2_name", player2Name)
+                                }
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF795548) // Kahverengi/Bronze ton
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("📊 Tablo", color = Color.White, fontSize = 12.sp)
                         }
                     } else if (useDiceRoller || useTimer) {
                         val buttonIcon = when {
@@ -3408,6 +3407,7 @@ fun GameScreen(
                                     putExtra("game_type", gameType)
                                     putExtra("use_dice_roller", useDiceRoller)
                                     putExtra("use_timer", useTimer)
+                                    putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                                     putExtra("player1_name", player1Name)
                                     putExtra("player2_name", player2Name)
                                     putExtra("match_length", targetRounds)
@@ -3547,7 +3547,7 @@ fun GameScreen(
             Box(
                 modifier = Modifier
                     .offset(x = animatedXOffset, y = animatedYOffset)
-                    .size(60.dp) // Eski boyutuna döndürüldü
+                    .size(60.dp)
                     .align(Alignment.Center)
                     .background(Color.White, RoundedCornerShape(8.dp))
                     .border(2.dp, Color.Black, RoundedCornerShape(8.dp))
@@ -3564,7 +3564,7 @@ fun GameScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                // Crawford göstergesi ekle
+                // ✅ Crawford elinde zarın içinde CRAWFORD yazısı ve değer
                 if (isCrawfordGame) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -3577,15 +3577,16 @@ fun GameScreen(
                         )
                         Text(
                             text = doublingCubeValue.toString(),
-                            fontSize = 20.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Gray // Crawford'da gri renk
+                            color = Color.Gray
                         )
                     }
                 } else {
+                    // Normal durumda sadece değer
                     Text(
                         text = doublingCubeValue.toString(),
-                        fontSize = 24.sp, // Eski yazı boyutuna döndürüldü
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
@@ -3602,6 +3603,7 @@ fun GameScreen(
                     putExtra("game_type", gameType)
                     putExtra("use_dice_roller", useDiceRoller)
                     putExtra("use_timer", useTimer)
+                    putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                     putExtra("player1_name", player1Name)
                     putExtra("player2_name", player2Name)
                     putExtra("match_length", targetRounds)
@@ -3715,6 +3717,7 @@ fun GameScreen(
                                                 putExtra("replay_set_index", setIdx)
                                                 // ✅ SAAT PARAMETRELERİ
                                                 putExtra("use_timer", useTimer)
+                                                putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                                                 putExtra("timer_mode", timerMode)
                                                 putExtra("reserve_time", reserveTime)
                                                 putExtra("delay_time", delayTime)
@@ -3829,6 +3832,7 @@ fun GameScreen(
                                                         putExtra("resume_game_phase", savedState.gamePhase)
                                                         // ✅ SAAT PARAMETRELERİ
                                                         putExtra("use_timer", useTimer)
+                                                        putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                                                         putExtra("timer_mode", timerMode)
                                                         putExtra("reserve_time", reserveTime)
                                                         putExtra("delay_time", delayTime)
@@ -3856,7 +3860,72 @@ fun GameScreen(
                             }
                         }
                     } else {
-                        // Normal mod: eski davranış
+                        // Normal mod: hamle tracking butonları ile
+                        item {
+                            // Hamle tracking bilgileri - placeholder
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF1976D2).copy(alpha = 0.8f)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp)
+                                ) {
+                                    Text(
+                                        text = "Hamle Tracking Sistemi",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Zar atma ekranından çıktığınızda hamle pozisyonu kaydedilir",
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 11.sp
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { /* Placeholder - gerçek tracking entegre edilecek */ },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFF4CAF50)
+                                            ),
+                                            modifier = Modifier.weight(1f),
+                                            enabled = false
+                                        ) {
+                                            Text(
+                                                text = "Son hamleye ilerle",
+                                                color = Color.White,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                        
+                                        Button(
+                                            onClick = { /* Placeholder - gerçek tracking entegre edilecek */ },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFFFF5722)
+                                            ),
+                                            modifier = Modifier.weight(1f),
+                                            enabled = false
+                                        ) {
+                                            Text(
+                                                text = "Baştan başla",
+                                                color = Color.White,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
                         items(diceSetHistory) { setId ->
                             Card(
                                 colors = CardDefaults.cardColors(

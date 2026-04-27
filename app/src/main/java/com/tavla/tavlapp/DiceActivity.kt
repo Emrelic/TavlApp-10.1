@@ -48,6 +48,7 @@ class DiceActivity : ComponentActivity() {
         val player2Id = intent.getLongExtra("player2_id", -1)
         val keepStatistics = intent.getBooleanExtra("keep_statistics", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
+        val useSingleButtonForTimerAndDice = intent.getBooleanExtra("use_single_button_for_timer_and_dice", false)
         val useDiceRoller = intent.getBooleanExtra("use_dice_roller", false)
         val markDiceEvaluation = intent.getBooleanExtra("mark_dice_evaluation", false)
         
@@ -89,6 +90,7 @@ class DiceActivity : ComponentActivity() {
                         matchLength = matchLength,
                         keepStatistics = keepStatistics,
                         useTimer = useTimer,
+                        useSingleButtonForTimerAndDice = useSingleButtonForTimerAndDice,
                         useDiceRoller = useDiceRoller,
                         markDiceEvaluation = markDiceEvaluation,
                         dbHelper = dbHelper,
@@ -135,6 +137,7 @@ fun DiceScreen(
     matchLength: Int,
     keepStatistics: Boolean,
     useTimer: Boolean,
+    useSingleButtonForTimerAndDice: Boolean,
     useDiceRoller: Boolean,
     markDiceEvaluation: Boolean,
     dbHelper: DatabaseHelper,
@@ -165,6 +168,7 @@ fun DiceScreen(
         matchLength = matchLength,
         keepStatistics = keepStatistics,
         useTimer = useTimer,
+        useSingleButtonForTimerAndDice = useSingleButtonForTimerAndDice,
         useDiceRoller = useDiceRoller,
         markDiceEvaluation = markDiceEvaluation,
         dbHelper = dbHelper,
@@ -198,6 +202,7 @@ fun DiceScreenWithDoubling(
     matchLength: Int,
     keepStatistics: Boolean,
     useTimer: Boolean,
+    useSingleButtonForTimerAndDice: Boolean,
     useDiceRoller: Boolean,
     markDiceEvaluation: Boolean,
     dbHelper: DatabaseHelper,
@@ -391,7 +396,9 @@ fun DiceScreenWithDoubling(
                 // Orta - Küp değeri ve sahibi
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .offset(y = (-15).dp)
                 ) {
                     // Küp sahibi göstergesi
                     val cubeOwnerText = when {
@@ -529,6 +536,7 @@ fun DiceScreenWithDoubling(
                 matchLength = matchLength,
                 keepStatistics = keepStatistics,
                 useTimer = useTimer,
+                useSingleButtonForTimerAndDice = useSingleButtonForTimerAndDice,
                 useDiceRoller = useDiceRoller,
                 markDiceEvaluation = markDiceEvaluation,
                 dbHelper = dbHelper,

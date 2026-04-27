@@ -112,6 +112,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
     // Zar atıcı ve süre tutucu ayarları
     var useDiceRoller by remember { mutableStateOf(false) }
     var useTimer by remember { mutableStateOf(false) }
+    var useSingleButtonForTimerAndDice by remember { mutableStateOf(false) }
 
     // Yeni ayarlar
     var keepStatistics by remember { mutableStateOf(false) }
@@ -638,6 +639,50 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                     }
                 }
             }
+            
+            // Tek Buton Kullan Çerçevesi (sadece timer aktifken göster)
+            if (useTimer) {
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(120.dp),
+                    border = BorderStroke(1.dp, Color.Gray)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Başlık - Sabit pozisyon
+                        Text(
+                            text = "Saat ve Zar Atım İçin Tek Buton Kullan",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                            textAlign = TextAlign.Center
+                        )
+
+                        // İçerik alanı - ortalanmış
+                        Column(
+                            modifier = Modifier.fillMaxHeight(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Switch(
+                                checked = useSingleButtonForTimerAndDice,
+                                onCheckedChange = {
+                                    useSingleButtonForTimerAndDice = it
+                                    // Tek buton ayarini logla
+                                    dbHelper.addActivityLog(
+                                        actionType = ActionTypes.SETTINGS_DICE_EVAL, // Yeni bir actionType eklenebilir
+                                        description = "Tek buton kullanimi: ${if (it) "Acik" else "Kapali"}"
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Boş alan ekleyerek butonları ekranın alt kısmına yakın konumlandırıyoruz
@@ -698,6 +743,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                         putExtra("is_score_automatic", isScoreAutomatic)
                         putExtra("use_dice_roller", useDiceRoller)
                         putExtra("use_timer", useTimer)
+                        putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                         putExtra("keep_statistics", keepStatistics)
                         putExtra("mark_dice_evaluation", markDiceEvaluation)
                         putExtra("process_partial_dice", processPartialDice)

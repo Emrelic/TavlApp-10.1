@@ -198,6 +198,7 @@ fun SimpleIntegratedScreen(
     matchLength: Int,
     keepStatistics: Boolean = false,
     useTimer: Boolean = false,
+    useSingleButtonForTimerAndDice: Boolean = false,
     useDiceRoller: Boolean = false,
     markDiceEvaluation: Boolean = false,
     dbHelper: DatabaseHelper? = null,
@@ -251,6 +252,11 @@ fun SimpleIntegratedScreen(
     var player2MoveTime by remember { mutableIntStateOf(moveTimeDelay) }
     var timerRunning by remember { mutableStateOf(false) }
     
+    // === HAMLE TRACKING SİSTEMİ ===
+    var totalMoveCount by remember { mutableIntStateOf(0) } // Toplam hamle sayısı
+    var playedMoveIndex by remember { mutableIntStateOf(0) } // Kaçıncı hamleye kadar oynatıldı
+    var moveHistory by remember { mutableStateOf(mutableListOf<String>()) } // Hamle geçmişi
+    
     // SharedPreferences'tan yüklenecek istatistikler
     var player1Stats by remember { mutableStateOf(AdvancedDiceStats()) }
     var player2Stats by remember { mutableStateOf(AdvancedDiceStats()) }
@@ -259,6 +265,29 @@ fun SimpleIntegratedScreen(
     LaunchedEffect(player1Name, player2Name) {
         player1Stats = loadPlayerStatsFromPrefs(context, player1Name)
         player2Stats = loadPlayerStatsFromPrefs(context, player2Name)
+    }
+    
+    // Tracking bilgilerini yükle (ayrı effect)
+    LaunchedEffect(matchId) {
+        if (matchId != -1L) {
+            try {
+                val sharedPrefs = context.getSharedPreferences("tavla_tracking", Context.MODE_PRIVATE)
+                
+                totalMoveCount = sharedPrefs.getInt("${matchId}_total_moves", 0)
+                playedMoveIndex = sharedPrefs.getInt("${matchId}_played_moves", 0)
+                
+                val historyJson = sharedPrefs.getString("${matchId}_move_history", "")
+                if (!historyJson.isNullOrEmpty()) {
+                    val historyList = historyJson.split("|").toMutableList()
+                    moveHistory = historyList
+                }
+            } catch (e: Exception) {
+                // Hata durumunda varsayılan değerler
+                totalMoveCount = 0
+                playedMoveIndex = 0
+                moveHistory = mutableListOf()
+            }
+        }
     }
     var showStatsDialog by remember { mutableStateOf(false) }
     
@@ -713,6 +742,144 @@ fun SimpleIntegratedScreen(
         }
     }
     
+    // === YENİ: TEK BUTON MODU - SÜRE DURDUR VE KARŞI TARAF ZAR AT ===
+    fun handleSingleButtonAction(forPlayer: Int) {
+        if (!useTimer || !useSingleButtonForTimerAndDice) return
+        
+        CoroutineScope(Dispatchers.Main).launch {
+            // Süre durdur
+            timerRunning = false
+            
+            // Zar ekranı işlemleri
+            if (keepStatistics) {
+                try {
+                    val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+                    val editor = sharedPrefs.edit()
+                    
+                    // Player1 istatistiklerini kaydet
+                    editor.putInt("${player1Name}_total_pip", player1Stats.totalPip)
+                    editor.putInt("${player1Name}_total_parts", player1Stats.totalParts)
+                    editor.putInt("${player1Name}_played_pip", player1Stats.playedPip)
+                    editor.putInt("${player1Name}_played_parts", player1Stats.playedParts)
+                    
+                    // Player2 istatistiklerini kaydet
+                    editor.putInt("${player2Name}_total_pip", player2Stats.totalPip)
+                    editor.putInt("${player2Name}_total_parts", player2Stats.totalParts)
+                    editor.putInt("${player2Name}_played_pip", player2Stats.playedPip)
+                    editor.putInt("${player2Name}_played_parts", player2Stats.playedParts)
+                    
+                    editor.apply()
+                } catch (e: Exception) {
+                    // Hata durumunda sessizce devam et
+                }
+            }
+
+            // Zarları sıfırla
+            dice1 = 0
+            dice2 = 0
+            dice1State = CheckboxState.CHECKED
+            dice2State = CheckboxState.CHECKED
+            dice1Played = 0
+            dice2Played = 0
+            dice3Played = 0
+            dice4Played = 0
+            
+            // Sırayı değiştir
+            currentPlayer = if (currentPlayer == 1) 2 else 1
+            
+            // Karşı tarafın state'ini WAIT_DICE yap
+            if (currentPlayer == 1) {
+                player1DiceState = "WAIT_DICE"
+                player1MoveTime = moveTimeDelay
+            } else {
+                player2DiceState = "WAIT_DICE"
+                player2MoveTime = moveTimeDelay
+            }
+            
+            // Kısa bir gecikme sonrası karşı tarafın zarını at ve timer başlat
+            delay(300)
+            rollGameDice()
+        }
+    }
+    
+    // === YENİ: İKİ BUTON MODU - SADECE SÜRE DURDUR ===
+    fun handleTimerPauseAction() {
+        if (!useTimer || useSingleButtonForTimerAndDice) return
+        
+        CoroutineScope(Dispatchers.Main).launch {
+            // Süre durdur
+            timerRunning = false
+            
+            // Sırayı değiştir
+            currentPlayer = if (currentPlayer == 1) 2 else 1
+            
+            // Karşı tarafın state'ini WAIT_DICE yap ve timer başlat
+            if (currentPlayer == 1) {
+                player1DiceState = "WAIT_DICE"
+                player1MoveTime = moveTimeDelay
+            } else {
+                player2DiceState = "WAIT_DICE" 
+                player2MoveTime = moveTimeDelay
+            }
+            
+            // Timer başlat (karşı taraf için)
+            delay(300)
+            timerRunning = true
+        }
+    }
+    
+    // === HAMLE TRACKING FONKSİYONLARI ===
+    fun recordMove(moveDescription: String) {
+        totalMoveCount++
+        playedMoveIndex++
+        
+        val newHistory = moveHistory.toMutableList()
+        newHistory.add("$totalMoveCount. $moveDescription")
+        moveHistory = newHistory
+        
+        // SharedPreferences'a kaydet
+        try {
+            val sharedPrefs = context.getSharedPreferences("tavla_tracking", Context.MODE_PRIVATE)
+            val editor = sharedPrefs.edit()
+            
+            editor.putInt("${matchId}_total_moves", totalMoveCount)
+            editor.putInt("${matchId}_played_moves", playedMoveIndex)
+            
+            val historyJson = moveHistory.joinToString("|")
+            editor.putString("${matchId}_move_history", historyJson)
+            
+            editor.apply()
+        } catch (e: Exception) {
+            // Hata durumunda sessizce devam et
+        }
+    }
+    
+    fun jumpToMove(targetMoveIndex: Int) {
+        if (targetMoveIndex >= 0 && targetMoveIndex <= totalMoveCount) {
+            playedMoveIndex = targetMoveIndex
+            try {
+                val sharedPrefs = context.getSharedPreferences("tavla_tracking", Context.MODE_PRIVATE)
+                val editor = sharedPrefs.edit()
+                editor.putInt("${matchId}_played_moves", playedMoveIndex)
+                editor.apply()
+            } catch (e: Exception) {
+                // Hata durumunda sessizce devam et
+            }
+        }
+    }
+    
+    fun resetToBeginning() {
+        playedMoveIndex = 0
+        try {
+            val sharedPrefs = context.getSharedPreferences("tavla_tracking", Context.MODE_PRIVATE)
+            val editor = sharedPrefs.edit()
+            editor.putInt("${matchId}_played_moves", playedMoveIndex)
+            editor.apply()
+        } catch (e: Exception) {
+            // Hata durumunda sessizce devam et
+        }
+    }
+    
     // === İSTATİSTİK KALICI SAKLAMA ===
     fun saveStatsToStorage() {
         try {
@@ -850,6 +1017,9 @@ fun SimpleIntegratedScreen(
         }
         addUndoAction("$playerName: $combination → $rollSummary")
 
+        // === HAMLE TRACKING GÜNCELLE ===
+        recordMove("$playerName: $combination → $rollSummary")
+
         switchTurn()
     }
     
@@ -874,7 +1044,13 @@ fun SimpleIntegratedScreen(
                     when {
                         gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
                         gamePhase == "playing" && useDiceRoller -> Color(0xFF2E7D32) // Zar atıcı açıksa her zaman yeşil
-                        gamePhase == "playing" && currentPlayer == 1 -> Color(0xFF2E7D32) // Player1 sırasında yeşil
+                        gamePhase == "playing" && currentPlayer == 1 -> {
+                            when (player1DiceState) {
+                                "WAIT_DICE" -> Color(0xFF64B5F6) // Açık mavi - zar atma
+                                "WAIT_MOVE" -> Color(0xFF1976D2) // Koyu mavi - süre durdur
+                                else -> Color(0xFF616161) // Pasif gri
+                            }
+                        }
                         else -> Color(0xFF616161) // Pasif gri
                     }
                 )
@@ -882,28 +1058,34 @@ fun SimpleIntegratedScreen(
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(1)
                         "playing" -> {
-                            // useDiceRoller=true ise herkes kendi zarını atabilir
-                            if (useDiceRoller || currentPlayer == 1) {
-                                when (player1DiceState) {
-                                    "WAIT_DICE" -> {
-                                        // Sadece Player 1 sırasında zar at
-                                        if (currentPlayer == 1) {
-                                            rollGameDice()
+                            if (currentPlayer == 1) {
+                                when {
+                                    // SENARYO 1: Tek buton modu (saat + tek buton aktif)
+                                    useTimer && useSingleButtonForTimerAndDice -> {
+                                        when (player1DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> handleSingleButtonAction(1) // Süre durdur + karşı taraf zar at
                                         }
                                     }
-                                    "WAIT_MOVE" -> {
-                                        // Hamle yapıldı, sırayı değiştir
-                                        if (currentPlayer == 1) {
-                                            switchTurn()
-                                            // Eğer autoRollOpponent aktifse karşı tarafın zarını at
-                                            if (autoRollOpponent && useTimer) {
-                                                CoroutineScope(Dispatchers.Main).launch {
-                                                    delay(500) // Kısa bir gecikme
-                                                    if (currentPlayer == 2 && player2DiceState == "WAIT_DICE") {
-                                                        rollGameDice()
-                                                    }
-                                                }
-                                            }
+                                    // SENARYO 2: İki buton modu (saat aktif, tek buton pasif)
+                                    useTimer && !useSingleButtonForTimerAndDice -> {
+                                        when (player1DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> handleTimerPauseAction() // Sadece süre durdur
+                                        }
+                                    }
+                                    // SENARYO 3: Sadece zar atma modu (saat pasif)
+                                    !useTimer -> {
+                                        when (player1DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
+                                        }
+                                    }
+                                    // useDiceRoller=true ise herkes kendi zarını atabilir
+                                    useDiceRoller -> {
+                                        when (player1DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> switchTurn()
                                         }
                                     }
                                 }
@@ -919,7 +1101,12 @@ fun SimpleIntegratedScreen(
                     if (currentPlayer == 1) {
                         when (player1DiceState) {
                             "WAIT_DICE" -> "ZAR AT"
-                            "WAIT_MOVE" -> if (useTimer) "SÜRE" else "HAMLEYİ TAMAMLA"
+                            "WAIT_MOVE" -> when {
+                                useTimer && useSingleButtonForTimerAndDice -> "ZAR+SÜRE"
+                                useTimer && !useSingleButtonForTimerAndDice -> "SÜRE"
+                                !useTimer -> "HAMLEYİ TAMAMLA"
+                                else -> "SÜRE"
+                            }
                             else -> "-"
                         }
                     } else {
@@ -1214,7 +1401,13 @@ fun SimpleIntegratedScreen(
                     when {
                         gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
                         gamePhase == "playing" && useDiceRoller -> Color(0xFF2E7D32) // Zar atıcı açıksa her zaman yeşil
-                        gamePhase == "playing" && currentPlayer == 2 -> Color(0xFF2E7D32) // Player2 sırasında yeşil
+                        gamePhase == "playing" && currentPlayer == 2 -> {
+                            when (player2DiceState) {
+                                "WAIT_DICE" -> Color(0xFFEF5350) // Açık kırmızı - zar atma
+                                "WAIT_MOVE" -> Color(0xFFB71C1C) // Koyu kırmızı - süre durdur
+                                else -> Color(0xFF616161) // Pasif gri
+                            }
+                        }
                         else -> Color(0xFF616161) // Pasif gri
                     }
                 )
@@ -1222,28 +1415,34 @@ fun SimpleIntegratedScreen(
                     when (gamePhase) {
                         "opening_single" -> rollOpeningDice(2)
                         "playing" -> {
-                            // useDiceRoller=true ise herkes kendi zarını atabilir
-                            if (useDiceRoller || currentPlayer == 2) {
-                                when (player2DiceState) {
-                                    "WAIT_DICE" -> {
-                                        // Sadece Player 2 sırasında zar at
-                                        if (currentPlayer == 2) {
-                                            rollGameDice()
+                            if (currentPlayer == 2) {
+                                when {
+                                    // SENARYO 1: Tek buton modu (saat + tek buton aktif)
+                                    useTimer && useSingleButtonForTimerAndDice -> {
+                                        when (player2DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> handleSingleButtonAction(2) // Süre durdur + karşı taraf zar at
                                         }
                                     }
-                                    "WAIT_MOVE" -> {
-                                        // Hamle yapıldı, sırayı değiştir
-                                        if (currentPlayer == 2) {
-                                            switchTurn()
-                                            // Eğer autoRollOpponent aktifse karşı tarafın zarını at
-                                            if (autoRollOpponent && useTimer) {
-                                                CoroutineScope(Dispatchers.Main).launch {
-                                                    delay(500) // Kısa bir gecikme
-                                                    if (currentPlayer == 1 && player1DiceState == "WAIT_DICE") {
-                                                        rollGameDice()
-                                                    }
-                                                }
-                                            }
+                                    // SENARYO 2: İki buton modu (saat aktif, tek buton pasif)
+                                    useTimer && !useSingleButtonForTimerAndDice -> {
+                                        when (player2DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> handleTimerPauseAction() // Sadece süre durdur
+                                        }
+                                    }
+                                    // SENARYO 3: Sadece zar atma modu (saat pasif)
+                                    !useTimer -> {
+                                        when (player2DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
+                                        }
+                                    }
+                                    // useDiceRoller=true ise herkes kendi zarını atabilir
+                                    useDiceRoller -> {
+                                        when (player2DiceState) {
+                                            "WAIT_DICE" -> rollGameDice()
+                                            "WAIT_MOVE" -> switchTurn()
                                         }
                                     }
                                 }
@@ -1259,7 +1458,12 @@ fun SimpleIntegratedScreen(
                     if (currentPlayer == 2) {
                         when (player2DiceState) {
                             "WAIT_DICE" -> "ZAR AT"
-                            "WAIT_MOVE" -> if (useTimer) "SÜRE" else "HAMLEYİ TAMAMLA"
+                            "WAIT_MOVE" -> when {
+                                useTimer && useSingleButtonForTimerAndDice -> "ZAR+SÜRE"
+                                useTimer && !useSingleButtonForTimerAndDice -> "SÜRE"
+                                !useTimer -> "HAMLEYİ TAMAMLA"
+                                else -> "SÜRE"
+                            }
                             else -> "-"
                         }
                     } else {

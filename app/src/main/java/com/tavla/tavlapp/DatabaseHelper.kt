@@ -2319,10 +2319,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     id = originalDiceSet.id,
                     partyId = originalDiceSet.partyId,
                     setIndex = originalDiceSet.setIndex,
-                    // Başlangıç zarlarını ters çevir (Player 1 ↔ Player 2)
+                    // ✅ SADECE ZAR SEKVENSLERİNİ DEĞİŞTİR - Oyuncu pozisyonları aynı kalır
+                    // İlk partide Player1'e gelen zarlar → Rövanş partisinde Player2'ye gider
                     startingDicePlayer1 = originalDiceSet.startingDicePlayer2,
                     startingDicePlayer2 = originalDiceSet.startingDicePlayer1,
-                    // Oyuncu zarlarını ters çevir (Player 1 ↔ Player 2)
+                    // Player1 aynı pozisyonda kalır ama Player2'nin zarlarını alır
                     player1Dice = originalDiceSet.player2Dice,
                     player2Dice = originalDiceSet.player1Dice
                 )
@@ -2927,6 +2928,20 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             round1CubeUsedCount = round1CubeUsedCount,
             round2CubeUsedCount = round2CubeUsedCount
         )
+    }
+
+    // ✅ Tüm partilerin karşılaştırma verilerini getir
+    fun getAllPartiesComparisonData(encounterId: Long): List<PartyComparisonData> {
+        val encounter = getRematchEncounter(encounterId) ?: return emptyList()
+        val allPartiesData = mutableListOf<PartyComparisonData>()
+        
+        // Tüm partiler için (0'dan totalParties-1'e kadar)
+        for (partyIndex in 0 until encounter.totalParties) {
+            val partyData = getPartyComparisonData(encounterId, partyIndex)
+            allPartiesData.add(partyData)
+        }
+        
+        return allPartiesData
     }
 
     fun deleteRematchEncounter(encounterId: Long): Int {
