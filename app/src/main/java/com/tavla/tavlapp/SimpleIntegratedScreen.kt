@@ -38,6 +38,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
 
 // Gelişmiş İstatistik veri sınıfları
 enum class CheckboxState { CHECKED, UNCHECKED, SQUARE }
@@ -209,7 +210,7 @@ fun SimpleIntegratedScreen(
 ) {
     val context = LocalContext.current
 
-    var gamePhase by remember { mutableStateOf("opening_single") }
+    var gamePhase by remember { mutableStateOf("waiting_opening_dice") }
     var currentPlayer by remember { mutableIntStateOf(0) }
     var winner by remember { mutableIntStateOf(0) }
 
@@ -336,6 +337,7 @@ fun SimpleIntegratedScreen(
     fun resetOpening() {
         player1OpeningDice = 0
         player2OpeningDice = 0
+        gamePhase = "waiting_opening_dice"
     }
     
     // === OYUNA BAŞLA ===
@@ -425,90 +427,103 @@ fun SimpleIntegratedScreen(
                                 resetOpening()
                             }
                             player1OpeningDice > player2OpeningDice -> {
-                                // Player1 büyük attı, açılış zarlarıyla başlar
+                                // Player1 büyük attı, Player1'in zar atmasını bekle
                                 winner = 1
                                 currentPlayer = 1
-
-                                // Açılış zarları kombinasyon olarak ayarla
-                                dice1 = player1OpeningDice
-                                dice2 = player2OpeningDice
-                                dice1Original = player1OpeningDice
-                                dice2Original = player2OpeningDice
-                                dice1Played = player1OpeningDice
-                                dice2Played = player2OpeningDice
-                                dice1State = CheckboxState.CHECKED
-                                dice2State = CheckboxState.CHECKED
-                                isDouble = false
-
-                                // State'i direkt WAIT_MOVE yap (zar zaten atılmış)
-                                player1DiceState = "WAIT_MOVE"
-                                player2DiceState = "WAIT_DICE"
-
-                                // İstatistik kaydı - açılış zarı Player1'in ilk zarı olarak kaydedilecek
-                                if (keepStatistics) {
-                                    val combination = buildCombinationString(listOf(player1OpeningDice, player2OpeningDice))
-                                    player1Stats.recordRoll(
-                                        combination,
-                                        listOf(player1OpeningDice, player2OpeningDice),
-                                        listOf(player1OpeningDice, player2OpeningDice),
-                                        listOf(CheckboxState.CHECKED, CheckboxState.CHECKED)
-                                    )
-                                    // İstatistikleri kaydet
-                                    try {
-                                        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
-                                        val editor = sharedPrefs.edit()
-                                        editor.putInt("${player1Name}_total_pip", player1Stats.totalPip)
-                                        editor.putInt("${player1Name}_total_parts", player1Stats.totalParts)
-                                        editor.apply()
-                                    } catch (e: Exception) { }
-                                }
-
-                                startPlaying()
+                                gamePhase = "waiting_first_roll_player1"
                             }
                             else -> {
-                                // Player2 büyük attı, açılış zarlarıyla başlar
+                                // Player2 büyük attı, Player2'nin zar atmasını bekle
                                 winner = 2
                                 currentPlayer = 2
-
-                                // Açılış zarları kombinasyon olarak ayarla
-                                dice1 = player1OpeningDice
-                                dice2 = player2OpeningDice
-                                dice1Original = player1OpeningDice
-                                dice2Original = player2OpeningDice
-                                dice1Played = player1OpeningDice
-                                dice2Played = player2OpeningDice
-                                dice1State = CheckboxState.CHECKED
-                                dice2State = CheckboxState.CHECKED
-                                isDouble = false
-
-                                // State'i direkt WAIT_MOVE yap (zar zaten atılmış)
-                                player1DiceState = "WAIT_DICE"
-                                player2DiceState = "WAIT_MOVE"
-
-                                // İstatistik kaydı - açılış zarı Player2'nin ilk zarı olarak kaydedilecek
-                                if (keepStatistics) {
-                                    val combination = buildCombinationString(listOf(player1OpeningDice, player2OpeningDice))
-                                    player2Stats.recordRoll(
-                                        combination,
-                                        listOf(player1OpeningDice, player2OpeningDice),
-                                        listOf(player1OpeningDice, player2OpeningDice),
-                                        listOf(CheckboxState.CHECKED, CheckboxState.CHECKED)
-                                    )
-                                    // İstatistikleri kaydet
-                                    try {
-                                        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
-                                        val editor = sharedPrefs.edit()
-                                        editor.putInt("${player2Name}_total_pip", player2Stats.totalPip)
-                                        editor.putInt("${player2Name}_total_parts", player2Stats.totalParts)
-                                        editor.apply()
-                                    } catch (e: Exception) { }
-                                }
-
-                                startPlaying()
+                                gamePhase = "waiting_first_roll_player2"
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    // === İLK HAMLE ZARINI AT ===
+    fun rollFirstMove(player: Int) {
+        if (gamePhase == "waiting_first_roll_player1" && player == 1) {
+            // Player1 büyük atmıştı, şimdi ilk hamleyi açılış zarlarıyla oynar
+            CoroutineScope(Dispatchers.Main).launch {
+                // Açılış zarları kombinasyon olarak ayarla
+                dice1 = player1OpeningDice
+                dice2 = player2OpeningDice
+                dice1Original = player1OpeningDice
+                dice2Original = player2OpeningDice
+                dice1Played = player1OpeningDice
+                dice2Played = player2OpeningDice
+                dice1State = CheckboxState.CHECKED
+                dice2State = CheckboxState.CHECKED
+                isDouble = false
+
+                // State'i WAIT_MOVE yap (zar zaten atılmış)
+                player1DiceState = "WAIT_MOVE"
+                player2DiceState = "WAIT_DICE"
+
+                // İstatistik kaydı - açılış zarı Player1'in ilk zarı olarak kaydedilecek
+                if (keepStatistics) {
+                    val combination = buildCombinationString(listOf(player1OpeningDice, player2OpeningDice))
+                    player1Stats.recordRoll(
+                        combination,
+                        listOf(player1OpeningDice, player2OpeningDice),
+                        listOf(player1OpeningDice, player2OpeningDice),
+                        listOf(CheckboxState.CHECKED, CheckboxState.CHECKED)
+                    )
+                    // İstatistikleri kaydet
+                    try {
+                        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+                        val editor = sharedPrefs.edit()
+                        editor.putInt("${player1Name}_total_pip", player1Stats.totalPip)
+                        editor.putInt("${player1Name}_total_parts", player1Stats.totalParts)
+                        editor.apply()
+                    } catch (e: Exception) { }
+                }
+
+                startPlaying()
+            }
+        } else if (gamePhase == "waiting_first_roll_player2" && player == 2) {
+            // Player2 büyük atmıştı, şimdi ilk hamleyi açılış zarlarıyla oynar
+            CoroutineScope(Dispatchers.Main).launch {
+                // Açılış zarları kombinasyon olarak ayarla
+                dice1 = player1OpeningDice
+                dice2 = player2OpeningDice
+                dice1Original = player1OpeningDice
+                dice2Original = player2OpeningDice
+                dice1Played = player1OpeningDice
+                dice2Played = player2OpeningDice
+                dice1State = CheckboxState.CHECKED
+                dice2State = CheckboxState.CHECKED
+                isDouble = false
+
+                // State'i WAIT_MOVE yap (zar zaten atılmış)
+                player1DiceState = "WAIT_DICE"
+                player2DiceState = "WAIT_MOVE"
+
+                // İstatistik kaydı - açılış zarı Player2'nin ilk zarı olarak kaydedilecek
+                if (keepStatistics) {
+                    val combination = buildCombinationString(listOf(player1OpeningDice, player2OpeningDice))
+                    player2Stats.recordRoll(
+                        combination,
+                        listOf(player1OpeningDice, player2OpeningDice),
+                        listOf(player1OpeningDice, player2OpeningDice),
+                        listOf(CheckboxState.CHECKED, CheckboxState.CHECKED)
+                    )
+                    // İstatistikleri kaydet
+                    try {
+                        val sharedPrefs = context.getSharedPreferences("tavla_stats", Context.MODE_PRIVATE)
+                        val editor = sharedPrefs.edit()
+                        editor.putInt("${player2Name}_total_pip", player2Stats.totalPip)
+                        editor.putInt("${player2Name}_total_parts", player2Stats.totalParts)
+                        editor.apply()
+                    } catch (e: Exception) { }
+                }
+
+                startPlaying()
             }
         }
     }
@@ -544,8 +559,40 @@ fun SimpleIntegratedScreen(
         }
     }
 
-    // === TEK ZAR ATMA FONKSİYONU (Açılış) - ELEME SİSTEMİ ===
-    fun rollOpeningDice(player: Int) {
+    // === AÇILIŞ ZAR ATMA FONKSİYONU - HER İKİ OYUNCU ===
+    fun rollOpeningDice() {
+        if (gamePhase != "waiting_opening_dice") return
+        
+        CoroutineScope(Dispatchers.Main).launch {
+            gamePhase = "rolling_opening"
+            isRollingOpening1 = true
+            isRollingOpening2 = true
+            
+            // Ses efekti
+            try {
+                val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                toneGenerator.release()
+            } catch (e: Exception) { }
+            
+            // Her iki zarı da sırayla at (basit versiyon)
+            delay(1000)
+            player1OpeningDice = (1..6).random()
+            
+            delay(200)
+            player2OpeningDice = (1..6).random()
+            
+            delay(300)
+            isRollingOpening1 = false
+            isRollingOpening2 = false
+            
+            // Sonucu kontrol et
+            checkOpeningResult()
+        }
+    }
+    
+    // === TEK OYUNCU ZAR ATMA FONKSİYONU (Eski sistem) ===
+    fun rollOpeningDiceSingle(player: Int) {
         val isCurrentlyRolling = if (player == 1) isRollingOpening1 else isRollingOpening2
         
         if (!isCurrentlyRolling) {
@@ -1042,7 +1089,10 @@ fun SimpleIntegratedScreen(
                 .fillMaxHeight()
                 .background(
                     when {
-                        gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
+                        gamePhase == "waiting_opening_dice" -> Color(0xFF2E7D32) // ZARLAR butonu yeşil
+                        gamePhase == "rolling_opening" -> Color(0xFFFFB300) // Zarlar atılırken turuncu
+                        gamePhase == "waiting_first_roll_player1" && currentPlayer == 1 -> Color(0xFF64B5F6) // Player1 ilk zar atışını bekliyor
+                        gamePhase == "waiting_first_roll_player2" && currentPlayer == 1 -> Color(0xFF616161) // Player2 kazandı, Player1 pasif
                         gamePhase == "playing" && useDiceRoller -> Color(0xFF2E7D32) // Zar atıcı açıksa her zaman yeşil
                         gamePhase == "playing" && currentPlayer == 1 -> {
                             when (player1DiceState) {
@@ -1054,9 +1104,14 @@ fun SimpleIntegratedScreen(
                         else -> Color(0xFF616161) // Pasif gri
                     }
                 )
-                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && (useDiceRoller || currentPlayer == 1))) {
+                .clickable(enabled = 
+                    gamePhase == "waiting_opening_dice" || 
+                    (gamePhase == "waiting_first_roll_player1" && currentPlayer == 1) ||
+                    (gamePhase == "playing" && (useDiceRoller || currentPlayer == 1))
+                ) {
                     when (gamePhase) {
-                        "opening_single" -> rollOpeningDice(1)
+                        "waiting_opening_dice" -> rollOpeningDice()
+                        "waiting_first_roll_player1" -> rollFirstMove(1)
                         "playing" -> {
                             if (currentPlayer == 1) {
                                 when {
@@ -1096,7 +1151,10 @@ fun SimpleIntegratedScreen(
             contentAlignment = Alignment.Center
         ) {
             val buttonText = when (gamePhase) {
-                "opening_single" -> "ZAR AT"
+                "waiting_opening_dice" -> "ZARLAR"
+                "rolling_opening" -> "..."
+                "waiting_first_roll_player1" -> if (currentPlayer == 1) "İLK HAMLE" else ""
+                "waiting_first_roll_player2" -> ""
                 "playing" -> {
                     if (currentPlayer == 1) {
                         when (player1DiceState) {
@@ -1134,14 +1192,22 @@ fun SimpleIntegratedScreen(
                 .fillMaxHeight()
                 .background(
                     when (gamePhase) {
-                        "opening_single" -> Color(0xFFB3E5FC) // Açık mavi
+                        "waiting_opening_dice" -> Color(0xFFB3E5FC) // Açık mavi
+                        "rolling_opening" -> Color(0xFFB3E5FC) // Açık mavi
+                        "waiting_first_roll_player1" -> if (currentPlayer == 1) Color(0xFF000000) else Color(0xFF808080)
+                        "waiting_first_roll_player2" -> Color(0xFF808080)
                         "playing" -> if (currentPlayer == 1) Color(0xFF000000) else Color(0xFF808080)
                         else -> Color(0xFF808080)
                     }
                 )
-                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && useDiceRoller && !useTimer)) {
+                .clickable(enabled = 
+                    gamePhase == "waiting_opening_dice" || 
+                    (gamePhase == "waiting_first_roll_player1" && currentPlayer == 1) ||
+                    (gamePhase == "playing" && useDiceRoller && !useTimer)
+                ) {
                     when (gamePhase) {
-                        "opening_single" -> rollOpeningDice(1)
+                        "waiting_opening_dice" -> rollOpeningDice()
+                        "waiting_first_roll_player1" -> rollFirstMove(1)
                         "playing" -> {
                             if (useDiceRoller && !useTimer && currentPlayer == 1) {
                                 when (player1DiceState) {
@@ -1276,14 +1342,22 @@ fun SimpleIntegratedScreen(
                 .fillMaxHeight()
                 .background(
                     when (gamePhase) {
-                        "opening_single" -> Color(0xFFFFCDD2) // Açık kırmızı
+                        "waiting_opening_dice" -> Color(0xFFFFCDD2) // Açık kırmızı
+                        "rolling_opening" -> Color(0xFFFFCDD2) // Açık kırmızı
+                        "waiting_first_roll_player1" -> Color(0xFF808080)
+                        "waiting_first_roll_player2" -> if (currentPlayer == 2) Color(0xFF000000) else Color(0xFF808080)
                         "playing" -> if (currentPlayer == 2) Color(0xFF000000) else Color(0xFF808080)
                         else -> Color(0xFF808080)
                     }
                 )
-                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && useDiceRoller && !useTimer)) {
+                .clickable(enabled = 
+                    gamePhase == "waiting_opening_dice" || 
+                    (gamePhase == "waiting_first_roll_player2" && currentPlayer == 2) ||
+                    (gamePhase == "playing" && useDiceRoller && !useTimer)
+                ) {
                     when (gamePhase) {
-                        "opening_single" -> rollOpeningDice(2)
+                        "waiting_opening_dice" -> rollOpeningDice()
+                        "waiting_first_roll_player2" -> rollFirstMove(2)
                         "playing" -> {
                             if (useDiceRoller && !useTimer && currentPlayer == 2) {
                                 when (player2DiceState) {
@@ -1399,7 +1473,10 @@ fun SimpleIntegratedScreen(
                 .fillMaxHeight()
                 .background(
                     when {
-                        gamePhase == "opening_single" -> Color(0xFF2E7D32) // Açılışta her zaman yeşil
+                        gamePhase == "waiting_opening_dice" -> Color(0xFF2E7D32) // ZARLAR butonu yeşil
+                        gamePhase == "rolling_opening" -> Color(0xFFFFB300) // Zarlar atılırken turuncu
+                        gamePhase == "waiting_first_roll_player1" && currentPlayer == 2 -> Color(0xFF616161) // Player1 kazandı, Player2 pasif
+                        gamePhase == "waiting_first_roll_player2" && currentPlayer == 2 -> Color(0xFFEF5350) // Player2 ilk zar atışını bekliyor
                         gamePhase == "playing" && useDiceRoller -> Color(0xFF2E7D32) // Zar atıcı açıksa her zaman yeşil
                         gamePhase == "playing" && currentPlayer == 2 -> {
                             when (player2DiceState) {
@@ -1411,9 +1488,14 @@ fun SimpleIntegratedScreen(
                         else -> Color(0xFF616161) // Pasif gri
                     }
                 )
-                .clickable(enabled = gamePhase == "opening_single" || (gamePhase == "playing" && (useDiceRoller || currentPlayer == 2))) {
+                .clickable(enabled = 
+                    gamePhase == "waiting_opening_dice" || 
+                    (gamePhase == "waiting_first_roll_player2" && currentPlayer == 2) ||
+                    (gamePhase == "playing" && (useDiceRoller || currentPlayer == 2))
+                ) {
                     when (gamePhase) {
-                        "opening_single" -> rollOpeningDice(2)
+                        "waiting_opening_dice" -> rollOpeningDice()
+                        "waiting_first_roll_player2" -> rollFirstMove(2)
                         "playing" -> {
                             if (currentPlayer == 2) {
                                 when {
@@ -1453,7 +1535,10 @@ fun SimpleIntegratedScreen(
             contentAlignment = Alignment.Center
         ) {
             val buttonText = when (gamePhase) {
-                "opening_single" -> "ZAR AT"
+                "waiting_opening_dice" -> "ZARLAR"
+                "rolling_opening" -> "..."
+                "waiting_first_roll_player1" -> ""
+                "waiting_first_roll_player2" -> if (currentPlayer == 2) "İLK HAMLE" else ""
                 "playing" -> {
                     if (currentPlayer == 2) {
                         when (player2DiceState) {
