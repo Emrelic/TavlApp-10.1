@@ -71,6 +71,7 @@ class RematchDiceDisplayActivity : ComponentActivity() {
         val resumeGamePhase = intent.getStringExtra("resume_game_phase") ?: ""
 
         // ✅ Saat parametreleri
+        val useSingleButtonForTimerAndDice = intent.getBooleanExtra("use_single_button_for_timer_and_dice", false)
         val useTimer = intent.getBooleanExtra("use_timer", false)
         val timerMode = intent.getStringExtra("timer_mode") ?: "DELAY"
         val reserveTime = intent.getIntExtra("reserve_time", 120)
@@ -116,6 +117,7 @@ class RematchDiceDisplayActivity : ComponentActivity() {
                         resumePlayerTurn = resumePlayerTurn,
                         resumeGamePhase = resumeGamePhase,
                         useTimer = useTimer,
+                        useSingleButtonForTimerAndDice = useSingleButtonForTimerAndDice,
                         timerMode = timerMode,
                         reserveTimeSeconds = reserveTime,
                         delayTimeSeconds = delayTime,
@@ -160,6 +162,7 @@ fun RematchDiceDisplayScreen(
     resumePlayerTurn: Int = 1,
     resumeGamePhase: String = "",
     useTimer: Boolean = false,
+    useSingleButtonForTimerAndDice: Boolean = false,
     timerMode: String = "DELAY",
     reserveTimeSeconds: Int = 120,
     delayTimeSeconds: Int = 12,
@@ -205,22 +208,21 @@ fun RematchDiceDisplayScreen(
     val isReplayMode = replaySetIndex >= 0 && replaySetIndex != currentGameIndex
     val effectiveUseTimer = useTimer && !isReplayMode
 
-    val leftPlayerName: String
-    val rightPlayerName: String
-    val leftPlayerId: Long
-    val rightPlayerId: Long
+    // Oyuncu1 her zaman mantıksal olarak "player1", Oyuncu2 "player2"
+    // Zarlar getDiceSetForGame içinde round'a göre swap edilir
+    // Display swap sadece ekran gösterimini etkiler, zarları ETKİLEMEZ
+    var isDisplaySwapped by remember { mutableStateOf(false) }
 
-    if (currentRound == 1) {
-        leftPlayerName = encounter.value?.player1Name ?: "Oyuncu 1"
-        rightPlayerName = encounter.value?.player2Name ?: "Oyuncu 2"
-        leftPlayerId = encounter.value?.player1Id ?: 0L
-        rightPlayerId = encounter.value?.player2Id ?: 0L
-    } else {
-        leftPlayerName = encounter.value?.player2Name ?: "Oyuncu 2"
-        rightPlayerName = encounter.value?.player1Name ?: "Oyuncu 1"
-        leftPlayerId = encounter.value?.player2Id ?: 0L
-        rightPlayerId = encounter.value?.player1Id ?: 0L
-    }
+    val p1Name = encounter.value?.player1Name ?: "Oyuncu 1"
+    val p2Name = encounter.value?.player2Name ?: "Oyuncu 2"
+    val p1Id = encounter.value?.player1Id ?: 0L
+    val p2Id = encounter.value?.player2Id ?: 0L
+
+    // Display swap: sadece ekranda sol/sağ gösterimi değiştirir
+    val leftPlayerName = if (isDisplaySwapped) p2Name else p1Name
+    val rightPlayerName = if (isDisplaySwapped) p1Name else p2Name
+    val leftPlayerId = if (isDisplaySwapped) p2Id else p1Id
+    val rightPlayerId = if (isDisplaySwapped) p1Id else p2Id
 
     // Zar seti yükle (currentRound ile reverse play, replaySetIndex desteği)
     LaunchedEffect(encounterId, currentPartyIndex, effectiveGameIndex, currentRound) {
@@ -247,7 +249,8 @@ fun RematchDiceDisplayScreen(
             rightMoveIndex = 0
             totalMoveCount = 0
             currentDiceSet?.let { diceSet ->
-                currentPlayerTurn = diceSet.getFirstPlayer()
+                val raw = diceSet.getFirstPlayer()
+                currentPlayerTurn = if (isDisplaySwapped) (3 - raw) else raw
             }
         }
     }
@@ -256,14 +259,26 @@ fun RematchDiceDisplayScreen(
     val partyScores = remember(encounterId, currentPartyIndex, currentRound) {
         dbHelper.getPartyScore(encounterId, currentPartyIndex, currentRound)
     }
-    val leftScore = if (currentRound == 1) partyScores.first else partyScores.second
-    val rightScore = if (currentRound == 1) partyScores.second else partyScores.first
+    // Skorlar: oyuncu hangi tarafa geçtiyse skoru da o tarafa gider
+    val leftScore = if (isDisplaySwapped) partyScores.second else partyScores.first
+    val rightScore = if (isDisplaySwapped) partyScores.first else partyScores.second
 
-    val leftStartingDice = currentDiceSet?.startingDicePlayer1
-    val rightStartingDice = currentDiceSet?.startingDicePlayer2
-    val leftDice = currentDiceSet?.player1Dice
-    val rightDice = currentDiceSet?.player2Dice
-    val firstPlayer = currentDiceSet?.getFirstPlayer() ?: 1
+    // Senaryo 3: Çift buton modu aktif mi?
+    val isDualButtonMode = effectiveUseTimer && !useSingleButtonForTimerAndDice
+    var leftBtnState by remember { mutableStateOf("IDLE") }
+    var rightBtnState by remember { mutableStateOf("IDLE") }
+    var diceRevealed by remember { mutableStateOf(true) }
+
+    // Zarlar: getDiceSetForGame round'a göre zaten swap etmiş durumda
+    // Display swap: oyuncu hangi tarafa geçtiyse zarları da o tarafa gider
+    // Ama Oyuncu1'e gelen zarlar HER ZAMAN player1Dice - sadece hangi butondan geldiği değişir
+    val leftStartingDice = if (isDisplaySwapped) currentDiceSet?.startingDicePlayer2 else currentDiceSet?.startingDicePlayer1
+    val rightStartingDice = if (isDisplaySwapped) currentDiceSet?.startingDicePlayer1 else currentDiceSet?.startingDicePlayer2
+    val leftDice = if (isDisplaySwapped) currentDiceSet?.player2Dice else currentDiceSet?.player1Dice
+    val rightDice = if (isDisplaySwapped) currentDiceSet?.player1Dice else currentDiceSet?.player2Dice
+    // İlk atan: getFirstPlayer()=1 ise P1 başlar. P1 swap ile sağa geçtiyse sağ (2) başlar
+    val rawFirstPlayer = currentDiceSet?.getFirstPlayer() ?: 1
+    val firstPlayer = if (isDisplaySwapped) (3 - rawFirstPlayer) else rawFirstPlayer
 
     val currentDicePair = when (gamePhase) {
         GamePhase.FIRST_MOVE -> {
@@ -272,20 +287,25 @@ fun RematchDiceDisplayScreen(
             if (firstPlayer == 1) Pair(d1, d2) else Pair(d2, d1)
         }
         GamePhase.PLAYING -> {
-            if (currentPlayerTurn == 1) leftDice?.getOrNull(leftMoveIndex)
-            else rightDice?.getOrNull(rightMoveIndex)
+            // Dual modda ZAR_AT basılmadan zar gizli
+            if (isDualButtonMode && !diceRevealed) {
+                null
+            } else {
+                if (currentPlayerTurn == 1) leftDice?.getOrNull(leftMoveIndex)
+                else rightDice?.getOrNull(rightMoveIndex)
+            }
         }
         else -> null
     }
 
-    // ✅ KATLAMA ZARI STATE (sol/sağ bazlı)
-    val leftIsP1 = currentRound == 1
+    // ✅ KATLAMA ZARI STATE - oyuncu hangi tarafa geçtiyse katlama hakkı da o tarafa
+    val leftIsP1 = !isDisplaySwapped
     var cubeValue by remember { mutableIntStateOf(doublingCubeValue) }
     var leftCanDouble by remember { mutableStateOf(
-        if (leftIsP1) player1CanDouble else player2CanDouble
+        if (!isDisplaySwapped) player1CanDouble else player2CanDouble
     )}
     var rightCanDouble by remember { mutableStateOf(
-        if (leftIsP1) player2CanDouble else player1CanDouble
+        if (!isDisplaySwapped) player2CanDouble else player1CanDouble
     )}
     // İptal için önceki durum
     var prevCubeValue by remember { mutableIntStateOf(doublingCubeValue) }
@@ -384,6 +404,17 @@ fun RematchDiceDisplayScreen(
                     leftMoveTimeMs = delayTimeSeconds * 1000L
                     rightMoveTimeMs = delayTimeSeconds * 1000L
                 }
+                // Dual mode: başlangıç zarını gören oyuncu "OYNADIM" modunda
+                if (isDualButtonMode) {
+                    diceRevealed = true
+                    if (firstPlayer == 1) {
+                        leftBtnState = "OYNADIM"
+                        rightBtnState = "SIRA_KARSIDA"
+                    } else {
+                        leftBtnState = "SIRA_KARSIDA"
+                        rightBtnState = "OYNADIM"
+                    }
+                }
             }
             GamePhase.FIRST_MOVE -> {
                 gamePhase = GamePhase.PLAYING
@@ -398,9 +429,19 @@ fun RematchDiceDisplayScreen(
                         if (prevIsLeft) leftReserveMs += maxOf(0, unusedMs)
                         else rightReserveMs += maxOf(0, unusedMs)
                     }
-                    // Önceki oyuncunun süresini sıfırla, yeni oyuncuya delay ver
                     leftMoveTimeMs = delayTimeSeconds * 1000L
                     rightMoveTimeMs = delayTimeSeconds * 1000L
+                }
+                // Dual mode: sıra geçti, yeni oyuncu ZAR_AT bekliyor
+                if (isDualButtonMode) {
+                    diceRevealed = false
+                    if (secondPlayer == 1) {
+                        leftBtnState = "ZAR_AT"
+                        rightBtnState = "SIRA_KARSIDA"
+                    } else {
+                        leftBtnState = "SIRA_KARSIDA"
+                        rightBtnState = "ZAR_AT"
+                    }
                 }
             }
             GamePhase.PLAYING -> {
@@ -416,9 +457,20 @@ fun RematchDiceDisplayScreen(
                         if (prevIsLeft) leftReserveMs += maxOf(0, unusedMs)
                         else rightReserveMs += maxOf(0, unusedMs)
                     }
-                    // Her iki tarafın hamle süresini resetle
                     leftMoveTimeMs = delayTimeSeconds * 1000L
                     rightMoveTimeMs = delayTimeSeconds * 1000L
+                }
+                // Dual mode: OYNADIM → sıra geçti
+                if (isDualButtonMode) {
+                    diceRevealed = false
+                    val newPlayer = currentPlayerTurn
+                    if (newPlayer == 1) {
+                        leftBtnState = "ZAR_AT"
+                        rightBtnState = "SIRA_KARSIDA"
+                    } else {
+                        leftBtnState = "SIRA_KARSIDA"
+                        rightBtnState = "ZAR_AT"
+                    }
                 }
             }
         }
@@ -431,8 +483,14 @@ fun RematchDiceDisplayScreen(
     var wrongTurnPlayerName by remember { mutableStateOf("") }
 
 
+    // Renk tanımları: sabit - sol her zaman mavi, sağ her zaman kırmızı
+    val leftButtonColor = Color(0xFF1565C0)
+    val rightButtonColor = Color(0xFFC62828)
+    val leftScoreColor = Color(0xFF64B5F6)
+    val rightScoreColor = Color(0xFFEF9A9A)
+
     // Sıra renkleri (barlar + arka plan için)
-    val turnColorMain = if (currentPlayerTurn == 1) Color(0xFF1565C0) else Color(0xFFC62828)
+    val turnColorMain = if (currentPlayerTurn == 1) leftButtonColor else rightButtonColor
     val turnColorDark = if (currentPlayerTurn == 1) Color(0xFF0D47A1) else Color(0xFF8E0000)
     val turnBarBrush = Brush.verticalGradient(listOf(turnColorDark.copy(alpha = 0.7f), turnColorDark.copy(alpha = 0.5f)))
 
@@ -442,7 +500,7 @@ fun RematchDiceDisplayScreen(
             .fillMaxSize()
             .background(Color(0xFF1A1A1A))
     ) {
-        // SOL ZAR AT BUTONU (Mavi - Player 1)
+        // SOL ZAR AT BUTONU
         Button(
             onClick = {
                 // ✅ Paused durumda: sırası olan kişi basarsa resume
@@ -455,8 +513,29 @@ fun RematchDiceDisplayScreen(
                 }
                 if (gamePhase == GamePhase.STARTING_DICE) {
                     advanceToNextDice()
-                } else if (currentPlayerTurn == 1) {
-                    advanceToNextDice()
+                } else if (gamePhase == GamePhase.FIRST_MOVE) {
+                    // İlk hamle: sadece başlayan oyuncu basabilir
+                    if (currentPlayerTurn == 1) {
+                        advanceToNextDice()
+                    }
+                } else if (currentPlayerTurn == 1 || (isDualButtonMode && leftBtnState == "OYNADIM")) {
+                    // PLAYING fazı
+                    if (isDualButtonMode) {
+                        when (leftBtnState) {
+                            "ZAR_AT" -> {
+                                // Zarı göster, OYNADIM moduna geç
+                                diceRevealed = true
+                                leftBtnState = "OYNADIM"
+                            }
+                            "OYNADIM" -> {
+                                // Sıra geçir + süre değiştir
+                                advanceToNextDice()
+                            }
+                        }
+                        // SIRA_KARSIDA durumunda basışı yok say
+                    } else {
+                        advanceToNextDice()
+                    }
                 } else {
                     // Yanlış kişi bastı - timer otomatik dur
                     if (effectiveUseTimer) timerRunning = false
@@ -466,8 +545,8 @@ fun RematchDiceDisplayScreen(
             },
             enabled = nextDiceEnabled,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1565C0),
-                disabledContainerColor = Color(0xFF1565C0).copy(alpha = 0.4f)
+                containerColor = leftButtonColor,
+                disabledContainerColor = leftButtonColor.copy(alpha = 0.4f)
             ),
             shape = RoundedCornerShape(0.dp),
             modifier = Modifier.fillMaxHeight().width(64.dp),
@@ -495,10 +574,16 @@ fun RematchDiceDisplayScreen(
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
-                // ZAR AT yazısı (orijinal)
+                // Buton yazısı - senaryoya göre
                 Text(
-                    text = when (gamePhase) {
-                        GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                    text = when {
+                        gamePhase == GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        isDualButtonMode && gamePhase == GamePhase.PLAYING -> when (leftBtnState) {
+                            "ZAR_AT" -> "Z\nA\nR\n\nA\nT"
+                            "OYNADIM" -> "O\nY\nN\nA\nD\nI\nM"
+                            "SIRA_KARSIDA" -> "S\nI\nR\nA\n\nK\nR\nŞ"
+                            else -> "Z\nA\nR\n\nA\nT"
+                        }
                         else -> "Z\nA\nR\n\nA\nT"
                     },
                     fontWeight = FontWeight.Bold,
@@ -859,6 +944,21 @@ fun RematchDiceDisplayScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
+                                // Ekran yerleşim swap butonu (zarları etkilemez)
+                                Text(
+                                    text = "⇄",
+                                    color = if (isDisplaySwapped) Color(0xFFFF9800) else Color.White.copy(alpha = 0.5f),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.clickable {
+                                        isDisplaySwapped = !isDisplaySwapped
+                                        // Sıra ve move index'leri de çevir
+                                        currentPlayerTurn = 3 - currentPlayerTurn
+                                        val tmpLeft = leftMoveIndex
+                                        leftMoveIndex = rightMoveIndex
+                                        rightMoveIndex = tmpLeft
+                                    }
+                                )
                                 // ✅ DURDURULDU göstergesi
                                 if (effectiveUseTimer && timerPaused) {
                                     Text(
@@ -870,11 +970,10 @@ fun RematchDiceDisplayScreen(
                                 }
                             }
 
-                            // Sol skor (oyuncu 1) - SOL ALT KÖŞE
-                            // Bir rakam genişliği soldan, yarım rakam genişliği alttan uzak
+                            // Sol skor - SOL ALT KÖŞE
                             Text(
                                 text = "$leftScore",
-                                color = Color(0xFF64B5F6),
+                                color = leftScoreColor,
                                 fontSize = 80.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier
@@ -882,10 +981,10 @@ fun RematchDiceDisplayScreen(
                                     .padding(start = 48.dp, bottom = 24.dp)
                             )
 
-                            // Sağ skor (oyuncu 2) - SAĞ ALT KÖŞE
+                            // Sağ skor - SAĞ ALT KÖŞE
                             Text(
                                 text = "$rightScore",
-                                color = Color(0xFFEF9A9A),
+                                color = rightScoreColor,
                                 fontSize = 80.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier
@@ -994,7 +1093,7 @@ fun RematchDiceDisplayScreen(
             }
         }
 
-        // SAĞ ZAR AT BUTONU (Kırmızı - Player 2)
+        // SAĞ ZAR AT BUTONU
         Button(
             onClick = {
                 // ✅ Paused durumda: sırası olan kişi basarsa resume
@@ -1007,10 +1106,25 @@ fun RematchDiceDisplayScreen(
                 }
                 if (gamePhase == GamePhase.STARTING_DICE) {
                     advanceToNextDice()
-                } else if (currentPlayerTurn == 2) {
-                    advanceToNextDice()
+                } else if (gamePhase == GamePhase.FIRST_MOVE) {
+                    if (currentPlayerTurn == 2) {
+                        advanceToNextDice()
+                    }
+                } else if (currentPlayerTurn == 2 || (isDualButtonMode && rightBtnState == "OYNADIM")) {
+                    if (isDualButtonMode) {
+                        when (rightBtnState) {
+                            "ZAR_AT" -> {
+                                diceRevealed = true
+                                rightBtnState = "OYNADIM"
+                            }
+                            "OYNADIM" -> {
+                                advanceToNextDice()
+                            }
+                        }
+                    } else {
+                        advanceToNextDice()
+                    }
                 } else {
-                    // Yanlış kişi bastı - timer otomatik dur
                     if (effectiveUseTimer) timerRunning = false
                     wrongTurnPlayerName = rightPlayerName
                     showWrongTurnDialog = true
@@ -1018,8 +1132,8 @@ fun RematchDiceDisplayScreen(
             },
             enabled = nextDiceEnabled,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFC62828),
-                disabledContainerColor = Color(0xFFC62828).copy(alpha = 0.4f)
+                containerColor = rightButtonColor,
+                disabledContainerColor = rightButtonColor.copy(alpha = 0.4f)
             ),
             shape = RoundedCornerShape(0.dp),
             modifier = Modifier.fillMaxHeight().width(64.dp),
@@ -1047,10 +1161,16 @@ fun RematchDiceDisplayScreen(
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
-                // ZAR AT yazısı (orijinal)
+                // Buton yazısı - senaryoya göre
                 Text(
-                    text = when (gamePhase) {
-                        GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                    text = when {
+                        gamePhase == GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        isDualButtonMode && gamePhase == GamePhase.PLAYING -> when (rightBtnState) {
+                            "ZAR_AT" -> "Z\nA\nR\n\nA\nT"
+                            "OYNADIM" -> "O\nY\nN\nA\nD\nI\nM"
+                            "SIRA_KARSIDA" -> "S\nI\nR\nA\n\nK\nR\nŞ"
+                            else -> "Z\nA\nR\n\nA\nT"
+                        }
                         else -> "Z\nA\nR\n\nA\nT"
                     },
                     fontWeight = FontWeight.Bold,
@@ -1294,7 +1414,9 @@ fun StartingDiceDisplay(
     rightPlayerName: String,
     leftDice: Int?,
     rightDice: Int?,
-    firstPlayer: Int
+    firstPlayer: Int,
+    leftColor: Color = Color(0xFF64B5F6),
+    rightColor: Color = Color(0xFFEF9A9A)
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1304,7 +1426,7 @@ fun StartingDiceDisplay(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.weight(1f).padding(16.dp)
         ) {
-            Text(leftPlayerName, color = Color(0xFF64B5F6), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text(leftPlayerName, color = leftColor, fontWeight = FontWeight.Bold, fontSize = 24.sp)
             if (firstPlayer == 1) {
                 Text("BA\u015ELIYOR", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
@@ -1318,7 +1440,7 @@ fun StartingDiceDisplay(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.weight(1f).padding(16.dp)
         ) {
-            Text(rightPlayerName, color = Color(0xFFEF9A9A), fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            Text(rightPlayerName, color = rightColor, fontWeight = FontWeight.Bold, fontSize = 24.sp)
             if (firstPlayer == 2) {
                 Text("BA\u015ELIYOR", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
@@ -1498,9 +1620,9 @@ fun GameEndScoringDialog(
                             textAlign = TextAlign.Center,
                             maxLines = 2
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         // Sol taraf butonları (mavi tonları)
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScoringButton(
@@ -1585,9 +1707,9 @@ fun GameEndScoringDialog(
                             textAlign = TextAlign.Center,
                             maxLines = 2
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         // Sağ taraf butonları (kırmızı tonları)
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             ScoringButton(

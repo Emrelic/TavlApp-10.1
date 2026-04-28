@@ -250,17 +250,80 @@ fun RematchComparisonScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize()
         ) {
-            allPartiesData.forEachIndexed { partyIndex, partyData ->
-                val allGameRows = mutableListOf<GameComparisonRow>()
-                allGameRows.addAll(partyData.gameComparisons)
-                
-                items(allGameRows) { gameRow ->
-                    AllPartiesComparisonRow(
-                        partyIndex = partyIndex + 1,
-                        gameRow = gameRow,
-                        encounter = enc,
-                        gameNumber = gameRow.setIndex + 1
-                    )
+            allPartiesData.forEachIndexed { pIdx, partyData ->
+                // Parti başlık satırı
+                item {
+                    val r1Result = partyData.round1PartyResult
+                    val r2Result = partyData.round2PartyResult
+                    val r1Winner = when (r1Result?.winnerId) {
+                        enc.player1Id -> enc.player1Name
+                        enc.player2Id -> enc.player2Name
+                        else -> null
+                    }
+                    val r2Winner = when (r2Result?.winnerId) {
+                        enc.player1Id -> enc.player1Name
+                        enc.player2Id -> enc.player2Name
+                        else -> null
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1A237E))
+                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Parti ${pIdx + 1}",
+                            color = Color(0xFFE8EAF6),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp
+                        )
+                        // Tur 1 sonucu
+                        Text(
+                            text = if (r1Winner != null) "T1: $r1Winner (${r1Result?.player1Score}-${r1Result?.player2Score})" else "T1: --",
+                            color = if (r1Winner != null) Color(0xFF90CAF9) else Color(0xFF616161),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        // Tur 2 sonucu
+                        Text(
+                            text = if (r2Winner != null) "T2: $r2Winner (${r2Result?.player1Score}-${r2Result?.player2Score})" else "T2: --",
+                            color = if (r2Winner != null) Color(0xFFEF9A9A) else Color(0xFF616161),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                if (partyData.gameComparisons.isEmpty()) {
+                    // Henüz oynanmamış parti
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF1A1A1A))
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Henüz oynanmadı",
+                                color = Color(0xFF616161),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                } else {
+                    items(partyData.gameComparisons) { gameRow ->
+                        AllPartiesComparisonRow(
+                            partyIndex = pIdx + 1,
+                            gameRow = gameRow,
+                            encounter = enc,
+                            gameNumber = gameRow.setIndex + 1
+                        )
+                    }
                 }
             }
         }

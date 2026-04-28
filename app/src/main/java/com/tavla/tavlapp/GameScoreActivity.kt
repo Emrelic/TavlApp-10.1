@@ -248,6 +248,9 @@ fun GameScreen(
     var crawfordGamePlayed by remember { mutableStateOf(false) } // Crawford eli daha önce oynanmış mı?
     var isPostCrawford by remember { mutableStateOf(false) } // Post-Crawford durumu mu?
 
+    // Ekran yerleşim swap - sadece gösterimi etkiler, zarları/skoru ETKİLEMEZ
+    var isDisplaySwapped by remember { mutableStateOf(false) }
+
     var showEndMatchConfirmation by remember { mutableStateOf(false) }
     var showActivityLogDialog by remember { mutableStateOf(false) }
     
@@ -821,38 +824,19 @@ fun GameScreen(
         )
 
         val nextPartyIndex = rematchPartyIndex + 1
-        val halfParties = totalParties / 2 // 3 partili sistem için halfParties = 1.5 → 1, ama 6 partili için 3
 
-        if (nextPartyIndex >= totalParties * 2) {
-            // 6 parti bitti (3 normal + 3 rövanş), karşılaşma bitir
+        if (nextPartyIndex >= totalParties && rematchCurrentRound == 2) {
+            // Round 2 bitti, karşılaşma tamamlandı
             dbHelper.completeEncounter(encounterId)
             showEncounterEndDialog = true
         } else if (nextPartyIndex >= totalParties && rematchCurrentRound == 1) {
-            // İlk round bitti (3 parti), Round 2'ye geç ama parti oynanmaya devam
+            // Round 1 bitti, Round 2'ye (rövanş) geç
             dbHelper.completeFirstRound(encounterId)
             dbHelper.advanceToRematchRound(encounterId)
-            rematchCurrentRound = 2
-            rematchPartyIndex = 0  // Rövanş partilerini 0'dan başlat
-            rematchGameIndex = 0
-            
-            partyEndInfo = "İlk Round bitti! Rövanş Round başlıyor (zarlar değişti).\nParti 1 (Rövanş) başlıyor."
-            player1Score = 0
-            player2Score = 0
-            currentRound = 0
-            player1RoundsWon = 0
-            player2RoundsWon = 0
-            rematchUndoStack = emptyList()
+            showRoundEndDialog = true
         } else {
-            // Normal parti geçişi
+            // Normal parti geçişi (aynı round içinde sonraki parti)
             dbHelper.updateEncounterProgress(encounterId, nextPartyIndex, 0)
-
-            // ✅ 6 parti bittiğinde karşılaştırma tablosu göster (4 parti sonunda değil)
-            if (nextPartyIndex >= totalParties * 2) {
-                val intent = Intent(context, RematchComparisonActivity::class.java)
-                intent.putExtra("encounter_id", encounterId)
-                intent.putExtra("party_index", rematchPartyIndex)
-                context.startActivity(intent)
-            }
 
             partyEndInfo = "Parti ${rematchPartyIndex+1}: $partyWinnerName kazandi ($player1Score-$player2Score)\nParti ${nextPartyIndex+1} basliyor."
             player1Score = 0
@@ -886,15 +870,10 @@ fun GameScreen(
         rematchLeftDoublesCount = prefs.getInt("left_doubles_count_${encounterId}", 0)
         rematchRightDoublesCount = prefs.getInt("right_doubles_count_${encounterId}", 0)
 
-        val leftPlayerId: Long
-        val rightPlayerId: Long
-        if (rematchCurrentRound == 1) {
-            leftPlayerId = player1Id
-            rightPlayerId = player2Id
-        } else {
-            leftPlayerId = player2Id
-            rightPlayerId = player1Id
-        }
+        // Oyuncu1 her zaman left, Oyuncu2 her zaman right (mantıksal)
+        // Display swap ekran gösterimini değiştirir ama veri kaydını ETKİLEMEZ
+        val leftPlayerId = player1Id
+        val rightPlayerId = player2Id
 
         val resultId = dbHelper.saveRematchGameResult(
             encounterId = encounterId,
@@ -1293,7 +1272,7 @@ fun GameScreen(
     }
 
 
-    // Renkler
+    // Renkler - swap'dan bağımsız, sol her zaman mavi, sağ her zaman kırmızı
     val blueColor = Color(0xFF2196F3)
     val redColor = Color(0xFFE91E63)
     val purpleColor = Color(0xFF9C27B0) // Mavi ve kırmızının karışımı
@@ -1901,10 +1880,20 @@ fun GameScreen(
         )
     }
 
+    // Display swap: sadece gösterim, veri katmanını ETKİLEMEZ
+    val displayLeftName = if (isDisplaySwapped) player2Name else player1Name
+    val displayRightName = if (isDisplaySwapped) player1Name else player2Name
+    val displayLeftScore = if (isDisplaySwapped) player2Score else player1Score
+    val displayRightScore = if (isDisplaySwapped) player1Score else player2Score
+    val displayLeftRoundsWon = if (isDisplaySwapped) player2RoundsWon else player1RoundsWon
+    val displayRightRoundsWon = if (isDisplaySwapped) player1RoundsWon else player2RoundsWon
+    val displayLeftCanDouble = if (isDisplaySwapped) player2CanDouble else player1CanDouble
+    val displayRightCanDouble = if (isDisplaySwapped) player1CanDouble else player2CanDouble
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Arka plan renk bölümleri (en altta)
         Row(modifier = Modifier.fillMaxSize()) {
-            // Sol mavi bölge
+            // Sol bölge
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -1912,7 +1901,7 @@ fun GameScreen(
                     .background(blueColor)
             )
 
-            // Sağ kırmızı bölge
+            // Sağ bölge
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -1925,7 +1914,7 @@ fun GameScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             // Oyuncu bilgileri (bilgi barı dahil)
             Row(modifier = Modifier.weight(1f)) {
-                // Oyuncu 1 bilgileri
+                // Sol oyuncu bilgileri
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween,
@@ -1968,7 +1957,7 @@ fun GameScreen(
                         }
                         // Oyuncu adı
                         Text(
-                            text = "$player1Name ($player1RoundsWon)",
+                            text = "$displayLeftName ($displayLeftRoundsWon)",
                             color = Color.White,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold
@@ -1976,7 +1965,7 @@ fun GameScreen(
 
                         // Skor
                         Text(
-                            text = player1Score.toString(),
+                            text = displayLeftScore.toString(),
                             color = Color.White,
                             fontSize = if (isTraditionalGame) 100.sp else 72.sp,
                             fontWeight = FontWeight.Bold
@@ -1988,12 +1977,12 @@ fun GameScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Katla butonu - Oyuncu 1 için (sadece Modern tavla, menü kapalıyken)
+                        // Katla butonu - Sol taraftaki oyuncu için (sadece Modern tavla, menü kapalıyken)
                         if (!isTraditionalGame &&
                             !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
-                                    doublingCubePosition == DoublingCubePosition.PLAYER1_CONTROL) &&
-                            player1CanDouble
+                                    doublingCubePosition == (if (isDisplaySwapped) DoublingCubePosition.PLAYER2_CONTROL else DoublingCubePosition.PLAYER1_CONTROL)) &&
+                            displayLeftCanDouble
                         ) {
                             if (isCrawfordGame) {
                                 Button(
@@ -2018,7 +2007,7 @@ fun GameScreen(
                                 }
                             } else {
                                 Button(
-                                    onClick = { player1OfferDouble() },
+                                    onClick = { if (isDisplaySwapped) player2OfferDouble() else player1OfferDouble() },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFFFB300)
@@ -2038,8 +2027,8 @@ fun GameScreen(
                             }
                         }
 
-                        // Katlama menüsü - Oyuncu 1 için (Katla yerine gösterilir)
-                        if (showPlayer1DoublingMenu && isLandscape) {
+                        // Katlama menüsü - Sol taraftaki oyuncu için (Katla yerine gösterilir)
+                        if ((if (isDisplaySwapped) showPlayer2DoublingMenu else showPlayer1DoublingMenu) && isLandscape) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2047,7 +2036,7 @@ fun GameScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Button(
-                                    onClick = { player1AcceptDouble() },
+                                    onClick = { if (isDisplaySwapped) player2AcceptDouble() else player1AcceptDouble() },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF4CAF50)
@@ -2060,7 +2049,7 @@ fun GameScreen(
                                 }
 
                                 Button(
-                                    onClick = { player1Resign() },
+                                    onClick = { if (isDisplaySwapped) player2Resign() else player1Resign() },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFF44336)
@@ -2146,7 +2135,7 @@ fun GameScreen(
                     }
                 }
 
-                // Oyuncu 2 bilgileri
+                // Sağ oyuncu bilgileri
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween,
@@ -2193,7 +2182,7 @@ fun GameScreen(
                         }
                         // Oyuncu adı
                         Text(
-                            text = "$player2Name ($player2RoundsWon)",
+                            text = "$displayRightName ($displayRightRoundsWon)",
                             color = Color.White,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold
@@ -2201,7 +2190,7 @@ fun GameScreen(
 
                         // Skor
                         Text(
-                            text = player2Score.toString(),
+                            text = displayRightScore.toString(),
                             color = Color.White,
                             fontSize = if (isTraditionalGame) 100.sp else 72.sp,
                             fontWeight = FontWeight.Bold
@@ -2213,12 +2202,12 @@ fun GameScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Katla butonu - Oyuncu 2 için (sadece Modern tavla, menü kapalıyken)
+                        // Katla butonu - Sağ taraftaki oyuncu için (sadece Modern tavla, menü kapalıyken)
                         if (!isTraditionalGame &&
                             !showPlayer1DoublingMenu && !showPlayer2DoublingMenu &&
                             (doublingCubePosition == DoublingCubePosition.CENTER ||
-                                    doublingCubePosition == DoublingCubePosition.PLAYER2_CONTROL) &&
-                            player2CanDouble
+                                    doublingCubePosition == (if (isDisplaySwapped) DoublingCubePosition.PLAYER1_CONTROL else DoublingCubePosition.PLAYER2_CONTROL)) &&
+                            displayRightCanDouble
                         ) {
                             if (isCrawfordGame) {
                                 Button(
@@ -2243,7 +2232,7 @@ fun GameScreen(
                                 }
                             } else {
                                 Button(
-                                    onClick = { player2OfferDouble() },
+                                    onClick = { if (isDisplaySwapped) player1OfferDouble() else player2OfferDouble() },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFFFB300)
@@ -2263,8 +2252,8 @@ fun GameScreen(
                             }
                         }
 
-                        // Katlama menüsü - Oyuncu 2 için (Katla yerine gösterilir)
-                        if (showPlayer2DoublingMenu && isLandscape) {
+                        // Katlama menüsü - Sağ taraftaki oyuncu için (Katla yerine gösterilir)
+                        if ((if (isDisplaySwapped) showPlayer1DoublingMenu else showPlayer2DoublingMenu) && isLandscape) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2272,7 +2261,7 @@ fun GameScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Button(
-                                    onClick = { player2AcceptDouble() },
+                                    onClick = { if (isDisplaySwapped) player1AcceptDouble() else player2AcceptDouble() },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF4CAF50)
@@ -2285,7 +2274,7 @@ fun GameScreen(
                                 }
 
                                 Button(
-                                    onClick = { player2Resign() },
+                                    onClick = { if (isDisplaySwapped) player1Resign() else player2Resign() },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFF44336)
@@ -2354,9 +2343,14 @@ fun GameScreen(
                             horizontalArrangement = Arrangement.spacedBy(1.dp), // Kılcal boşluk
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // SOL TARAF - Oyuncu 1 T butonu
+                            // SOL TARAF - T butonu (swap'a göre doğru oyuncuya puan ekler)
+                            val leftId = if (isDisplaySwapped) player2Id else player1Id
+                            val leftName = if (isDisplaySwapped) player2Name else player1Name
+                            val rightId = if (isDisplaySwapped) player1Id else player2Id
+                            val rightName = if (isDisplaySwapped) player1Name else player2Name
+
                             Button(
-                                onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
+                                onClick = { addRound(leftId, leftName, "SINGLE", 1) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
                                 contentPadding = PaddingValues(0.dp),
@@ -2370,9 +2364,9 @@ fun GameScreen(
                                 }
                             }
 
-                            // SOL TARAF - Oyuncu 1 M butonu
+                            // SOL TARAF - M butonu
                             Button(
-                                onClick = { addRound(player1Id, player1Name, "MARS", 2) },
+                                onClick = { addRound(leftId, leftName, "MARS", 2) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
                                 contentPadding = PaddingValues(0.dp),
@@ -2386,9 +2380,9 @@ fun GameScreen(
                                 }
                             }
 
-                            // SAĞ TARAF - Oyuncu 2 T butonu
+                            // SAĞ TARAF - T butonu
                             Button(
-                                onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
+                                onClick = { addRound(rightId, rightName, "SINGLE", 1) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
                                 contentPadding = PaddingValues(0.dp),
@@ -2402,9 +2396,9 @@ fun GameScreen(
                                 }
                             }
 
-                            // SAĞ TARAF - Oyuncu 2 M butonu
+                            // SAĞ TARAF - M butonu
                             Button(
-                                onClick = { addRound(player2Id, player2Name, "MARS", 2) },
+                                onClick = { addRound(rightId, rightName, "MARS", 2) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
                                 contentPadding = PaddingValues(0.dp),
@@ -2434,7 +2428,9 @@ fun GameScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                // Oyuncu 1 - T butonu
+                                val vLeftId = if (isDisplaySwapped) player2Id else player1Id
+                                val vLeftName = if (isDisplaySwapped) player2Name else player1Name
+                                // Sol taraf - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2452,13 +2448,13 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
+                                        onClick = { addRound(vLeftId, vLeftName, "SINGLE", 1) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f) // Eşit ağırlık
+                                            .weight(1f)
                                             .height(60.dp)
                                             .padding(horizontal = 4.dp)
                                     ) {
@@ -2483,7 +2479,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // Oyuncu 1 - M butonu
+                                // Sol taraf - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2501,7 +2497,7 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player1Id, player1Name, "MARS", 2) },
+                                        onClick = { addRound(vLeftId, vLeftName, "MARS", 2) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
@@ -2533,7 +2529,7 @@ fun GameScreen(
                                 }
                             }
 
-                            // SAĞ TARAF (KIRMIZI BÖLGE) BUTONLARI - 2 buton eşit aralıklı
+                            // SAĞ TARAF BUTONLARI - 2 buton eşit aralıklı
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
@@ -2541,7 +2537,9 @@ fun GameScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                // Oyuncu 2 - T butonu
+                                // Sağ taraf - T butonu
+                                val vRightId = if (isDisplaySwapped) player1Id else player2Id
+                                val vRightName = if (isDisplaySwapped) player1Name else player2Name
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2559,13 +2557,13 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
+                                        onClick = { addRound(vRightId, vRightName, "SINGLE", 1) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
                                         ),
                                         modifier = Modifier
-                                            .weight(1f) // Eşit ağırlık
+                                            .weight(1f)
                                             .height(60.dp)
                                             .padding(horizontal = 4.dp)
                                     ) {
@@ -2590,7 +2588,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // Oyuncu 2 - M butonu
+                                // Sağ taraf - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2608,7 +2606,7 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player2Id, player2Name, "MARS", 2) },
+                                        onClick = { addRound(vRightId, vRightName, "MARS", 2) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
@@ -2649,23 +2647,23 @@ fun GameScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(4.dp)
-                                .height(85.dp), // Yükseklik daha basık
+                                .height(85.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Buton renkleri: Sol koyu mavi, sağ koyu kırmızı
-                            val leftButtonColor = Color(0xFF1565C0) // Blue 800 - iki ton koyu mavi
-                            val rightButtonColor = Color(0xFFAD1457) // Pink 800 - iki ton koyu kırmızı
+                            val leftButtonColor = Color(0xFF1565C0)
+                            val rightButtonColor = Color(0xFFAD1457)
+                            val mLeftId = if (isDisplaySwapped) player2Id else player1Id
+                            val mLeftName = if (isDisplaySwapped) player2Name else player1Name
+                            val mRightId = if (isDisplaySwapped) player1Id else player2Id
+                            val mRightName = if (isDisplaySwapped) player1Name else player2Name
 
-                            // SOL TARAF (MAVİ BÖLGE) - T butonu
+                            // SOL TARAF - T butonu
                             Button(
-                                onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
+                                onClick = { addRound(mLeftId, mLeftName, "SINGLE", 1) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(end = 1.dp) // Kılcal boşluk
+                                modifier = Modifier.weight(1f).fillMaxHeight().padding(end = 1.dp)
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("T", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -2675,14 +2673,11 @@ fun GameScreen(
 
                             // SOL TARAF - M butonu
                             Button(
-                                onClick = { addRound(player1Id, player1Name, "MARS", 2) },
+                                onClick = { addRound(mLeftId, mLeftName, "MARS", 2) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                                modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 1.dp)
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("M", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -2692,14 +2687,11 @@ fun GameScreen(
 
                             // SOL TARAF - B butonu
                             Button(
-                                onClick = { addRound(player1Id, player1Name, "BACKGAMMON", 3) },
+                                onClick = { addRound(mLeftId, mLeftName, "BACKGAMMON", 3) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = leftButtonColor),
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                                modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 1.dp)
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("B", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -2707,16 +2699,13 @@ fun GameScreen(
                                 }
                             }
 
-                            // SAĞ TARAF (KIRMIZI BÖLGE) - T butonu
+                            // SAĞ TARAF - T butonu
                             Button(
-                                onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
+                                onClick = { addRound(mRightId, mRightName, "SINGLE", 1) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                                modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 1.dp)
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("T", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -2726,14 +2715,11 @@ fun GameScreen(
 
                             // SAĞ TARAF - M butonu
                             Button(
-                                onClick = { addRound(player2Id, player2Name, "MARS", 2) },
+                                onClick = { addRound(mRightId, mRightName, "MARS", 2) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 1.dp) // Kılcal boşluk
+                                modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 1.dp)
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("M", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -2743,14 +2729,11 @@ fun GameScreen(
 
                             // SAĞ TARAF - B butonu
                             Button(
-                                onClick = { addRound(player2Id, player2Name, "BACKGAMMON", 3) },
+                                onClick = { addRound(mRightId, mRightName, "BACKGAMMON", 3) },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = rightButtonColor),
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(start = 1.dp) // Kılcal boşluk
+                                modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 1.dp)
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("B", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -2773,7 +2756,9 @@ fun GameScreen(
                                     .padding(horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Oyuncu 1 - T butonu
+                                val mvLeftId = if (isDisplaySwapped) player2Id else player1Id
+                                val mvLeftName = if (isDisplaySwapped) player2Name else player1Name
+                                // Sol taraf - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2791,7 +2776,7 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player1Id, player1Name, "SINGLE", 1) },
+                                        onClick = { addRound(mvLeftId, mvLeftName, "SINGLE", 1) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
@@ -2825,7 +2810,7 @@ fun GameScreen(
                                     }
                                 }
 
-                                // Oyuncu 1 - M butonu
+                                // Sol taraf - M butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2843,7 +2828,7 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player1Id, player1Name, "MARS", 2) },
+                                        onClick = { addRound(mvLeftId, mvLeftName, "MARS", 2) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
@@ -2944,7 +2929,9 @@ fun GameScreen(
                                     .padding(horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Oyuncu 2 - T butonu
+                                val mvRightId = if (isDisplaySwapped) player1Id else player2Id
+                                val mvRightName = if (isDisplaySwapped) player1Name else player2Name
+                                // Sağ taraf - T butonu
                                 TooltipBox(
                                     positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
                                     tooltip = {
@@ -2962,7 +2949,7 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player2Id, player2Name, "SINGLE", 1) },
+                                        onClick = { addRound(mvRightId, mvRightName, "SINGLE", 1) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
@@ -3014,7 +3001,7 @@ fun GameScreen(
                                     state = rememberTooltipState(isPersistent = false)
                                 ) {
                                     Button(
-                                        onClick = { addRound(player2Id, player2Name, "MARS", 2) },
+                                        onClick = { addRound(mvRightId, mvRightName, "MARS", 2) },
                                         shape = RoundedCornerShape(4.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White.copy(alpha = 0.3f)
@@ -3541,6 +3528,18 @@ fun GameScreen(
                 }
             }
         }
+
+        // Swap okları - Katlama zarının üstünde (⇆ alt üst)
+        Text(
+            text = "\u21C6",
+            color = if (isDisplaySwapped) Color(0xFFFF9800) else Color.White.copy(alpha = 0.6f),
+            fontSize = 40.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = (-55).dp)
+                .clickable { isDisplaySwapped = !isDisplaySwapped }
+        )
 
         // Katlama Zarı - Sadece Modern tavla için görünür
         if (!isTraditionalGame) {

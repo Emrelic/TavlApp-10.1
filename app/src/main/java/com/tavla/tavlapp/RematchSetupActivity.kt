@@ -15,9 +15,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,6 +83,7 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
 
     // ✅ SAAT AYARLARI
     var useTimer by remember { mutableStateOf(false) }
+    var useSingleButtonForTimerAndDice by remember { mutableStateOf(false) }
     var showTimerSettingsDialog by remember { mutableStateOf(false) }
     var timerMode by remember { mutableStateOf("DELAY") } // DELAY veya FISCHER
     var reserveTimeSeconds by remember { mutableIntStateOf(120) } // Varsayılan 2 dakika
@@ -106,228 +110,285 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
     val actualMatchCount = manualMatchCount.toIntOrNull() ?: selectedMatchCount.toIntOrNull() ?: 100
     val actualTargetScore = selectedTargetScore.toIntOrNull() ?: 11
 
+    val accentColor = Color(0xFF6A1B9A)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .background(Color(0xFF16213E))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Baslik
-        Text(
-            text = "Rovansli Karsilasma",
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 18.sp,
-            color = Color(0xFF6A1B9A)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Rovansli Karsilasma",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 20.sp,
+                color = Color(0xFFCE93D8)
+            )
+            // Ozet bilgi
+            if (selectedPlayer1 != null && selectedPlayer2 != null) {
+                Text(
+                    text = "$actualMatchCount parti | ${actualTargetScore}P",
+                    fontSize = 11.sp,
+                    color = Color(0xFFBFA47A),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
 
-        // Oyuncu secimi
+        // Oyuncu secimi - mavi ve kirmizi kartlarla
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Oyuncu 1
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Oyuncu 1", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Box {
-                    OutlinedTextField(
-                        value = selectedPlayer1?.name ?: "",
-                        onValueChange = { },
-                        modifier = Modifier.fillMaxWidth().height(58.dp),
-                        readOnly = true,
-                        placeholder = { Text("Sec", fontSize = 14.sp) },
-                        trailingIcon = {
-                            IconButton(onClick = { showPlayer1Menu = true }) {
-                                Icon(Icons.Default.ArrowDropDown, "Dropdown")
-                            }
-                        },
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    )
-                    DropdownMenu(
-                        expanded = showPlayer1Menu,
-                        onDismissRequest = { showPlayer1Menu = false }
-                    ) {
-                        playersList.value.forEach { player ->
-                            DropdownMenuItem(
-                                text = { Text(player.name) },
-                                onClick = {
-                                    selectedPlayer1 = player
-                                    showPlayer1Menu = false
+            // Oyuncu 1 - Mavi kart
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1565C0).copy(alpha = 0.3f)),
+                border = BorderStroke(1.dp, Color(0xFF1565C0).copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text("Oyuncu 1", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFF90CAF9))
+                    Box {
+                        OutlinedTextField(
+                            value = selectedPlayer1?.name ?: "",
+                            onValueChange = { },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            readOnly = true,
+                            placeholder = { Text("Sec", fontSize = 13.sp, color = Color.Gray) },
+                            trailingIcon = {
+                                IconButton(onClick = { showPlayer1Menu = true }) {
+                                    Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = Color(0xFF90CAF9))
                                 }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Oyuncu 2
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Oyuncu 2", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Box {
-                    OutlinedTextField(
-                        value = selectedPlayer2?.name ?: "",
-                        onValueChange = { },
-                        modifier = Modifier.fillMaxWidth().height(58.dp),
-                        readOnly = true,
-                        placeholder = { Text("Sec", fontSize = 14.sp) },
-                        trailingIcon = {
-                            IconButton(onClick = { showPlayer2Menu = true }) {
-                                Icon(Icons.Default.ArrowDropDown, "Dropdown")
-                            }
-                        },
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    )
-                    DropdownMenu(
-                        expanded = showPlayer2Menu,
-                        onDismissRequest = { showPlayer2Menu = false }
-                    ) {
-                        playersList.value.forEach { player ->
-                            DropdownMenuItem(
-                                text = { Text(player.name) },
-                                onClick = {
-                                    selectedPlayer2 = player
-                                    showPlayer2Menu = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Ayarlar satirlari
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Sol: Parti Sayisi
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Parti Sayisi", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    matchCountOptions.forEach { count ->
-                        Button(
-                            onClick = {
-                                selectedMatchCount = count
-                                manualMatchCount = ""
                             },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedMatchCount == count && manualMatchCount.isEmpty())
-                                    Color(0xFF6A1B9A) else Color.LightGray
-                            ),
-                            shape = RoundedCornerShape(6.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = count,
-                                color = if (selectedMatchCount == count && manualMatchCount.isEmpty())
-                                    Color.White else Color.Black,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF1565C0),
+                                unfocusedBorderColor = Color(0xFF1565C0).copy(alpha = 0.4f)
                             )
+                        )
+                        DropdownMenu(expanded = showPlayer1Menu, onDismissRequest = { showPlayer1Menu = false }) {
+                            playersList.value.forEach { player ->
+                                DropdownMenuItem(text = { Text(player.name) }, onClick = { selectedPlayer1 = player; showPlayer1Menu = false })
+                            }
                         }
                     }
-                    OutlinedTextField(
-                        value = manualMatchCount,
-                        onValueChange = { newValue ->
-                            if (newValue.isEmpty() || (newValue.all { it.isDigit() } && newValue.length <= 4)) {
-                                manualMatchCount = newValue
-                            }
-                        },
-                        modifier = Modifier.width(70.dp),
-                        placeholder = { Text("Diger", fontSize = 10.sp) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF6A1B9A),
-                            unfocusedBorderColor = if (manualMatchCount.isNotEmpty()) Color(0xFF6A1B9A) else Color.Gray
-                        )
-                    )
                 }
             }
 
-            // Sag: Hedef Puan
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Hedef Puan", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    targetScoreOptions.forEach { score ->
-                        Button(
-                            onClick = { selectedTargetScore = score },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedTargetScore == score)
-                                    Color(0xFF6A1B9A) else Color.LightGray
-                            ),
-                            shape = RoundedCornerShape(6.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = score,
-                                color = if (selectedTargetScore == score)
-                                    Color.White else Color.Black,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
+            // VS
+            Text("VS", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color(0xFF8B7355), modifier = Modifier.align(Alignment.CenterVertically))
+
+            // Oyuncu 2 - Kirmizi kart
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFC62828).copy(alpha = 0.3f)),
+                border = BorderStroke(1.dp, Color(0xFFC62828).copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text("Oyuncu 2", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFEF9A9A))
+                    Box {
+                        OutlinedTextField(
+                            value = selectedPlayer2?.name ?: "",
+                            onValueChange = { },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            readOnly = true,
+                            placeholder = { Text("Sec", fontSize = 13.sp, color = Color.Gray) },
+                            trailingIcon = {
+                                IconButton(onClick = { showPlayer2Menu = true }) {
+                                    Icon(Icons.Default.ArrowDropDown, "Dropdown", tint = Color(0xFFEF9A9A))
+                                }
+                            },
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFC62828),
+                                unfocusedBorderColor = Color(0xFFC62828).copy(alpha = 0.4f)
                             )
+                        )
+                        DropdownMenu(expanded = showPlayer2Menu, onDismissRequest = { showPlayer2Menu = false }) {
+                            playersList.value.forEach { player ->
+                                DropdownMenuItem(text = { Text(player.name) }, onClick = { selectedPlayer2 = player; showPlayer2Menu = false })
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Pip + Saat toggle'ları aynı satırda
+        // Parti Sayisi + Hedef Puan
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Pip sayisi
-            Row(
+            // Parti Sayisi
+            Card(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
             ) {
-                Text("Pip Sayisi", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                Switch(
-                    checked = trackPipCount,
-                    onCheckedChange = { trackPipCount = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF6A1B9A)),
-                    modifier = Modifier.height(28.dp)
-                )
-            }
-
-            // Saat Kullan
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Saat Kullan", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    if (useTimer) {
-                        val modeLabel = if (timerMode == "DELAY") "Delay" else "Fischer"
-                        Text(
-                            text = "$modeLabel ${reserveTimeSeconds}s+${delayTimeSeconds}s",
-                            fontSize = 9.sp,
-                            color = Color(0xFF6A1B9A),
-                            modifier = Modifier.clickable { showTimerSettingsDialog = true }
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text("Parti Sayisi", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFCE93D8))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        matchCountOptions.forEach { count ->
+                            val isSelected = selectedMatchCount == count && manualMatchCount.isEmpty()
+                            Button(
+                                onClick = { selectedMatchCount = count; manualMatchCount = "" },
+                                modifier = Modifier.weight(1f).height(34.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) accentColor else Color(0xFF2A2A4A)
+                                ),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(count, color = if (isSelected) Color.White else Color(0xFF9E9E9E), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                        OutlinedTextField(
+                            value = manualMatchCount,
+                            onValueChange = { newVal: String ->
+                                if (newVal.isEmpty() || (newVal.length <= 4 && newVal.all(Char::isDigit))) {
+                                    manualMatchCount = newVal
+                                }
+                            },
+                            modifier = Modifier.width(55.dp).height(34.dp),
+                            placeholder = { Text("N", fontSize = 10.sp, color = Color.Gray) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = accentColor,
+                                unfocusedBorderColor = if (manualMatchCount.isNotEmpty()) accentColor else Color.Gray.copy(alpha = 0.3f)
+                            )
                         )
                     }
                 }
-                Switch(
-                    checked = useTimer,
-                    onCheckedChange = {
-                        useTimer = it
-                        if (it) showTimerSettingsDialog = true
-                    },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF6A1B9A)),
-                    modifier = Modifier.height(28.dp)
-                )
             }
+
+            // Hedef Puan
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text("Hedef Puan", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFCE93D8))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        targetScoreOptions.forEach { score ->
+                            val isSelected = selectedTargetScore == score
+                            Button(
+                                onClick = { selectedTargetScore = score },
+                                modifier = Modifier.weight(1f).height(34.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) accentColor else Color(0xFF2A2A4A)
+                                ),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(score, color = if (isSelected) Color.White else Color(0xFF9E9E9E), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pip + Saat + Tek Buton
+        var showButtonModeInfo by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Pip
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                border = BorderStroke(1.dp, if (trackPipCount) accentColor else Color.Gray.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Pip", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFCE93D8))
+                    Switch(checked = trackPipCount, onCheckedChange = { trackPipCount = it }, colors = SwitchDefaults.colors(checkedTrackColor = accentColor), modifier = Modifier.height(28.dp))
+                }
+            }
+            // Saat
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = if (useTimer) accentColor.copy(alpha = 0.15f) else Color(0xFF1A1A2E)),
+                border = BorderStroke(1.dp, if (useTimer) accentColor else Color.Gray.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Saat", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFCE93D8))
+                    if (useTimer) {
+                        val ml = if (timerMode == "DELAY") "D" else "F"
+                        Text("$ml ${reserveTimeSeconds}+${delayTimeSeconds}", fontSize = 8.sp, color = accentColor, modifier = Modifier.clickable { showTimerSettingsDialog = true })
+                    }
+                    Switch(checked = useTimer, onCheckedChange = { useTimer = it; if (it) showTimerSettingsDialog = true }, colors = SwitchDefaults.colors(checkedTrackColor = accentColor), modifier = Modifier.height(28.dp))
+                }
+            }
+            // Tek Buton
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A2E)),
+                border = BorderStroke(1.dp, if (useTimer && useSingleButtonForTimerAndDice) accentColor else Color.Gray.copy(alpha = 0.2f))
+            ) {
+                Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Tek\nButon", fontWeight = FontWeight.Bold, fontSize = 10.sp, lineHeight = 12.sp, color = if (useTimer) Color(0xFFCE93D8) else Color.Gray, textAlign = TextAlign.Center)
+                    Switch(checked = useSingleButtonForTimerAndDice, onCheckedChange = { useSingleButtonForTimerAndDice = it; showButtonModeInfo = true }, enabled = useTimer, colors = SwitchDefaults.colors(checkedTrackColor = accentColor), modifier = Modifier.height(28.dp))
+                }
+            }
+        }
+
+        if (showButtonModeInfo) {
+            AlertDialog(
+                onDismissRequest = { showButtonModeInfo = false },
+                title = {
+                    Text(
+                        if (useSingleButtonForTimerAndDice) "Tek Buton Modu" else "Çift Buton Modu",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                },
+                text = {
+                    Text(
+                        if (useSingleButtonForTimerAndDice)
+                            "Tek buton modunda:\n\n" +
+                            "• Butonuna basan oyuncu KARŞI TARAFIN zarını atar\n" +
+                            "• Kendi süresini durdurur\n" +
+                            "• Karşı tarafın süresini başlatır\n" +
+                            "• Sırayı karşı tarafa geçirir\n\n" +
+                            "Oyuncu hamlesini oynadıktan sonra butonuna basar."
+                        else
+                            "Çift buton modunda:\n\n" +
+                            "• Her oyuncu KENDİ zarını atar (ZAR AT)\n" +
+                            "• Hamlesini oynar\n" +
+                            "• OYNADIM butonuna basarak süresini durdurur\n" +
+                            "• Karşı tarafın süresi başlar\n\n" +
+                            "Döngü: SIRA KARŞIDA → ZAR AT → OYNADIM → SIRA KARŞIDA",
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showButtonModeInfo = false }) {
+                        Text("TAMAM", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
         }
 
         // ✅ Saat Ayarları Dialog
@@ -442,23 +503,17 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
         if (isGenerating) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20).copy(alpha = 0.3f))
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF4CAF50),
-                        modifier = Modifier.size(32.dp)
-                    )
+                    CircularProgressIndicator(color = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Zar setleri uretiliyor...",
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Zar setleri uretiliyor...", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -521,6 +576,7 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
                                 intent.putExtra("rounds", actualTargetScore)
                                 // ✅ Saat parametreleri
                                 intent.putExtra("use_timer", useTimer)
+                                intent.putExtra("use_single_button_for_timer_and_dice", useSingleButtonForTimerAndDice)
                                 intent.putExtra("timer_mode", timerMode)
                                 intent.putExtra("reserve_time", reserveTimeSeconds)
                                 intent.putExtra("delay_time", delayTimeSeconds)
@@ -541,16 +597,20 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp),
+                .height(48.dp),
             enabled = !isGenerating && selectedPlayer1 != null && selectedPlayer2 != null,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF4CAF50),
+                disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(0.dp)
         ) {
             Text(
                 text = if (isGenerating) "URETILIYOR..." else "KARSILASMAYA BASLA",
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp,
+                color = Color.White
             )
         }
 
@@ -558,9 +618,11 @@ fun RematchSetupScreen(dbHelper: DatabaseHelper) {
             onClick = { (context as? ComponentActivity)?.finish() },
             modifier = Modifier.fillMaxWidth().height(34.dp),
             enabled = !isGenerating,
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
             contentPadding = PaddingValues(0.dp)
         ) {
-            Text("Iptal", fontSize = 12.sp)
+            Text("Iptal", fontSize = 12.sp, color = Color.Gray)
         }
     }
 }
