@@ -1107,41 +1107,51 @@ fun SimpleIntegratedScreen(
                 .clickable(enabled = 
                     gamePhase == "waiting_opening_dice" || 
                     (gamePhase == "waiting_first_roll_player1" && currentPlayer == 1) ||
-                    (gamePhase == "playing" && (useDiceRoller || currentPlayer == 1))
+                    (gamePhase == "playing" && (useDiceRoller || (!useTimer && !useSingleButtonForTimerAndDice) || currentPlayer == 1))
                 ) {
                     when (gamePhase) {
                         "waiting_opening_dice" -> rollOpeningDice()
                         "waiting_first_roll_player1" -> rollFirstMove(1)
                         "playing" -> {
-                            if (currentPlayer == 1) {
-                                when {
-                                    // SENARYO 1: Tek buton modu (saat + tek buton aktif)
-                                    useTimer && useSingleButtonForTimerAndDice -> {
+                            when {
+                                // SENARYO 1: Tek buton modu (saat + tek buton aktif)
+                                useTimer && useSingleButtonForTimerAndDice -> {
+                                    if (currentPlayer == 1) {
                                         when (player1DiceState) {
                                             "WAIT_DICE" -> rollGameDice()
                                             "WAIT_MOVE" -> handleSingleButtonAction(1) // Süre durdur + karşı taraf zar at
                                         }
                                     }
-                                    // SENARYO 2: İki buton modu (saat aktif, tek buton pasif)
-                                    useTimer && !useSingleButtonForTimerAndDice -> {
+                                }
+                                // SENARYO 2: İki buton modu (saat aktif, tek buton pasif)
+                                useTimer && !useSingleButtonForTimerAndDice -> {
+                                    if (currentPlayer == 1) {
                                         when (player1DiceState) {
                                             "WAIT_DICE" -> rollGameDice()
                                             "WAIT_MOVE" -> handleTimerPauseAction() // Sadece süre durdur
                                         }
                                     }
-                                    // SENARYO 3: Sadece zar atma modu (saat pasif)
-                                    !useTimer -> {
-                                        when (player1DiceState) {
-                                            "WAIT_DICE" -> rollGameDice()
-                                            "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
-                                        }
+                                }
+                                // SENARYO 3: Sadece zar atma modu (saat pasif, tek buton pasif)
+                                !useTimer && !useSingleButtonForTimerAndDice -> {
+                                    // Her iki oyuncu da kendi zarını atabilir
+                                    when (player1DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
                                     }
-                                    // useDiceRoller=true ise herkes kendi zarını atabilir
-                                    useDiceRoller -> {
-                                        when (player1DiceState) {
-                                            "WAIT_DICE" -> rollGameDice()
-                                            "WAIT_MOVE" -> switchTurn()
-                                        }
+                                }
+                                // SENARYO 4: Normal oyun (currentPlayer kontrolü)
+                                currentPlayer == 1 -> {
+                                    when (player1DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
+                                    }
+                                }
+                                // useDiceRoller=true ise herkes kendi zarını atabilir
+                                useDiceRoller -> {
+                                    when (player1DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn()
                                     }
                                 }
                             }
@@ -1203,16 +1213,24 @@ fun SimpleIntegratedScreen(
                 .clickable(enabled = 
                     gamePhase == "waiting_opening_dice" || 
                     (gamePhase == "waiting_first_roll_player1" && currentPlayer == 1) ||
-                    (gamePhase == "playing" && useDiceRoller && !useTimer)
+                    (gamePhase == "playing" && (useDiceRoller && !useTimer || (!useTimer && !useSingleButtonForTimerAndDice && currentPlayer == 1)))
                 ) {
                     when (gamePhase) {
                         "waiting_opening_dice" -> rollOpeningDice()
                         "waiting_first_roll_player1" -> rollFirstMove(1)
                         "playing" -> {
-                            if (useDiceRoller && !useTimer && currentPlayer == 1) {
-                                when (player1DiceState) {
-                                    "WAIT_DICE" -> rollGameDice()
-                                    "WAIT_MOVE" -> switchTurn()
+                            when {
+                                useDiceRoller && !useTimer && currentPlayer == 1 -> {
+                                    when (player1DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn()
+                                    }
+                                }
+                                !useTimer && !useSingleButtonForTimerAndDice && currentPlayer == 1 -> {
+                                    when (player1DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn()
+                                    }
                                 }
                             }
                         }
@@ -1353,16 +1371,24 @@ fun SimpleIntegratedScreen(
                 .clickable(enabled = 
                     gamePhase == "waiting_opening_dice" || 
                     (gamePhase == "waiting_first_roll_player2" && currentPlayer == 2) ||
-                    (gamePhase == "playing" && useDiceRoller && !useTimer)
+                    (gamePhase == "playing" && (useDiceRoller && !useTimer || (!useTimer && !useSingleButtonForTimerAndDice && currentPlayer == 2)))
                 ) {
                     when (gamePhase) {
                         "waiting_opening_dice" -> rollOpeningDice()
                         "waiting_first_roll_player2" -> rollFirstMove(2)
                         "playing" -> {
-                            if (useDiceRoller && !useTimer && currentPlayer == 2) {
-                                when (player2DiceState) {
-                                    "WAIT_DICE" -> rollGameDice()
-                                    "WAIT_MOVE" -> switchTurn()
+                            when {
+                                useDiceRoller && !useTimer && currentPlayer == 2 -> {
+                                    when (player2DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn()
+                                    }
+                                }
+                                !useTimer && !useSingleButtonForTimerAndDice && currentPlayer == 2 -> {
+                                    when (player2DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn()
+                                    }
                                 }
                             }
                         }
@@ -1491,41 +1517,51 @@ fun SimpleIntegratedScreen(
                 .clickable(enabled = 
                     gamePhase == "waiting_opening_dice" || 
                     (gamePhase == "waiting_first_roll_player2" && currentPlayer == 2) ||
-                    (gamePhase == "playing" && (useDiceRoller || currentPlayer == 2))
+                    (gamePhase == "playing" && (useDiceRoller || (!useTimer && !useSingleButtonForTimerAndDice) || currentPlayer == 2))
                 ) {
                     when (gamePhase) {
                         "waiting_opening_dice" -> rollOpeningDice()
                         "waiting_first_roll_player2" -> rollFirstMove(2)
                         "playing" -> {
-                            if (currentPlayer == 2) {
-                                when {
-                                    // SENARYO 1: Tek buton modu (saat + tek buton aktif)
-                                    useTimer && useSingleButtonForTimerAndDice -> {
+                            when {
+                                // SENARYO 1: Tek buton modu (saat + tek buton aktif)
+                                useTimer && useSingleButtonForTimerAndDice -> {
+                                    if (currentPlayer == 2) {
                                         when (player2DiceState) {
                                             "WAIT_DICE" -> rollGameDice()
                                             "WAIT_MOVE" -> handleSingleButtonAction(2) // Süre durdur + karşı taraf zar at
                                         }
                                     }
-                                    // SENARYO 2: İki buton modu (saat aktif, tek buton pasif)
-                                    useTimer && !useSingleButtonForTimerAndDice -> {
+                                }
+                                // SENARYO 2: İki buton modu (saat aktif, tek buton pasif)
+                                useTimer && !useSingleButtonForTimerAndDice -> {
+                                    if (currentPlayer == 2) {
                                         when (player2DiceState) {
                                             "WAIT_DICE" -> rollGameDice()
                                             "WAIT_MOVE" -> handleTimerPauseAction() // Sadece süre durdur
                                         }
                                     }
-                                    // SENARYO 3: Sadece zar atma modu (saat pasif)
-                                    !useTimer -> {
-                                        when (player2DiceState) {
-                                            "WAIT_DICE" -> rollGameDice()
-                                            "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
-                                        }
+                                }
+                                // SENARYO 3: Sadece zar atma modu (saat pasif, tek buton pasif)
+                                !useTimer && !useSingleButtonForTimerAndDice -> {
+                                    // Her iki oyuncu da kendi zarını atabilir
+                                    when (player2DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
                                     }
-                                    // useDiceRoller=true ise herkes kendi zarını atabilir
-                                    useDiceRoller -> {
-                                        when (player2DiceState) {
-                                            "WAIT_DICE" -> rollGameDice()
-                                            "WAIT_MOVE" -> switchTurn()
-                                        }
+                                }
+                                // SENARYO 4: Normal oyun (currentPlayer kontrolü)
+                                currentPlayer == 2 -> {
+                                    when (player2DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn() // Normal sıra değiştir
+                                    }
+                                }
+                                // useDiceRoller=true ise herkes kendi zarını atabilir
+                                useDiceRoller -> {
+                                    when (player2DiceState) {
+                                        "WAIT_DICE" -> rollGameDice()
+                                        "WAIT_MOVE" -> switchTurn()
                                     }
                                 }
                             }
