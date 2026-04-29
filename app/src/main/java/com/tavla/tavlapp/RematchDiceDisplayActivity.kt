@@ -263,8 +263,9 @@ fun RematchDiceDisplayScreen(
     val leftScore = if (isDisplaySwapped) partyScores.second else partyScores.first
     val rightScore = if (isDisplaySwapped) partyScores.first else partyScores.second
 
-    // Senaryo 3: Çift buton modu aktif mi?
-    val isDualButtonMode = effectiveUseTimer && !useSingleButtonForTimerAndDice
+    // Çift buton modu: Tek tuş kullan deaktifse her zaman iki adımlı (ZAR_AT → OYNADIM)
+    // Tek tıklama modu sadece saat VE tek tuş aktifken çalışır
+    val isDualButtonMode = !(effectiveUseTimer && useSingleButtonForTimerAndDice)
     var leftBtnState by remember { mutableStateOf("IDLE") }
     var rightBtnState by remember { mutableStateOf("IDLE") }
     var diceRevealed by remember { mutableStateOf(true) }
