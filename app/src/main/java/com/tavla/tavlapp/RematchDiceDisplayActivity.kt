@@ -180,8 +180,10 @@ fun RematchDiceDisplayScreen(
     var gamePhase by remember { mutableStateOf(GamePhase.STARTING_DICE) }
     var leftMoveIndex by remember { mutableStateOf(0) }
     var rightMoveIndex by remember { mutableStateOf(0) }
+    var bothPlayersHavePlayedFirstMove by remember { mutableStateOf(false) }
     var totalMoveCount by remember { mutableStateOf(0) }
     var currentPlayerTurn by remember { mutableStateOf(1) }
+    
     
     // El bitimi puan hesaplama popup
     var showGameEndScoring by remember { mutableStateOf(false) }
@@ -226,7 +228,13 @@ fun RematchDiceDisplayScreen(
 
     // Zar seti yükle (currentRound ile reverse play, replaySetIndex desteği)
     LaunchedEffect(encounterId, currentPartyIndex, effectiveGameIndex, currentRound) {
+        println("DEBUG: Loading dice set with encounterId=$encounterId, partyIndex=$currentPartyIndex, gameIndex=$effectiveGameIndex, round=$currentRound")
         currentDiceSet = dbHelper.getDiceSetForGame(encounterId, currentPartyIndex, effectiveGameIndex, currentRound)
+        println("DEBUG: Loaded dice set: $currentDiceSet")
+        
+        // ✅ Zar seti yoksa oluştur - daha sonra database'e kaydet
+        // Şimdilik null kalabilir, normal sistem çalışsın
+        
         // ✅ Resume: Kaldığı yerden devam et
         if (resumeTotalMoveCount > 0 && resumeGamePhase.isNotEmpty()) {
             gamePhase = when (resumeGamePhase) {
@@ -248,6 +256,7 @@ fun RematchDiceDisplayScreen(
             leftMoveIndex = 0
             rightMoveIndex = 0
             totalMoveCount = 0
+            bothPlayersHavePlayedFirstMove = false
             currentDiceSet?.let { diceSet ->
                 val raw = diceSet.getFirstPlayer()
                 currentPlayerTurn = if (isDisplaySwapped) (3 - raw) else raw
@@ -270,9 +279,7 @@ fun RematchDiceDisplayScreen(
     var rightBtnState by remember { mutableStateOf("IDLE") }
     var diceRevealed by remember { mutableStateOf(true) }
 
-    // Zarlar: getDiceSetForGame round'a göre zaten swap etmiş durumda
-    // Display swap: oyuncu hangi tarafa geçtiyse zarları da o tarafa gider
-    // Ama Oyuncu1'e gelen zarlar HER ZAMAN player1Dice - sadece hangi butondan geldiği değişir
+    // Zarlar: currentDiceSet'ten al
     val leftStartingDice = if (isDisplaySwapped) currentDiceSet?.startingDicePlayer2 else currentDiceSet?.startingDicePlayer1
     val rightStartingDice = if (isDisplaySwapped) currentDiceSet?.startingDicePlayer1 else currentDiceSet?.startingDicePlayer2
     val leftDice = if (isDisplaySwapped) currentDiceSet?.player2Dice else currentDiceSet?.player1Dice
@@ -281,7 +288,7 @@ fun RematchDiceDisplayScreen(
     val rawFirstPlayer = currentDiceSet?.getFirstPlayer() ?: 1
     val firstPlayer = if (isDisplaySwapped) (3 - rawFirstPlayer) else rawFirstPlayer
 
-    val currentDicePair = when (gamePhase) {
+    val currentDicePair: Pair<Int, Int>? = when (gamePhase) {
         GamePhase.FIRST_MOVE -> {
             val d1 = leftStartingDice ?: 0
             val d2 = rightStartingDice ?: 0
@@ -292,8 +299,13 @@ fun RematchDiceDisplayScreen(
             if (!diceRevealed) {
                 null
             } else {
-                if (currentPlayerTurn == 1) leftDice?.getOrNull(leftMoveIndex)
-                else rightDice?.getOrNull(rightMoveIndex)
+                // Database'den gelen zarlar
+                val diceValue = if (currentPlayerTurn == 1) leftDice?.getOrNull(leftMoveIndex)
+                               else rightDice?.getOrNull(rightMoveIndex)
+                println("DEBUG: PLAYING phase - currentPlayerTurn=$currentPlayerTurn, leftMoveIndex=$leftMoveIndex, rightMoveIndex=$rightMoveIndex")
+                println("DEBUG: leftDice size=${leftDice?.size}, rightDice size=${rightDice?.size}")
+                println("DEBUG: Selected dice value: $diceValue")
+                diceValue as? Pair<Int, Int>
             }
         }
         else -> null
@@ -511,10 +523,57 @@ fun RematchDiceDisplayScreen(
                     return@Button
                 }
                 if (gamePhase == GamePhase.STARTING_DICE) {
-                    advanceToNextDice()
-                } else if (gamePhase == GamePhase.FIRST_MOVE) {
-                    if (currentPlayerTurn == 1) {
+                    // ✅ AÇILIŞ ZAR: Açılış zarları zaten currentDiceSet'de var
+                    if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
+                        // Manuel mod: Açılış zarları göster ve karşılaştır
+                        val startingDice1 = currentDiceSet?.startingDicePlayer1 ?: 1
+                        val startingDice2 = currentDiceSet?.startingDicePlayer2 ?: 2
+                        
+                        // İlk oyuncu belirle (büyük atan)
+                        currentPlayerTurn = if (startingDice1 > startingDice2) 1 else 2
+                        gamePhase = GamePhase.FIRST_MOVE
+                    } else {
                         advanceToNextDice()
+                    }
+                } else if (gamePhase == GamePhase.FIRST_MOVE) {
+                    if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
+                        // ✅ FIRST_MOVE: Pasif oyuncu zarını atar
+                        if (currentPlayerTurn != 1) {
+                            // Sol oyuncu pasif, kendi zarını atar
+                            println("DEBUG: FIRST_MOVE - Sol oyuncu (pasif) zarını atıyor, bothPlayed=$bothPlayersHavePlayedFirstMove")
+                            diceRevealed = true
+                            if (!bothPlayersHavePlayedFirstMove) {
+                                // İlk oyuncu oynadı - sırayı karşıya ver
+                                bothPlayersHavePlayedFirstMove = true
+                                currentPlayerTurn = 1
+                                diceRevealed = false // Karşı oyuncunun zarı gizli
+                            } else {
+                                // İkinci oyuncu da oynadı - oyunu başlat
+                                gamePhase = GamePhase.PLAYING
+                                currentPlayerTurn = 1
+                                bothPlayersHavePlayedFirstMove = false // Reset for next game
+                            }
+                        } else {
+                            // Sol oyuncu aktif, zarı zaten görünüyor
+                            wrongTurnPlayerName = leftPlayerName
+                            showWrongTurnDialog = true
+                        }
+                    } else if (currentPlayerTurn == 1) {
+                        advanceToNextDice()
+                    }
+                } else if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
+                    // ✅ SAAT OFF + TEK BUTON OFF: Pasif oyuncu zarını atar
+                    println("DEBUG: Sol buton tıklandı - currentPlayerTurn=$currentPlayerTurn")
+                    if (currentPlayerTurn != 1) {
+                        // Sol oyuncu pasif, kendi zarını atar
+                        println("DEBUG: Sol oyuncu (pasif) kendi zarını atıyor")
+                        diceRevealed = true
+                        currentPlayerTurn = 1 // Sıra sol oyuncuya geç
+                    } else {
+                        // Sol oyuncu aktif, zarı zaten görünüyor - atamaz
+                        println("DEBUG: Sol oyuncu aktif, zarı zaten görünüyor")
+                        wrongTurnPlayerName = leftPlayerName
+                        showWrongTurnDialog = true
                     }
                 } else if (!effectiveUseTimer) {
                     // SAATSIZ MOD: Butona bas → zarını gör
@@ -587,7 +646,10 @@ fun RematchDiceDisplayScreen(
                 // Buton yazısı - senaryoya göre
                 Text(
                     text = when {
-                        gamePhase == GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        gamePhase == GamePhase.STARTING_DICE -> "A\nÇ\nI\nL\nI\nŞ\n\nZ\nA\nR"
+                        gamePhase == GamePhase.FIRST_MOVE && !effectiveUseTimer && !useSingleButtonForTimerAndDice -> 
+                            if (currentPlayerTurn == 1) "İ\nL\nK\n\nH\nA\nM\nL\nE" else "B\nE\nK\nL\nE"
+                        !effectiveUseTimer && !useSingleButtonForTimerAndDice -> "Z\nA\nR\n\nA\nT"
                         !effectiveUseTimer -> "Z\nA\nR\n\nA\nT"
                         isDualButtonMode && gamePhase == GamePhase.PLAYING -> when (leftBtnState) {
                             "ZAR_AT" -> "Z\nA\nR\n\nA\nT"
@@ -1029,6 +1091,7 @@ fun RematchDiceDisplayScreen(
                             GamePhase.FIRST_MOVE -> {
                                 gamePhase = GamePhase.STARTING_DICE
                                 totalMoveCount = 0
+                                bothPlayersHavePlayedFirstMove = false
                                 // Timer sıfırla
                                 if (effectiveUseTimer) {
                                     timerPaused = false
@@ -1116,10 +1179,57 @@ fun RematchDiceDisplayScreen(
                     return@Button
                 }
                 if (gamePhase == GamePhase.STARTING_DICE) {
-                    advanceToNextDice()
-                } else if (gamePhase == GamePhase.FIRST_MOVE) {
-                    if (currentPlayerTurn == 2) {
+                    // ✅ AÇILIŞ ZAR: Açılış zarları zaten currentDiceSet'de var
+                    if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
+                        // Manuel mod: Açılış zarları göster ve karşılaştır
+                        val startingDice1 = currentDiceSet?.startingDicePlayer1 ?: 1
+                        val startingDice2 = currentDiceSet?.startingDicePlayer2 ?: 2
+                        
+                        // İlk oyuncu belirle (büyük atan)
+                        currentPlayerTurn = if (startingDice1 > startingDice2) 1 else 2
+                        gamePhase = GamePhase.FIRST_MOVE
+                    } else {
                         advanceToNextDice()
+                    }
+                } else if (gamePhase == GamePhase.FIRST_MOVE) {
+                    if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
+                        // ✅ FIRST_MOVE: Pasif oyuncu zarını atar
+                        if (currentPlayerTurn != 2) {
+                            // Sağ oyuncu pasif, kendi zarını atar
+                            println("DEBUG: FIRST_MOVE - Sağ oyuncu (pasif) zarını atıyor, bothPlayed=$bothPlayersHavePlayedFirstMove")
+                            diceRevealed = true
+                            if (!bothPlayersHavePlayedFirstMove) {
+                                // İlk oyuncu oynadı - sırayı karşıya ver
+                                bothPlayersHavePlayedFirstMove = true
+                                currentPlayerTurn = 2
+                                diceRevealed = false // Karşı oyuncunun zarı gizli
+                            } else {
+                                // İkinci oyuncu da oynadı - oyunu başlat
+                                gamePhase = GamePhase.PLAYING
+                                currentPlayerTurn = 2
+                                bothPlayersHavePlayedFirstMove = false // Reset for next game
+                            }
+                        } else {
+                            // Sağ oyuncu aktif, zarı zaten görünüyor
+                            wrongTurnPlayerName = rightPlayerName
+                            showWrongTurnDialog = true
+                        }
+                    } else if (currentPlayerTurn == 2) {
+                        advanceToNextDice()
+                    }
+                } else if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
+                    // ✅ SAAT OFF + TEK BUTON OFF: Pasif oyuncu zarını atar
+                    println("DEBUG: Sağ buton tıklandı - currentPlayerTurn=$currentPlayerTurn")
+                    if (currentPlayerTurn != 2) {
+                        // Sağ oyuncu pasif, kendi zarını atar
+                        println("DEBUG: Sağ oyuncu (pasif) kendi zarını atıyor")
+                        diceRevealed = true
+                        currentPlayerTurn = 2 // Sıra sağ oyuncuya geç
+                    } else {
+                        // Sağ oyuncu aktif, zarı zaten görünüyor - atamaz
+                        println("DEBUG: Sağ oyuncu aktif, zarı zaten görünüyor")
+                        wrongTurnPlayerName = rightPlayerName
+                        showWrongTurnDialog = true
                     }
                 } else if (!effectiveUseTimer) {
                     // SAATSIZ MOD: Butona bas → zarını gör
@@ -1189,7 +1299,10 @@ fun RematchDiceDisplayScreen(
                 // Buton yazısı - senaryoya göre
                 Text(
                     text = when {
-                        gamePhase == GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        gamePhase == GamePhase.STARTING_DICE -> "A\nÇ\nI\nL\nI\nŞ\n\nZ\nA\nR"
+                        gamePhase == GamePhase.FIRST_MOVE && !effectiveUseTimer && !useSingleButtonForTimerAndDice -> 
+                            if (currentPlayerTurn == 2) "İ\nL\nK\n\nH\nA\nM\nL\nE" else "B\nE\nK\nL\nE"
+                        !effectiveUseTimer && !useSingleButtonForTimerAndDice -> "Z\nA\nR\n\nA\nT"
                         !effectiveUseTimer -> "Z\nA\nR\n\nA\nT"
                         isDualButtonMode && gamePhase == GamePhase.PLAYING -> when (rightBtnState) {
                             "ZAR_AT" -> "Z\nA\nR\n\nA\nT"
