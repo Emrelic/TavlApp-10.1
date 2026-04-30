@@ -2198,26 +2198,9 @@ fun Enhanced3DDice(
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f)
                 )
 
-                // Zar noktaları veya soru işareti
+                // Zar noktaları (value 0 ise boş zar göster)
                 if (value > 0) {
                     drawDiceDots(value, this@Canvas.size, Color(0xFF333333))
-                } else {
-                    // Soru işareti çiz
-                    drawContext.canvas.nativeCanvas.apply {
-                        val paint = android.graphics.Paint().apply {
-                            color = android.graphics.Color.BLACK
-                            textSize = this@Canvas.size.width * 0.5f
-                            isAntiAlias = true
-                            textAlign = android.graphics.Paint.Align.CENTER
-                            typeface = android.graphics.Typeface.DEFAULT_BOLD
-                        }
-                        drawText(
-                            "?",
-                            this@Canvas.size.width / 2,
-                            this@Canvas.size.height / 2 + paint.textSize / 3,
-                            paint
-                        )
-                    }
                 }
             }
         }
