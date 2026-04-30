@@ -264,7 +264,8 @@ fun RematchDiceDisplayScreen(
     val rightScore = if (isDisplaySwapped) partyScores.first else partyScores.second
 
     // Senaryo 3: Çift buton modu aktif mi?
-    val isDualButtonMode = effectiveUseTimer && !useSingleButtonForTimerAndDice
+    // Saatsiz modda da her oyuncu kendi zarını atsın (ZAR_AT → OYNADIM akışı)
+    val isDualButtonMode = !useSingleButtonForTimerAndDice
     var leftBtnState by remember { mutableStateOf("IDLE") }
     var rightBtnState by remember { mutableStateOf("IDLE") }
     var diceRevealed by remember { mutableStateOf(true) }
@@ -287,8 +288,8 @@ fun RematchDiceDisplayScreen(
             if (firstPlayer == 1) Pair(d1, d2) else Pair(d2, d1)
         }
         GamePhase.PLAYING -> {
-            // Dual modda ZAR_AT basılmadan zar gizli
-            if (isDualButtonMode && !diceRevealed) {
+            // Zar henüz gösterilmediyse gizli
+            if (!diceRevealed) {
                 null
             } else {
                 if (currentPlayerTurn == 1) leftDice?.getOrNull(leftMoveIndex)
@@ -421,6 +422,7 @@ fun RematchDiceDisplayScreen(
                 val secondPlayer = if (firstPlayer == 1) 2 else 1
                 currentPlayerTurn = secondPlayer
                 totalMoveCount = 2
+                diceRevealed = false
                 // Saat: Hamle geçişi - süre ayarla
                 if (effectiveUseTimer) {
                     val prevIsLeft = firstPlayer == 1
@@ -432,9 +434,7 @@ fun RematchDiceDisplayScreen(
                     leftMoveTimeMs = delayTimeSeconds * 1000L
                     rightMoveTimeMs = delayTimeSeconds * 1000L
                 }
-                // Dual mode: sıra geçti, yeni oyuncu ZAR_AT bekliyor
                 if (isDualButtonMode) {
-                    diceRevealed = false
                     if (secondPlayer == 1) {
                         leftBtnState = "ZAR_AT"
                         rightBtnState = "SIRA_KARSIDA"
@@ -449,6 +449,7 @@ fun RematchDiceDisplayScreen(
                 currentPlayerTurn = if (currentPlayerTurn == 1) 2 else 1
                 if (prevPlayer == 1) leftMoveIndex++ else rightMoveIndex++
                 totalMoveCount++
+                diceRevealed = false
                 // Saat: Hamle geçişi
                 if (effectiveUseTimer) {
                     val prevIsLeft = prevPlayer == 1
@@ -460,9 +461,7 @@ fun RematchDiceDisplayScreen(
                     leftMoveTimeMs = delayTimeSeconds * 1000L
                     rightMoveTimeMs = delayTimeSeconds * 1000L
                 }
-                // Dual mode: OYNADIM → sıra geçti
                 if (isDualButtonMode) {
-                    diceRevealed = false
                     val newPlayer = currentPlayerTurn
                     if (newPlayer == 1) {
                         leftBtnState = "ZAR_AT"
@@ -514,30 +513,41 @@ fun RematchDiceDisplayScreen(
                 if (gamePhase == GamePhase.STARTING_DICE) {
                     advanceToNextDice()
                 } else if (gamePhase == GamePhase.FIRST_MOVE) {
-                    // İlk hamle: sadece başlayan oyuncu basabilir
                     if (currentPlayerTurn == 1) {
                         advanceToNextDice()
                     }
+                } else if (!effectiveUseTimer) {
+                    // SAATSIZ MOD: Butona bas → zarını gör
+                    if (currentPlayerTurn == 1 && !diceRevealed) {
+                        // Sırası bende, zarımı göster
+                        diceRevealed = true
+                    } else if (currentPlayerTurn == 2 && diceRevealed) {
+                        // Karşı taraf oynamış, sıra bana geçsin + zarımı göster
+                        advanceToNextDice()
+                        diceRevealed = true
+                    } else if (currentPlayerTurn == 1 && diceRevealed) {
+                        // Zaten zarımı gördüm, oyna
+                    } else {
+                        // Karşı taraf henüz oynamamış
+                        wrongTurnPlayerName = leftPlayerName
+                        showWrongTurnDialog = true
+                    }
                 } else if (currentPlayerTurn == 1 || (isDualButtonMode && leftBtnState == "OYNADIM")) {
-                    // PLAYING fazı
+                    // SAATLI MOD
                     if (isDualButtonMode) {
                         when (leftBtnState) {
                             "ZAR_AT" -> {
-                                // Zarı göster, OYNADIM moduna geç
                                 diceRevealed = true
                                 leftBtnState = "OYNADIM"
                             }
                             "OYNADIM" -> {
-                                // Sıra geçir + süre değiştir
                                 advanceToNextDice()
                             }
                         }
-                        // SIRA_KARSIDA durumunda basışı yok say
                     } else {
                         advanceToNextDice()
                     }
                 } else {
-                    // Yanlış kişi bastı - timer otomatik dur
                     if (effectiveUseTimer) timerRunning = false
                     wrongTurnPlayerName = leftPlayerName
                     showWrongTurnDialog = true
@@ -578,6 +588,7 @@ fun RematchDiceDisplayScreen(
                 Text(
                     text = when {
                         gamePhase == GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        !effectiveUseTimer -> "Z\nA\nR\n\nA\nT"
                         isDualButtonMode && gamePhase == GamePhase.PLAYING -> when (leftBtnState) {
                             "ZAR_AT" -> "Z\nA\nR\n\nA\nT"
                             "OYNADIM" -> "O\nY\nN\nA\nD\nI\nM"
@@ -1110,7 +1121,21 @@ fun RematchDiceDisplayScreen(
                     if (currentPlayerTurn == 2) {
                         advanceToNextDice()
                     }
+                } else if (!effectiveUseTimer) {
+                    // SAATSIZ MOD: Butona bas → zarını gör
+                    if (currentPlayerTurn == 2 && !diceRevealed) {
+                        diceRevealed = true
+                    } else if (currentPlayerTurn == 1 && diceRevealed) {
+                        advanceToNextDice()
+                        diceRevealed = true
+                    } else if (currentPlayerTurn == 2 && diceRevealed) {
+                        // Zaten zarımı gördüm
+                    } else {
+                        wrongTurnPlayerName = rightPlayerName
+                        showWrongTurnDialog = true
+                    }
                 } else if (currentPlayerTurn == 2 || (isDualButtonMode && rightBtnState == "OYNADIM")) {
+                    // SAATLI MOD
                     if (isDualButtonMode) {
                         when (rightBtnState) {
                             "ZAR_AT" -> {
@@ -1165,6 +1190,7 @@ fun RematchDiceDisplayScreen(
                 Text(
                     text = when {
                         gamePhase == GamePhase.STARTING_DICE -> "B\nA\nŞ\nL\nA"
+                        !effectiveUseTimer -> "Z\nA\nR\n\nA\nT"
                         isDualButtonMode && gamePhase == GamePhase.PLAYING -> when (rightBtnState) {
                             "ZAR_AT" -> "Z\nA\nR\n\nA\nT"
                             "OYNADIM" -> "O\nY\nN\nA\nD\nI\nM"
@@ -1530,13 +1556,6 @@ fun DiceBox(
                     }
                 }
             }
-        } else {
-            Text(
-                text = "?",
-                fontSize = (size.value * 0.5f).sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
         }
     }
 }
