@@ -302,9 +302,6 @@ fun RematchDiceDisplayScreen(
                 // Database'den gelen zarlar
                 val diceValue = if (currentPlayerTurn == 1) leftDice?.getOrNull(leftMoveIndex)
                                else rightDice?.getOrNull(rightMoveIndex)
-                println("DEBUG: PLAYING phase - currentPlayerTurn=$currentPlayerTurn, leftMoveIndex=$leftMoveIndex, rightMoveIndex=$rightMoveIndex")
-                println("DEBUG: leftDice size=${leftDice?.size}, rightDice size=${rightDice?.size}")
-                println("DEBUG: Selected dice value: $diceValue")
                 diceValue as? Pair<Int, Int>
             }
         }
@@ -539,24 +536,10 @@ fun RematchDiceDisplayScreen(
                     }
                 } else if (gamePhase == GamePhase.FIRST_MOVE) {
                     if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
-                        // ✅ FIRST_MOVE: Pasif oyuncu zarını atar
+                        // ✅ SAAT OFF + TEK BUTON OFF: Karşı oyuncu butona basınca PLAYING'e geç
                         if (currentPlayerTurn != 1) {
-                            // Sol oyuncu pasif, kendi zarını atar
-                            println("DEBUG: FIRST_MOVE - Sol oyuncu (pasif) zarını atıyor, bothPlayed=$bothPlayersHavePlayedFirstMove")
-                            diceRevealed = true
-                            if (!bothPlayersHavePlayedFirstMove) {
-                                // İlk oyuncu oynadı - sırayı karşıya ver
-                                bothPlayersHavePlayedFirstMove = true
-                                currentPlayerTurn = 1
-                                diceRevealed = false // Karşı oyuncunun zarı gizli
-                            } else {
-                                // İkinci oyuncu da oynadı - oyunu başlat
-                                gamePhase = GamePhase.PLAYING
-                                currentPlayerTurn = 1
-                                bothPlayersHavePlayedFirstMove = false // Reset for next game
-                            }
+                            advanceToNextDice()
                         } else {
-                            // Sol oyuncu aktif, zarı zaten görünüyor
                             wrongTurnPlayerName = leftPlayerName
                             showWrongTurnDialog = true
                         }
@@ -1193,24 +1176,10 @@ fun RematchDiceDisplayScreen(
                     }
                 } else if (gamePhase == GamePhase.FIRST_MOVE) {
                     if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
-                        // ✅ FIRST_MOVE: Pasif oyuncu zarını atar
+                        // ✅ SAAT OFF + TEK BUTON OFF: Karşı oyuncu butona basınca PLAYING'e geç
                         if (currentPlayerTurn != 2) {
-                            // Sağ oyuncu pasif, kendi zarını atar
-                            println("DEBUG: FIRST_MOVE - Sağ oyuncu (pasif) zarını atıyor, bothPlayed=$bothPlayersHavePlayedFirstMove")
-                            diceRevealed = true
-                            if (!bothPlayersHavePlayedFirstMove) {
-                                // İlk oyuncu oynadı - sırayı karşıya ver
-                                bothPlayersHavePlayedFirstMove = true
-                                currentPlayerTurn = 2
-                                diceRevealed = false // Karşı oyuncunun zarı gizli
-                            } else {
-                                // İkinci oyuncu da oynadı - oyunu başlat
-                                gamePhase = GamePhase.PLAYING
-                                currentPlayerTurn = 2
-                                bothPlayersHavePlayedFirstMove = false // Reset for next game
-                            }
+                            advanceToNextDice()
                         } else {
-                            // Sağ oyuncu aktif, zarı zaten görünüyor
                             wrongTurnPlayerName = rightPlayerName
                             showWrongTurnDialog = true
                         }
@@ -1349,11 +1318,15 @@ fun RematchDiceDisplayScreen(
                     "BACKGAMMON" -> cubeValue * 3
                     else -> cubeValue
                 }
-                
+
+                // Kazananın gerçek ID'sini belirle (display swap'a göre)
+                val winnerId = if (winnerIsLeft) leftPlayerId else rightPlayerId
+
                 // Intent oluştur ve skorboard'a dön
                 val resultIntent = makeDoublingIntent().apply {
                     putExtra("game_ended", true)
                     putExtra("winner_is_left", winnerIsLeft)
+                    putExtra("winner_player_id", winnerId)
                     putExtra("score_points", baseScore)
                     putExtra("score_type", scoreType)
                 }

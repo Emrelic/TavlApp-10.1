@@ -313,7 +313,9 @@ fun GameScreen(
             
             // ✅ El bitimi popup verileri
             val gameEnded = data?.getBooleanExtra("game_ended", false) ?: false
-            val winnerIsLeft = data?.getBooleanExtra("winner_is_left", false) ?: false
+            val winnerPlayerId = data?.getLongExtra("winner_player_id", -1L) ?: -1L
+            // winner_player_id varsa onu kullan (display swap sorununu çözer), yoksa eski yönteme düş
+            val winnerIsLeft = if (winnerPlayerId > 0) (winnerPlayerId == player1Id) else data?.getBooleanExtra("winner_is_left", false) ?: false
             val scorePoints = data?.getIntExtra("score_points", 0) ?: 0
             val scoreType = data?.getStringExtra("score_type") ?: ""
             
@@ -392,7 +394,8 @@ fun GameScreen(
             
             // ✅ Rövanş el bitimi popup verileri
             val gameEnded = data?.getBooleanExtra("game_ended", false) ?: false
-            val winnerIsLeft = data?.getBooleanExtra("winner_is_left", false) ?: false
+            val winnerPlayerId = data?.getLongExtra("winner_player_id", -1L) ?: -1L
+            val winnerIsLeft = if (winnerPlayerId > 0) (winnerPlayerId == player1Id) else data?.getBooleanExtra("winner_is_left", false) ?: false
             val scorePoints = data?.getIntExtra("score_points", 0) ?: 0
             val scoreType = data?.getStringExtra("score_type") ?: ""
             
@@ -958,21 +961,9 @@ fun GameScreen(
         if (pendingDiceGameEnd) {
             pendingDiceGameEnd = false
             if (pendingDiceIsRematch) {
-                val winnerId: Long
-                val winnerName: String
-                if (pendingDiceWinnerIsLeft) {
-                    if (rematchCurrentRound == 1) {
-                        winnerId = player1Id; winnerName = player1Name
-                    } else {
-                        winnerId = player2Id; winnerName = player2Name
-                    }
-                } else {
-                    if (rematchCurrentRound == 1) {
-                        winnerId = player2Id; winnerName = player2Name
-                    } else {
-                        winnerId = player1Id; winnerName = player1Name
-                    }
-                }
+                // pendingDiceWinnerIsLeft artık doğrudan player1 mi kontrolü (winner_player_id sayesinde)
+                val winnerId = if (pendingDiceWinnerIsLeft) player1Id else player2Id
+                val winnerName = if (pendingDiceWinnerIsLeft) player1Name else player2Name
                 val rawScore = when (pendingDiceScoreType) {
                     "SINGLE" -> 1
                     "MARS" -> 2
@@ -3522,10 +3513,11 @@ fun GameScreen(
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .height(50.dp)
+                        .height(50.dp),
+                    contentPadding = PaddingValues(4.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
-                        Text("Maçı Sonlandır", color = Color.White, fontSize = 12.sp)
+                        Text("Maçı\nSonlandır", color = Color.White, fontSize = 11.sp, lineHeight = 13.sp)
                     }
                 }
             }
