@@ -3524,7 +3524,9 @@ fun GameScreen(
                         .weight(1f)
                         .height(50.dp)
                 ) {
-                    Text("Maçı Sonlandır", color = Color.White, fontSize = 12.sp)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+                        Text("Maçı Sonlandır", color = Color.White, fontSize = 12.sp)
+                    }
                 }
             }
         }

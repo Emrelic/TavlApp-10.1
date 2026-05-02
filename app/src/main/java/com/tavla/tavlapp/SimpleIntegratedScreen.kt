@@ -1,3 +1,6 @@
+// ⚠️ PASİF EKRAN - Bu ekran artık aktif olarak kullanılmamaktadır.
+// Zar atma ekranı olarak RematchDiceDisplayActivity kullanılmaktadır.
+// Silme riski nedeniyle şimdilik korunuyor, yeni geliştirme YAPMAYIN.
 package com.tavla.tavlapp
 
 import android.content.Context
@@ -849,26 +852,51 @@ fun SimpleIntegratedScreen(
         }
     }
     
-    // === YENİ: İKİ BUTON MODU - SADECE SÜRE DURDUR ===
+    // === YENİ: İKİ BUTON MODU - SÜRE DURDUR VE SIRA DEĞİŞTİR (Mode 3) ===
     fun handleTimerPauseAction() {
         if (!useTimer || useSingleButtonForTimerAndDice) return
-        
+
         CoroutineScope(Dispatchers.Main).launch {
             // Süre durdur
             timerRunning = false
-            
+
+            // Mevcut oyuncunun state'ini sıfırla
+            if (currentPlayer == 1) {
+                player1DiceState = "WAIT_DICE"
+            } else {
+                player2DiceState = "WAIT_DICE"
+            }
+
+            // Zarları sıfırla
+            isDouble = false
+            dice1 = 0
+            dice2 = 0
+            dice1State = CheckboxState.CHECKED
+            dice2State = CheckboxState.CHECKED
+            dice3State = CheckboxState.CHECKED
+            dice4State = CheckboxState.CHECKED
+            dice1Original = 0
+            dice2Original = 0
+            dice3Original = 0
+            dice4Original = 0
+            dice1Played = 0
+            dice2Played = 0
+            dice3Played = 0
+            dice4Played = 0
+            eliminatedNumbers = ""
+
             // Sırayı değiştir
             currentPlayer = if (currentPlayer == 1) 2 else 1
-            
-            // Karşı tarafın state'ini WAIT_DICE yap ve timer başlat
+
+            // Karşı tarafın state'ini WAIT_DICE yap ve move time sıfırla
             if (currentPlayer == 1) {
                 player1DiceState = "WAIT_DICE"
                 player1MoveTime = moveTimeDelay
             } else {
-                player2DiceState = "WAIT_DICE" 
+                player2DiceState = "WAIT_DICE"
                 player2MoveTime = moveTimeDelay
             }
-            
+
             // Timer başlat (karşı taraf için)
             delay(300)
             timerRunning = true
@@ -1171,14 +1199,23 @@ fun SimpleIntegratedScreen(
                             "WAIT_DICE" -> "ZAR AT"
                             "WAIT_MOVE" -> when {
                                 useTimer && useSingleButtonForTimerAndDice -> "ZAR+SÜRE"
-                                useTimer && !useSingleButtonForTimerAndDice -> "SÜRE"
+                                useTimer && !useSingleButtonForTimerAndDice -> "BİTİŞ BEKLENİYOR"
                                 !useTimer -> "HAMLEYİ TAMAMLA"
                                 else -> "SÜRE"
                             }
                             else -> "-"
                         }
                     } else {
-                        "BEKLİYOR"
+                        // Sıra karşıda - Mode 3 için detaylı yazı
+                        when {
+                            useTimer && !useSingleButtonForTimerAndDice -> {
+                                when (player2DiceState) {
+                                    "WAIT_MOVE" -> "HAMLE KARŞIDA"
+                                    else -> "SIRA KARŞIDA"
+                                }
+                            }
+                            else -> "BEKLİYOR"
+                        }
                     }
                 }
                 else -> "-"
@@ -1186,10 +1223,10 @@ fun SimpleIntegratedScreen(
             Text(
                 text = buttonText,
                 color = Color.White,
-                fontSize = 11.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                maxLines = 2,
                 modifier = Modifier.rotate(90f)
             )
         }
@@ -1581,14 +1618,23 @@ fun SimpleIntegratedScreen(
                             "WAIT_DICE" -> "ZAR AT"
                             "WAIT_MOVE" -> when {
                                 useTimer && useSingleButtonForTimerAndDice -> "ZAR+SÜRE"
-                                useTimer && !useSingleButtonForTimerAndDice -> "SÜRE"
+                                useTimer && !useSingleButtonForTimerAndDice -> "BİTİŞ BEKLENİYOR"
                                 !useTimer -> "HAMLEYİ TAMAMLA"
                                 else -> "SÜRE"
                             }
                             else -> "-"
                         }
                     } else {
-                        "BEKLİYOR"
+                        // Sıra karşıda - Mode 3 için detaylı yazı
+                        when {
+                            useTimer && !useSingleButtonForTimerAndDice -> {
+                                when (player1DiceState) {
+                                    "WAIT_MOVE" -> "HAMLE KARŞIDA"
+                                    else -> "SIRA KARŞIDA"
+                                }
+                            }
+                            else -> "BEKLİYOR"
+                        }
                     }
                 }
                 else -> "-"
@@ -1596,10 +1642,10 @@ fun SimpleIntegratedScreen(
             Text(
                 text = buttonText,
                 color = Color.White,
-                fontSize = 11.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                maxLines = 2,
                 modifier = Modifier.rotate(-90f)
             )
         }

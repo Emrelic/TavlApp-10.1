@@ -433,8 +433,9 @@ fun RematchDiceDisplayScreen(
                 gamePhase = GamePhase.PLAYING
                 val secondPlayer = if (firstPlayer == 1) 2 else 1
                 currentPlayerTurn = secondPlayer
-                totalMoveCount = 2
-                diceRevealed = false
+                totalMoveCount++
+                // Tek buton modunda zarı hemen göster, dual modda oyuncu kendi açar
+                diceRevealed = useSingleButtonForTimerAndDice
                 // Saat: Hamle geçişi - süre ayarla
                 if (effectiveUseTimer) {
                     val prevIsLeft = firstPlayer == 1
@@ -461,7 +462,8 @@ fun RematchDiceDisplayScreen(
                 currentPlayerTurn = if (currentPlayerTurn == 1) 2 else 1
                 if (prevPlayer == 1) leftMoveIndex++ else rightMoveIndex++
                 totalMoveCount++
-                diceRevealed = false
+                // Tek buton modunda zarı hemen göster, dual modda oyuncu kendi açar
+                diceRevealed = useSingleButtonForTimerAndDice
                 // Saat: Hamle geçişi
                 if (effectiveUseTimer) {
                     val prevIsLeft = prevPlayer == 1
@@ -1004,7 +1006,7 @@ fun RematchDiceDisplayScreen(
                                 Text(
                                     text = when (gamePhase) {
                                         GamePhase.STARTING_DICE -> "Ba\u015Flang\u0131\u00E7"
-                                        GamePhase.FIRST_MOVE -> "\u0130lk Hamle"
+                                        GamePhase.FIRST_MOVE -> "Hamle: $totalMoveCount"
                                         GamePhase.PLAYING -> "Hamle: $totalMoveCount"
                                     },
                                     color = Color.White.copy(alpha = 0.8f),

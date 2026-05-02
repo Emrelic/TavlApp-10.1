@@ -164,7 +164,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 OutlinedTextField(
                     value = selectedPlayer1?.name ?: "",
                     onValueChange = { },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(60.dp),
                     readOnly = true,
                     placeholder = { Text("Oyuncu 1 Seç", color = Color(0xFFBFA47A).copy(alpha = 0.5f)) },
                     colors = OutlinedTextFieldDefaults.colors(
@@ -221,7 +221,7 @@ fun NewGameScreen(dbHelper: DatabaseHelper) {
                 OutlinedTextField(
                     value = selectedPlayer2?.name ?: "",
                     onValueChange = { },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(60.dp),
                     readOnly = true,
                     placeholder = { Text("Oyuncu 2 Seç", color = Color(0xFFBFA47A).copy(alpha = 0.5f)) },
                     colors = OutlinedTextFieldDefaults.colors(
