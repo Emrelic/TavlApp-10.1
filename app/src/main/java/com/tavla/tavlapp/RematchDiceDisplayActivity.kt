@@ -434,8 +434,8 @@ fun RematchDiceDisplayScreen(
                 val secondPlayer = if (firstPlayer == 1) 2 else 1
                 currentPlayerTurn = secondPlayer
                 totalMoveCount++
-                // Tek buton modunda zarı hemen göster, dual modda oyuncu kendi açar
-                diceRevealed = useSingleButtonForTimerAndDice
+                // Dual mode + saatli: oyuncu kendi ZAR AT ile açar. Diğer modlarda hemen göster.
+                diceRevealed = !(isDualButtonMode && effectiveUseTimer)
                 // Saat: Hamle geçişi - süre ayarla
                 if (effectiveUseTimer) {
                     val prevIsLeft = firstPlayer == 1
@@ -462,8 +462,8 @@ fun RematchDiceDisplayScreen(
                 currentPlayerTurn = if (currentPlayerTurn == 1) 2 else 1
                 if (prevPlayer == 1) leftMoveIndex++ else rightMoveIndex++
                 totalMoveCount++
-                // Tek buton modunda zarı hemen göster, dual modda oyuncu kendi açar
-                diceRevealed = useSingleButtonForTimerAndDice
+                // Dual mode + saatli: oyuncu kendi ZAR AT ile açar. Diğer modlarda hemen göster.
+                diceRevealed = !(isDualButtonMode && effectiveUseTimer)
                 // Saat: Hamle geçişi
                 if (effectiveUseTimer) {
                     val prevIsLeft = prevPlayer == 1
@@ -565,15 +565,13 @@ fun RematchDiceDisplayScreen(
                     }
                 } else if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
                     // ✅ SAAT OFF + TEK BUTON OFF: Pasif oyuncu zarını atar
-                    println("DEBUG: Sol buton tıklandı - currentPlayerTurn=$currentPlayerTurn")
                     if (currentPlayerTurn != 1) {
-                        // Sol oyuncu pasif, kendi zarını atar
-                        println("DEBUG: Sol oyuncu (pasif) kendi zarını atıyor")
+                        // Karşı oyuncu (sağ) oynamıştı, moveIndex artır ve sıra sola geç
+                        rightMoveIndex++
+                        totalMoveCount++
                         diceRevealed = true
-                        currentPlayerTurn = 1 // Sıra sol oyuncuya geç
+                        currentPlayerTurn = 1
                     } else {
-                        // Sol oyuncu aktif, zarı zaten görünüyor - atamaz
-                        println("DEBUG: Sol oyuncu aktif, zarı zaten görünüyor")
                         wrongTurnPlayerName = leftPlayerName
                         showWrongTurnDialog = true
                     }
@@ -1221,15 +1219,13 @@ fun RematchDiceDisplayScreen(
                     }
                 } else if (!effectiveUseTimer && !useSingleButtonForTimerAndDice) {
                     // ✅ SAAT OFF + TEK BUTON OFF: Pasif oyuncu zarını atar
-                    println("DEBUG: Sağ buton tıklandı - currentPlayerTurn=$currentPlayerTurn")
                     if (currentPlayerTurn != 2) {
-                        // Sağ oyuncu pasif, kendi zarını atar
-                        println("DEBUG: Sağ oyuncu (pasif) kendi zarını atıyor")
+                        // Karşı oyuncu (sol) oynamıştı, moveIndex artır ve sıra sağa geç
+                        leftMoveIndex++
+                        totalMoveCount++
                         diceRevealed = true
-                        currentPlayerTurn = 2 // Sıra sağ oyuncuya geç
+                        currentPlayerTurn = 2
                     } else {
-                        // Sağ oyuncu aktif, zarı zaten görünüyor - atamaz
-                        println("DEBUG: Sağ oyuncu aktif, zarı zaten görünüyor")
                         wrongTurnPlayerName = rightPlayerName
                         showWrongTurnDialog = true
                     }
