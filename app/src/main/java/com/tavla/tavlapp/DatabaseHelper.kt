@@ -2553,6 +2553,75 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     /**
+     * Parti sonucunu sil (parti sonu geri alma icin)
+     * Parti kazanma istatistiklerini de geri alir
+     */
+    fun deleteRematchPartyResult(encounterId: Long, partyIndex: Int, roundNumber: Int): Int {
+        val db = this.writableDatabase
+        val args = arrayOf(encounterId.toString(), partyIndex.toString(), roundNumber.toString())
+        val where = "$COLUMN_PARTY_RESULT_ENCOUNTER_ID = ? AND " +
+                "$COLUMN_PARTY_RESULT_PARTY_INDEX = ? AND " +
+                "$COLUMN_PARTY_RESULT_ROUND_NUMBER = ?"
+
+        // Once kazanani al (istatistik geri alma icin)
+        val cursor = db.rawQuery(
+            "SELECT $COLUMN_PARTY_RESULT_WINNER_ID FROM $TABLE_REMATCH_PARTY_RESULTS WHERE $where",
+            args
+        )
+        if (cursor.moveToFirst() && !cursor.isNull(0)) {
+            reverseRematchPartyStats(encounterId, cursor.getLong(0), roundNumber, db)
+        }
+        cursor.close()
+
+        val result = db.delete(TABLE_REMATCH_PARTY_RESULTS, where, args)
+        db.close()
+        return result
+    }
+
+    /**
+     * Parti kazanan istatistiklerini geri al (undo icin)
+     */
+    private fun reverseRematchPartyStats(
+        encounterId: Long,
+        winnerId: Long,
+        roundNumber: Int,
+        db: SQLiteDatabase
+    ) {
+        val partiesColumn = if (roundNumber == 1) COLUMN_REMATCH_STATS_R1_PARTIES else COLUMN_REMATCH_STATS_R2_PARTIES
+
+        db.execSQL("""
+            UPDATE $TABLE_REMATCH_ENCOUNTER_STATS
+            SET $partiesColumn = MAX(0, $partiesColumn - 1),
+                $COLUMN_REMATCH_STATS_TOTAL_PARTIES = MAX(0, $COLUMN_REMATCH_STATS_TOTAL_PARTIES - 1)
+            WHERE $COLUMN_REMATCH_STATS_ENCOUNTER_ID = $encounterId AND $COLUMN_REMATCH_STATS_PLAYER_ID = $winnerId
+        """)
+    }
+
+    /**
+     * Karsilasmayi onceki haline dondur (parti sonu geri alma icin)
+     * Tur, parti/oyun indeksi ve durum birlikte geri yuklenir
+     */
+    fun restoreEncounterState(
+        encounterId: Long,
+        currentRound: Int,
+        partyIndex: Int,
+        gameIndex: Int,
+        status: String
+    ) {
+        val db = this.writableDatabase
+        val values = ContentValues()
+        values.put(COLUMN_ENCOUNTER_CURRENT_ROUND, currentRound)
+        values.put(COLUMN_ENCOUNTER_CURRENT_PARTY_INDEX, partyIndex)
+        values.put(COLUMN_ENCOUNTER_CURRENT_GAME_INDEX, gameIndex)
+        values.put(COLUMN_ENCOUNTER_STATUS, status)
+        if (status != RematchStatus.COMPLETED.name) {
+            values.putNull(COLUMN_ENCOUNTER_COMPLETED_DATE)
+        }
+        db.update(TABLE_REMATCH_ENCOUNTERS, values, "$COLUMN_ENCOUNTER_ID = ?", arrayOf(encounterId.toString()))
+        db.close()
+    }
+
+    /**
      * Karsilasma ilerlemesini guncelle (parti ve oyun indeksi)
      */
     fun updateEncounterProgress(encounterId: Long, partyIndex: Int, gameIndex: Int) {

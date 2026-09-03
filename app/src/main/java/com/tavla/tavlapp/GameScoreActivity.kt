@@ -76,6 +76,27 @@ enum class DoublingCubePosition {
     PLAYER2_CONTROL  // Oyuncu 2'nin kontrol bölgesi
 }
 
+/**
+ * Rövanşlı modda parti biterken alınan anlık görüntü.
+ * Yanlış sonuç işlenip parti kapandığında her şeyi bu görüntüden geri sararız.
+ */
+data class PartyEndSnapshot(
+    val gameResultId: Long,          // Partiyi bitiren oyun kaydının id'si
+    val partyIndex: Int,             // Biten partinin indeksi
+    val gameIndex: Int,              // Son oyunun set indeksi
+    val roundNumber: Int,            // Biten partinin turu (1 veya 2)
+    val encounterStatus: String,     // Parti bitmeden önceki karşılaşma durumu
+    val player1Score: Int,
+    val player2Score: Int,
+    val currentRound: Int,           // Partide oynanan oyun sayısı
+    val player1RoundsWon: Int,
+    val player2RoundsWon: Int,
+    val isCrawfordGame: Boolean,
+    val crawfordGamePlayed: Boolean,
+    val isPostCrawford: Boolean,
+    val undoStack: List<Long>
+)
+
 private fun formatDisplayDate(dbDate: String): String {
     return try {
         val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -509,6 +530,9 @@ fun GameScreen(
     var showEncounterEndDialog by remember { mutableStateOf(false) }
     var partyEndInfo by remember { mutableStateOf("") }
 
+    // Parti sonu geri alma: parti kapanmadan hemen önceki durum
+    var partyEndSnapshot by remember { mutableStateOf<PartyEndSnapshot?>(null) }
+
     // Otomatik zar ekranı açma ve mevcut zar setini initialize et
     LaunchedEffect(useDiceRoller, useTimer) {
         if ((useDiceRoller || useTimer) && !isRematchMode) {
@@ -803,7 +827,26 @@ fun GameScreen(
     )
 
     // === RÖVANŞLI MOD: Parti bitişi yönetimi ===
-    fun handleRematchPartyEnd() {
+    fun handleRematchPartyEnd(undoableGameResultId: Long = -1L) {
+        // Parti kapanmadan önceki her şeyi kaydet ki yanlış sonuç girildiyse geri sarılabilsin
+        partyEndSnapshot = PartyEndSnapshot(
+            gameResultId = undoableGameResultId,
+            partyIndex = rematchPartyIndex,
+            gameIndex = rematchGameIndex,
+            roundNumber = rematchCurrentRound,
+            encounterStatus = rematchEncounter?.status?.name
+                ?: if (rematchCurrentRound == 2) RematchStatus.ROUND2_ACTIVE.name else RematchStatus.ACTIVE.name,
+            player1Score = player1Score,
+            player2Score = player2Score,
+            currentRound = currentRound,
+            player1RoundsWon = player1RoundsWon,
+            player2RoundsWon = player2RoundsWon,
+            isCrawfordGame = isCrawfordGame,
+            crawfordGamePlayed = crawfordGamePlayed,
+            isPostCrawford = isPostCrawford,
+            undoStack = rematchUndoStack
+        )
+
         val totalGamesPlayed = rematchGameIndex + 1
         val partyWinnerId = if (player1Score >= player2Score) player1Id else player2Id
         val partyWinnerName = if (player1Score >= player2Score) player1Name else player2Name
@@ -857,6 +900,81 @@ fun GameScreen(
 
             showPartyEndDialog = true
             recomposeKey++
+        }
+    }
+
+    // === RÖVANŞLI MOD: Parti sonunu geri al ===
+    // Yanlış sonuç girilip parti kapandığında partiyi son oyun öncesine geri sarar.
+    fun undoPartyEnd() {
+        val snap = partyEndSnapshot ?: return
+        try {
+            // 1. Partiyi bitiren oyun kaydını sil (oyun istatistikleri de geri alınır)
+            if (snap.gameResultId != -1L) {
+                dbHelper.deleteRematchGameResult(snap.gameResultId)
+            }
+
+            // 2. Yazılan parti sonucunu sil (parti kazanma istatistiği de geri alınır)
+            dbHelper.deleteRematchPartyResult(encounterId, snap.partyIndex, snap.roundNumber)
+
+            // 3. Karşılaşmayı parti bitmeden önceki haline döndür (tur/parti/oyun/durum)
+            dbHelper.restoreEncounterState(
+                encounterId = encounterId,
+                currentRound = snap.roundNumber,
+                partyIndex = snap.partyIndex,
+                gameIndex = snap.gameIndex,
+                status = snap.encounterStatus
+            )
+
+            // 4. Ekran durumunu veritabanının yeni haline göre kur
+            rematchCurrentRound = snap.roundNumber
+            rematchPartyIndex = snap.partyIndex
+            rematchGameIndex = snap.gameIndex
+            rematchUndoStack = if (snap.gameResultId != -1L) snap.undoStack.dropLast(1) else snap.undoStack
+
+            val (p1Score, p2Score) = dbHelper.getPartyScore(encounterId, snap.partyIndex, snap.roundNumber)
+            player1Score = p1Score
+            player2Score = p2Score
+
+            val gamesInParty = dbHelper.getRematchGameResults(
+                encounterId, roundNumber = snap.roundNumber, partyIndex = snap.partyIndex
+            )
+            currentRound = gamesInParty.size
+            player1RoundsWon = gamesInParty.count { it.winnerId == player1Id }
+            player2RoundsWon = gamesInParty.count { it.winnerId == player2Id }
+
+            // Küpü sıfırla
+            previousDoublingCubeValue = 1
+            previousDoublingCubePosition = DoublingCubePosition.CENTER
+            doublingCubeValue = 1
+            doublingCubePosition = DoublingCubePosition.CENTER
+            player1CanDouble = true
+            player2CanDouble = true
+            showPlayer1DoublingMenu = false
+            showPlayer2DoublingMenu = false
+
+            // Crawford durumunu güncel skorlardan yeniden hesapla
+            isCrawfordGame = false
+            crawfordGamePlayed = false
+            isPostCrawford = false
+            checkCrawfordStatus()
+
+            // Diyalogları kapat
+            showPartyEndDialog = false
+            showRoundEndDialog = false
+            showEncounterEndDialog = false
+            partyEndSnapshot = null
+
+            dbHelper.addActivityLog(
+                actionType = ActionTypes.SCORE_UNDO,
+                description = "Parti ${snap.partyIndex + 1} sonu geri alindi - oyun ${snap.gameIndex + 1}'e donuldu",
+                player1Name = player1Name,
+                player2Name = player2Name
+            )
+
+            recomposeKey++
+            Toast.makeText(context, "Parti sonu geri alindi", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "Geri alma hatasi: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -947,9 +1065,9 @@ fun GameScreen(
         Toast.makeText(context, "$playerName: $winTypeText (+$finalScore puan)", Toast.LENGTH_SHORT).show()
 
         if (player1Score >= matchTargetScore || player2Score >= matchTargetScore) {
-            handleRematchPartyEnd()
+            handleRematchPartyEnd(resultId)
         } else if (rematchGameIndex + 1 >= DiceGenerator.maxSetsForTargetScore(matchTargetScore)) {
-            handleRematchPartyEnd()
+            handleRematchPartyEnd(resultId)
         } else {
             rematchGameIndex++
             dbHelper.updateEncounterProgress(encounterId, rematchPartyIndex, rematchGameIndex)
@@ -1781,16 +1899,26 @@ fun GameScreen(
             title = { Text("Parti Tamamlandi") },
             text = { Text(partyEndInfo) },
             confirmButton = {
-                TextButton(onClick = { showPartyEndDialog = false }) {
+                TextButton(onClick = {
+                    showPartyEndDialog = false
+                    partyEndSnapshot = null
+                }) {
                     Text("Sonraki Partiye Devam", color = Color(0xFF4CAF50))
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showPartyEndDialog = false
-                    onFinish()
-                }) {
-                    Text("Daha Sonra Devam Et", color = Color.Gray)
+                Row {
+                    if (partyEndSnapshot != null) {
+                        TextButton(onClick = { undoPartyEnd() }) {
+                            Text("↩ Geri Al", color = Color(0xFFFF9800))
+                        }
+                    }
+                    TextButton(onClick = {
+                        showPartyEndDialog = false
+                        onFinish()
+                    }) {
+                        Text("Daha Sonra Devam Et", color = Color.Gray)
+                    }
                 }
             }
         )
@@ -1825,17 +1953,25 @@ fun GameScreen(
                     isCrawfordGame = false
                     crawfordGamePlayed = false
                     isPostCrawford = false
+                    partyEndSnapshot = null
                     recomposeKey++
                 }) {
                     Text("Rovans Turuna Basla", color = Color(0xFF4CAF50))
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showRoundEndDialog = false
-                    onFinish()
-                }) {
-                    Text("Daha Sonra Devam Et", color = Color.Gray)
+                Row {
+                    if (partyEndSnapshot != null) {
+                        TextButton(onClick = { undoPartyEnd() }) {
+                            Text("↩ Geri Al", color = Color(0xFFFF9800))
+                        }
+                    }
+                    TextButton(onClick = {
+                        showRoundEndDialog = false
+                        onFinish()
+                    }) {
+                        Text("Daha Sonra Devam Et", color = Color.Gray)
+                    }
                 }
             }
         )
@@ -1861,11 +1997,18 @@ fun GameScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showEncounterEndDialog = false
-                    onFinish()
-                }) {
-                    Text("Ana Menuye Don")
+                Row {
+                    if (partyEndSnapshot != null) {
+                        TextButton(onClick = { undoPartyEnd() }) {
+                            Text("↩ Geri Al", color = Color(0xFFFF9800))
+                        }
+                    }
+                    TextButton(onClick = {
+                        showEncounterEndDialog = false
+                        onFinish()
+                    }) {
+                        Text("Ana Menuye Don")
+                    }
                 }
             }
         )
